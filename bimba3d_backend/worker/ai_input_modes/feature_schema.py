@@ -1,7 +1,7 @@
 """Shared feature and multiplier schema for thesis models."""
 from __future__ import annotations
 
-from bimba3d_backend.scripts.train_offline_models import (
+from bimba3d_backend.worker.ai_input_modes.featurewise_ridge_helpers import (
     FEATUREWISE_GROUP_FEATURES,
     GROUP_BOUNDS,
     GROUP_KEYS,

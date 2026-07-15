@@ -1,1 +1,1 @@
-"""Utility scripts for backend maintenance and offline training workflows."""
+"""Utility scripts for backend maintenance workflows."""

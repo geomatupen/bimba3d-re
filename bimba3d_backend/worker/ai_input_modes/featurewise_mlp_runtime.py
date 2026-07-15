@@ -49,7 +49,7 @@ from .featurewise_ridge_regression_runtime import (
     FEATUREWISE_GROUP_DIMS,
     normalize_context_mode,
 )
-from bimba3d_backend.scripts.train_offline_models import normalise_group_bounds
+from bimba3d_backend.worker.ai_input_modes.featurewise_ridge_helpers import normalise_group_bounds
 
 # Default MLP hyperparameters
 DEFAULT_HIDDEN_1 = 64

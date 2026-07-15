@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from bimba3d_backend.scripts.train_offline_models import (
+from bimba3d_backend.worker.ai_input_modes.featurewise_ridge_helpers import (
     _compute_metrics,
     _theta_norms,
     _train_model_on_rows,
@@ -57,4 +57,3 @@ __all__ = [
     "train_featurewise_ridge_model",
     "update_from_run_featurewise_ridge",
 ]
-
