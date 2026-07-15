@@ -1,0 +1,34 @@
+{
+  "model_type": "compact_featurewise_mlp",
+  "score_key": "relative_quality_score",
+  "input_dim": 47,
+  "hidden": 16,
+  "dropout": 0.2,
+  "training_samples": 653,
+  "epochs_trained": 412,
+  "max_epochs": 1000,
+  "best_epoch": 362,
+  "early_stopping_patience": 50,
+  "best_val_loss": 0.0015954779228195548,
+  "final_train_loss": 0.0037301385309547186,
+  "final_val_loss": 0.0016024797223508358,
+  "learning_rate": 0.001,
+  "weight_decay": 0.001,
+  "candidate_points": 30,
+  "seed": 42,
+  "log_multiplier_bounds": {
+    "geometry_lr_mult": [
+      0.2,
+      5.0
+    ],
+    "appearance_lr_mult": [
+      0.2,
+      5.0
+    ],
+    "densification_mult": [
+      0.7,
+      1.43
+    ]
+  },
+  "total_parameters": 913
+}

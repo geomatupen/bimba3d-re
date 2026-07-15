@@ -1,0 +1,25 @@
+{
+  "version": 5,
+  "base_run_id": "test-7_session1",
+  "updated_at": "2026-04-08T11:11:04.726564Z",
+  "active_sparse_version": null,
+  "active_sparse_updated_at": null,
+  "active_shared": null,
+  "shared": {
+    "images_max_size": 2000,
+    "colmap": {
+      "max_image_size": 2000,
+      "peak_threshold": 0.02,
+      "guided_matching": true,
+      "camera_model": "OPENCV",
+      "single_camera": true,
+      "matching_type": "sequential",
+      "mapper_num_threads": 4,
+      "mapper_min_num_matches": 12,
+      "mapper_abs_pose_min_num_inliers": 15,
+      "mapper_init_min_num_inliers": 60,
+      "sift_matching_min_num_inliers": 12,
+      "run_image_registrator": true
+    }
+  }
+}

@@ -1,0 +1,26 @@
+# Keep Docker build context small
+.git
+.gitignore
+venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Runtime/project artifacts should not be baked into image
+data
+app/__pycache__
+worker/__pycache__
+
+# Large generated outputs
+*.splat
+*.ply
+*.pt
+*.ckpt
+*.npz
+*.npy
+
+# Editor/system files
+.vscode
+.idea
+.DS_Store

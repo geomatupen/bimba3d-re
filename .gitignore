@@ -1,0 +1,95 @@
+# Monorepo root ignore
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+
+# Python envs / caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage/
+
+# Notebook / local analysis artifacts
+.ipynb_checkpoints/
+_matplotlib_cache/
+notebooks/_matplotlib_cache/
+
+# Backend runtime artifacts
+bimba3d_backend/venv/
+bimba3d_backend/env/
+bimba3d_backend/data/projects/
+bimba3d_backend/data/archived_projects/
+bimba3d_backend/data/exports/
+bimba3d_backend/data/bimba3d.db
+bimba3d_backend/data/models/**
+bimba3d_backend/data/.cache/
+bimba3d_backend/**/outputs/
+bimba3d_backend/**/status.json
+bimba3d_backend/**/*.log
+bimba3d_backend/*.db
+bimba3d_backend/*.sqlite3
+
+# Frontend artifacts
+bimba3d_frontend/node_modules/
+bimba3d_frontend/dist/
+bimba3d_frontend/dist-ssr/
+bimba3d_frontend/.vite/
+bimba3d_frontend/.cache/
+bimba3d_frontend/*.local
+*.tsbuildinfo
+
+# Env files
+.env
+.env.*
+bimba3d_backend/.env
+bimba3d_backend/.env.*
+bimba3d_frontend/.env
+bimba3d_frontend/.env.*
+
+# Local temporary work
+.tmp/
+tmp/
+.serena/
+
+
+# Installer artifacts
+installer/wix/Bimba3D-Setup.exe
+installer/wix/Bimba3D-Setup-*.exe
+installer/wix/Bimba3D-Setup-*.zip
+installer/wix/*.wixpdb
+installer/wix/*.log
+installer/wix/logs/
+installer/wix/staging/
+installer/wix/installer/
+installer/wix/bundle-probe*.log
+installer/wix/msi-install-*.log
+installer/wix/payloads/*.exe
+installer/wix/payloads/*.msi
+installer/wix/payloads/*.zip
+installer/wix/payloads/*.wixpdb
+installer/wix/payloads/*.log
+installer/wix/payloads/*.7z
+installer/wix/payloads/*.nupkg
+installer/wix/payloads/*.tmp
+installer/wix/payloads/*.part
+
+# Local stray files
+/40.8.0
+/No
+windows_log_train.txt
+windows_log_train copy.txt
+.local_programdata/
+
+docs/

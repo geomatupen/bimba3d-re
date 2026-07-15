@@ -1,0 +1,937 @@
+[
+  {
+    "project_id": "9fb71bef-c6db-421a-9995-60af7bbd17f5",
+    "project_name": "Blume_drone_data_capture_may2021",
+    "run_id": "blume_drone_data_capture_may2021_phase2_run1_20260627_163325",
+    "source_pipeline_id": "pipeline_748726953004",
+    "phase": null,
+    "is_baseline_row": false,
+    "x_features": {
+      "focal_length_mm": 15.0,
+      "shutter_s": 0.0015625,
+      "iso": 100.0,
+      "img_width_median": 1200,
+      "img_height_median": 899,
+      "gsd_median": 0.03186486111111111,
+      "overlap_proxy": 0.9338326637750765,
+      "coverage_spread": 0.19300675741813608,
+      "camera_angle_bucket": 2,
+      "heading_consistency": 0.9631665478407022,
+      "vegetation_cover_percentage": 0.263916015625,
+      "vegetation_complexity_score": 0.21906445873678504,
+      "terrain_roughness_proxy": 1.0,
+      "texture_density": 0.16424588920674454,
+      "blur_motion_risk": 0.8687984352133304
+    },
+    "selected_multipliers": {
+      "geometry_lr_mult": 2.0134078,
+      "appearance_lr_mult": 0.42377693,
+      "densification_mult": 0.55163943
+    },
+    "selected_log_multipliers": {
+      "geometry_lr_mult": 0.6998287093495876,
+      "appearance_lr_mult": -0.858548070684377,
+      "densification_mult": -0.5948606526591095
+    },
+    "relative_quality_score": 0.07688638559816263,
+    "convergence_score": null,
+    "score_reference_step": 2000,
+    "loss_at_reference_step_run": null,
+    "loss_at_reference_step_base": null,
+    "source": {
+      "project_id": "9fb71bef-c6db-421a-9995-60af7bbd17f5",
+      "run_id": "blume_drone_data_capture_may2021_phase2_run1_20260627_163325",
+      "pipeline_id": "pipeline_748726953004",
+      "stage": "offline_data_preparation",
+      "path": null,
+      "artifact_version": null
+    },
+    "metadata": {
+      "run_name": "blume_drone_data_capture_may2021_phase2_run1_20260627_163325",
+      "baseline_run_id": "blume_drone_data_capture_may2021_phase1_run1_20260627_152531",
+      "selected_preset": "jitter_only",
+      "best_loss": 0.06839095801115036,
+      "best_loss_step": 2000,
+      "final_loss": 0.06839095801115036,
+      "final_loss_step": 2000,
+      "best_psnr": 22.480321884155273,
+      "best_psnr_step": 2000,
+      "final_psnr": 22.480321884155273,
+      "final_psnr_step": 2000,
+      "best_ssim": 0.6788266897201538,
+      "best_ssim_step": 2000,
+      "final_ssim": 0.6788266897201538,
+      "final_ssim_step": 2000,
+      "best_lpips": 0.48834410309791565,
+      "best_lpips_step": 2000,
+      "final_lpips": 0.48834410309791565,
+      "final_lpips_step": 2000,
+      "s_best": 0.9245799877802066,
+      "s_end": 0.9245799877802066,
+      "s_run": 0.9245799877802066,
+      "s_base_best": 0.8476936021820439,
+      "s_base_end": 0.8476936021820439,
+      "s_base": 0.8476936021820439,
+      "psnr_norm": 0.7737399633406198,
+      "ssim_norm": 1.0,
+      "lpips_norm": 0.0,
+      "q_quality": 0.9245799877802066,
+      "normalization_ranges": {
+        "psnr": [
+          17.78073501586914,
+          23.85459327697754
+        ],
+        "ssim": [
+          0.43939998745918274,
+          0.6788266897201538
+        ],
+        "lpips": [
+          0.48834410309791565,
+          0.7954896092414856
+        ]
+      },
+      "remarks": "visual baseline score (display only)",
+      "final_multiplier_formula": "params * log_multiplier",
+      "learned_input_params": {
+        "feature_lr": 0.001059442325,
+        "position_lr_init": 0.000322145248,
+        "scaling_lr": 0.010067039,
+        "opacity_lr": 0.0211888465,
+        "rotation_lr": 0.0020134078,
+        "densify_grad_threshold": 0.00011032788600000001,
+        "opacity_threshold": 0.0027581971500000003,
+        "lambda_dssim": 0.084755386,
+        "run_jitter_multiplier": 2.0134078,
+        "geometry_lr_multiplier": 2.0134078,
+        "appearance_lr_multiplier": 0.42377693,
+        "scale_lr_multiplier": 0.55163943,
+        "densification_multiplier": 0.55163943,
+        "geometry_lr_log_action": 0.6998287093495876,
+        "appearance_lr_log_action": -0.858548070684377,
+        "densification_log_action": -0.5948606526591095
+      },
+      "learning_param_rows": [
+        {
+          "key": "densify_grad_threshold",
+          "actual": 0.00011032788600000001,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.55163943,
+          "log_multiplier": 0.55163943,
+          "final_multiplier": 0.55163943
+        },
+        {
+          "key": "feature_lr",
+          "actual": 0.001059442325,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.42377693,
+          "log_multiplier": 0.42377693,
+          "final_multiplier": 0.42377693
+        },
+        {
+          "key": "lambda_dssim",
+          "actual": 0.084755386,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.42377693,
+          "log_multiplier": 0.42377693,
+          "final_multiplier": 0.42377693
+        },
+        {
+          "key": "opacity_lr",
+          "actual": 0.0211888465,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.42377693,
+          "log_multiplier": 0.42377693,
+          "final_multiplier": 0.42377693
+        },
+        {
+          "key": "opacity_threshold",
+          "actual": 0.0027581971500000003,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.55163943,
+          "log_multiplier": 0.55163943,
+          "final_multiplier": 0.55163943
+        },
+        {
+          "key": "position_lr_init",
+          "actual": 0.000322145248,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 2.0134078,
+          "log_multiplier": 2.0134078,
+          "final_multiplier": 2.0134078
+        },
+        {
+          "key": "rotation_lr",
+          "actual": 0.0020134078,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 2.0134078,
+          "log_multiplier": 2.0134078,
+          "final_multiplier": 2.0134078
+        },
+        {
+          "key": "scaling_lr",
+          "actual": 0.010067039,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 2.0134078,
+          "log_multiplier": 2.0134078,
+          "final_multiplier": 2.0134078
+        }
+      ]
+    }
+  },
+  {
+    "project_id": "9fb71bef-c6db-421a-9995-60af7bbd17f5",
+    "project_name": "Blume_drone_data_capture_may2021",
+    "run_id": "blume_drone_data_capture_may2021_phase2_run2_20260627_165423",
+    "source_pipeline_id": "pipeline_748726953004",
+    "phase": null,
+    "is_baseline_row": false,
+    "x_features": {
+      "focal_length_mm": 15.0,
+      "shutter_s": 0.0015625,
+      "iso": 100.0,
+      "img_width_median": 1200,
+      "img_height_median": 899,
+      "gsd_median": 0.03186486111111111,
+      "overlap_proxy": 0.9338326637750765,
+      "coverage_spread": 0.19300675741813608,
+      "camera_angle_bucket": 2,
+      "heading_consistency": 0.9631665478407022,
+      "vegetation_cover_percentage": 0.263916015625,
+      "vegetation_complexity_score": 0.21906445873678504,
+      "terrain_roughness_proxy": 1.0,
+      "texture_density": 0.16424588920674454,
+      "blur_motion_risk": 0.8687984352133304
+    },
+    "selected_multipliers": {
+      "geometry_lr_mult": 0.20153927,
+      "appearance_lr_mult": 2.36054511,
+      "densification_mult": 0.93197583
+    },
+    "selected_log_multipliers": {
+      "geometry_lr_mult": -1.6017710282461954,
+      "appearance_lr_mult": 0.8588925711795787,
+      "densification_mult": -0.07044839810921918
+    },
+    "relative_quality_score": -0.33760110777688446,
+    "convergence_score": null,
+    "score_reference_step": 2000,
+    "loss_at_reference_step_run": null,
+    "loss_at_reference_step_base": null,
+    "source": {
+      "project_id": "9fb71bef-c6db-421a-9995-60af7bbd17f5",
+      "run_id": "blume_drone_data_capture_may2021_phase2_run2_20260627_165423",
+      "pipeline_id": "pipeline_748726953004",
+      "stage": "offline_data_preparation",
+      "path": null,
+      "artifact_version": null
+    },
+    "metadata": {
+      "run_name": "blume_drone_data_capture_may2021_phase2_run2_20260627_165423",
+      "baseline_run_id": "blume_drone_data_capture_may2021_phase1_run1_20260627_152531",
+      "selected_preset": "jitter_only",
+      "best_loss": 0.21598057448863983,
+      "best_loss_step": 2000,
+      "final_loss": 0.21598057448863983,
+      "final_loss_step": 2000,
+      "best_psnr": 19.964439392089844,
+      "best_psnr_step": 2000,
+      "final_psnr": 19.964439392089844,
+      "final_psnr_step": 2000,
+      "best_ssim": 0.6142092943191528,
+      "best_ssim_step": 2000,
+      "final_ssim": 0.6142092943191528,
+      "final_ssim_step": 2000,
+      "best_lpips": 0.6601501703262329,
+      "best_lpips_step": 2000,
+      "final_lpips": 0.6601501703262329,
+      "final_lpips_step": 2000,
+      "s_best": 0.5100924944051595,
+      "s_end": 0.5100924944051595,
+      "s_run": 0.5100924944051595,
+      "s_base_best": 0.8476936021820439,
+      "s_base_end": 0.8476936021820439,
+      "s_base": 0.8476936021820439,
+      "psnr_norm": 0.3595250798332271,
+      "ssim_norm": 0.7301161700395092,
+      "lpips_norm": 0.559363766657258,
+      "q_quality": 0.5100924944051595,
+      "normalization_ranges": {
+        "psnr": [
+          17.78073501586914,
+          23.85459327697754
+        ],
+        "ssim": [
+          0.43939998745918274,
+          0.6788266897201538
+        ],
+        "lpips": [
+          0.48834410309791565,
+          0.7954896092414856
+        ]
+      },
+      "remarks": "visual baseline score (display only)",
+      "final_multiplier_formula": "params * log_multiplier",
+      "learned_input_params": {
+        "feature_lr": 0.005901362775,
+        "position_lr_init": 5e-05,
+        "scaling_lr": 0.0010076963499999999,
+        "opacity_lr": 0.1,
+        "rotation_lr": 0.00020153927,
+        "densify_grad_threshold": 0.000186395166,
+        "opacity_threshold": 0.00465987915,
+        "lambda_dssim": 0.472109022,
+        "run_jitter_multiplier": 0.20153927,
+        "geometry_lr_multiplier": 0.20153927,
+        "appearance_lr_multiplier": 2.36054511,
+        "scale_lr_multiplier": 0.93197583,
+        "densification_multiplier": 0.93197583,
+        "geometry_lr_log_action": -1.6017710282461954,
+        "appearance_lr_log_action": 0.8588925711795787,
+        "densification_log_action": -0.07044839810921918
+      },
+      "learning_param_rows": [
+        {
+          "key": "densify_grad_threshold",
+          "actual": 0.000186395166,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.93197583,
+          "log_multiplier": 0.93197583,
+          "final_multiplier": 0.93197583
+        },
+        {
+          "key": "feature_lr",
+          "actual": 0.005901362775,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 2.36054511,
+          "log_multiplier": 2.36054511,
+          "final_multiplier": 2.36054511
+        },
+        {
+          "key": "lambda_dssim",
+          "actual": 0.472109022,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 2.36054511,
+          "log_multiplier": 2.36054511,
+          "final_multiplier": 2.36054511
+        },
+        {
+          "key": "opacity_lr",
+          "actual": 0.1,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 2.36054511,
+          "log_multiplier": 2.36054511,
+          "final_multiplier": 2.0
+        },
+        {
+          "key": "opacity_threshold",
+          "actual": 0.00465987915,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.93197583,
+          "log_multiplier": 0.93197583,
+          "final_multiplier": 0.93197583
+        },
+        {
+          "key": "position_lr_init",
+          "actual": 5e-05,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.20153927,
+          "log_multiplier": 0.20153927,
+          "final_multiplier": 0.3125
+        },
+        {
+          "key": "rotation_lr",
+          "actual": 0.00020153927,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.20153927,
+          "log_multiplier": 0.20153927,
+          "final_multiplier": 0.20153927
+        },
+        {
+          "key": "scaling_lr",
+          "actual": 0.0010076963499999999,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.20153927,
+          "log_multiplier": 0.20153927,
+          "final_multiplier": 0.20153926999999996
+        }
+      ]
+    }
+  },
+  {
+    "project_id": "859cb567-dcfd-433c-9bf6-163da7bd2233",
+    "project_name": "Chapel_of_the_Holy_Trinity",
+    "run_id": "chapel_of_the_holy_trinity_phase2_run1_20260627_164404",
+    "source_pipeline_id": "pipeline_748726953004",
+    "phase": null,
+    "is_baseline_row": false,
+    "x_features": {
+      "focal_length_mm": 12.3,
+      "shutter_s": 0.0025,
+      "iso": 100.0,
+      "img_width_median": 1200,
+      "img_height_median": 899,
+      "gsd_median": 0.010569613821138212,
+      "overlap_proxy": 0.7558970999291797,
+      "coverage_spread": 0.06670512795363569,
+      "camera_angle_bucket": 2,
+      "heading_consistency": 0.40324390573464186,
+      "vegetation_cover_percentage": 0.019978841145833336,
+      "vegetation_complexity_score": 0.08267086661235429,
+      "terrain_roughness_proxy": 0.8780420427697779,
+      "texture_density": 0.14146720172702776,
+      "blur_motion_risk": 0.8919701465456151
+    },
+    "selected_multipliers": {
+      "geometry_lr_mult": 2.0134078,
+      "appearance_lr_mult": 0.42377693,
+      "densification_mult": 0.55163943
+    },
+    "selected_log_multipliers": {
+      "geometry_lr_mult": 0.6998287093495876,
+      "appearance_lr_mult": -0.858548070684377,
+      "densification_mult": -0.5948606526591095
+    },
+    "relative_quality_score": 0.07218048320163968,
+    "convergence_score": null,
+    "score_reference_step": 2000,
+    "loss_at_reference_step_run": null,
+    "loss_at_reference_step_base": null,
+    "source": {
+      "project_id": "859cb567-dcfd-433c-9bf6-163da7bd2233",
+      "run_id": "chapel_of_the_holy_trinity_phase2_run1_20260627_164404",
+      "pipeline_id": "pipeline_748726953004",
+      "stage": "offline_data_preparation",
+      "path": null,
+      "artifact_version": null
+    },
+    "metadata": {
+      "run_name": "chapel_of_the_holy_trinity_phase2_run1_20260627_164404",
+      "baseline_run_id": "chapel_of_the_holy_trinity_phase1_run1_20260627_153036",
+      "selected_preset": "jitter_only",
+      "best_loss": 0.1209675669670105,
+      "best_loss_step": 2000,
+      "final_loss": 0.1209675669670105,
+      "final_loss_step": 2000,
+      "best_psnr": 18.09030532836914,
+      "best_psnr_step": 2000,
+      "final_psnr": 18.09030532836914,
+      "final_psnr_step": 2000,
+      "best_ssim": 0.47067543864250183,
+      "best_ssim_step": 2000,
+      "final_ssim": 0.47067543864250183,
+      "final_ssim_step": 2000,
+      "best_lpips": 0.6819706559181213,
+      "best_lpips_step": 2000,
+      "final_lpips": 0.6819706559181213,
+      "final_lpips_step": 2000,
+      "s_best": 0.18372915738821693,
+      "s_end": 0.18372915738821693,
+      "s_run": 0.18372915738821693,
+      "s_base_best": 0.11154867418657725,
+      "s_base_end": 0.11154867418657725,
+      "s_base": 0.11154867418657725,
+      "psnr_norm": 0.05096765502122658,
+      "ssim_norm": 0.13062641254286406,
+      "lpips_norm": 0.6304065953994399,
+      "q_quality": 0.18372915738821693,
+      "normalization_ranges": {
+        "psnr": [
+          17.78073501586914,
+          23.85459327697754
+        ],
+        "ssim": [
+          0.43939998745918274,
+          0.6788266897201538
+        ],
+        "lpips": [
+          0.48834410309791565,
+          0.7954896092414856
+        ]
+      },
+      "remarks": "visual baseline score (display only)",
+      "final_multiplier_formula": "params * log_multiplier",
+      "learned_input_params": {
+        "feature_lr": 0.001059442325,
+        "position_lr_init": 0.000322145248,
+        "scaling_lr": 0.010067039,
+        "opacity_lr": 0.0211888465,
+        "rotation_lr": 0.0020134078,
+        "densify_grad_threshold": 0.00011032788600000001,
+        "opacity_threshold": 0.0027581971500000003,
+        "lambda_dssim": 0.084755386,
+        "run_jitter_multiplier": 2.0134078,
+        "geometry_lr_multiplier": 2.0134078,
+        "appearance_lr_multiplier": 0.42377693,
+        "scale_lr_multiplier": 0.55163943,
+        "densification_multiplier": 0.55163943,
+        "geometry_lr_log_action": 0.6998287093495876,
+        "appearance_lr_log_action": -0.858548070684377,
+        "densification_log_action": -0.5948606526591095
+      },
+      "learning_param_rows": [
+        {
+          "key": "densify_grad_threshold",
+          "actual": 0.00011032788600000001,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.55163943,
+          "log_multiplier": 0.55163943,
+          "final_multiplier": 0.55163943
+        },
+        {
+          "key": "feature_lr",
+          "actual": 0.001059442325,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.42377693,
+          "log_multiplier": 0.42377693,
+          "final_multiplier": 0.42377693
+        },
+        {
+          "key": "lambda_dssim",
+          "actual": 0.084755386,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.42377693,
+          "log_multiplier": 0.42377693,
+          "final_multiplier": 0.42377693
+        },
+        {
+          "key": "opacity_lr",
+          "actual": 0.0211888465,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.42377693,
+          "log_multiplier": 0.42377693,
+          "final_multiplier": 0.42377693
+        },
+        {
+          "key": "opacity_threshold",
+          "actual": 0.0027581971500000003,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.55163943,
+          "log_multiplier": 0.55163943,
+          "final_multiplier": 0.55163943
+        },
+        {
+          "key": "position_lr_init",
+          "actual": 0.000322145248,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 2.0134078,
+          "log_multiplier": 2.0134078,
+          "final_multiplier": 2.0134078
+        },
+        {
+          "key": "rotation_lr",
+          "actual": 0.0020134078,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 2.0134078,
+          "log_multiplier": 2.0134078,
+          "final_multiplier": 2.0134078
+        },
+        {
+          "key": "scaling_lr",
+          "actual": 0.010067039,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 2.0134078,
+          "log_multiplier": 2.0134078,
+          "final_multiplier": 2.0134078
+        }
+      ]
+    }
+  },
+  {
+    "project_id": "6ad4a11d-f21d-45ad-b5b6-f4ada6ce7094",
+    "project_name": "Chatteau",
+    "run_id": "chatteau_phase2_run1_20260627_163857",
+    "source_pipeline_id": "pipeline_748726953004",
+    "phase": null,
+    "is_baseline_row": false,
+    "x_features": {
+      "focal_length_mm": 12.29,
+      "shutter_s": 0.0015625,
+      "iso": 240.0,
+      "img_width_median": 1200,
+      "img_height_median": 899,
+      "gsd_median": 0.09609251353290843,
+      "overlap_proxy": 0.8157748305117738,
+      "coverage_spread": 0.4282478273390734,
+      "camera_angle_bucket": 2,
+      "heading_consistency": 0.6412987028096488,
+      "vegetation_cover_percentage": 0.11433919270833334,
+      "vegetation_complexity_score": 0.1159104394484686,
+      "terrain_roughness_proxy": 0.40581004059433246,
+      "texture_density": 0.10584807050479567,
+      "blur_motion_risk": 0.9145260009204632
+    },
+    "selected_multipliers": {
+      "geometry_lr_mult": 2.0134078,
+      "appearance_lr_mult": 0.42377693,
+      "densification_mult": 0.55163943
+    },
+    "selected_log_multipliers": {
+      "geometry_lr_mult": 0.6998287093495876,
+      "appearance_lr_mult": -0.858548070684377,
+      "densification_mult": -0.5948606526591095
+    },
+    "relative_quality_score": 0.07292041937899141,
+    "convergence_score": null,
+    "score_reference_step": 2000,
+    "loss_at_reference_step_run": null,
+    "loss_at_reference_step_base": null,
+    "source": {
+      "project_id": "6ad4a11d-f21d-45ad-b5b6-f4ada6ce7094",
+      "run_id": "chatteau_phase2_run1_20260627_163857",
+      "pipeline_id": "pipeline_748726953004",
+      "stage": "offline_data_preparation",
+      "path": null,
+      "artifact_version": null
+    },
+    "metadata": {
+      "run_name": "chatteau_phase2_run1_20260627_163857",
+      "baseline_run_id": "chatteau_phase1_run1_20260627_153525",
+      "selected_preset": "jitter_only",
+      "best_loss": 0.09054036438465118,
+      "best_loss_step": 2000,
+      "final_loss": 0.09054036438465118,
+      "final_loss_step": 2000,
+      "best_psnr": 23.85459327697754,
+      "best_psnr_step": 2000,
+      "final_psnr": 23.85459327697754,
+      "final_psnr_step": 2000,
+      "best_ssim": 0.5053625106811523,
+      "best_ssim_step": 2000,
+      "final_ssim": 0.5053625106811523,
+      "final_ssim_step": 2000,
+      "best_lpips": 0.6543956995010376,
+      "best_lpips_step": 2000,
+      "final_lpips": 0.6543956995010376,
+      "final_lpips_step": 2000,
+      "s_best": 0.5782911692030624,
+      "s_end": 0.5782911692030624,
+      "s_run": 0.5782911692030624,
+      "s_base_best": 0.505370749824071,
+      "s_base_end": 0.505370749824071,
+      "s_base": 0.505370749824071,
+      "psnr_norm": 1.0,
+      "ssim_norm": 0.27550194944451756,
+      "lpips_norm": 0.5406284418353299,
+      "q_quality": 0.5782911692030624,
+      "normalization_ranges": {
+        "psnr": [
+          17.78073501586914,
+          23.85459327697754
+        ],
+        "ssim": [
+          0.43939998745918274,
+          0.6788266897201538
+        ],
+        "lpips": [
+          0.48834410309791565,
+          0.7954896092414856
+        ]
+      },
+      "remarks": "visual baseline score (display only)",
+      "final_multiplier_formula": "params * log_multiplier",
+      "learned_input_params": {
+        "feature_lr": 0.001059442325,
+        "position_lr_init": 0.000322145248,
+        "scaling_lr": 0.010067039,
+        "opacity_lr": 0.0211888465,
+        "rotation_lr": 0.0020134078,
+        "densify_grad_threshold": 0.00011032788600000001,
+        "opacity_threshold": 0.0027581971500000003,
+        "lambda_dssim": 0.084755386,
+        "run_jitter_multiplier": 2.0134078,
+        "geometry_lr_multiplier": 2.0134078,
+        "appearance_lr_multiplier": 0.42377693,
+        "scale_lr_multiplier": 0.55163943,
+        "densification_multiplier": 0.55163943,
+        "geometry_lr_log_action": 0.6998287093495876,
+        "appearance_lr_log_action": -0.858548070684377,
+        "densification_log_action": -0.5948606526591095
+      },
+      "learning_param_rows": [
+        {
+          "key": "densify_grad_threshold",
+          "actual": 0.00011032788600000001,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.55163943,
+          "log_multiplier": 0.55163943,
+          "final_multiplier": 0.55163943
+        },
+        {
+          "key": "feature_lr",
+          "actual": 0.001059442325,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.42377693,
+          "log_multiplier": 0.42377693,
+          "final_multiplier": 0.42377693
+        },
+        {
+          "key": "lambda_dssim",
+          "actual": 0.084755386,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.42377693,
+          "log_multiplier": 0.42377693,
+          "final_multiplier": 0.42377693
+        },
+        {
+          "key": "opacity_lr",
+          "actual": 0.0211888465,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.42377693,
+          "log_multiplier": 0.42377693,
+          "final_multiplier": 0.42377693
+        },
+        {
+          "key": "opacity_threshold",
+          "actual": 0.0027581971500000003,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.55163943,
+          "log_multiplier": 0.55163943,
+          "final_multiplier": 0.55163943
+        },
+        {
+          "key": "position_lr_init",
+          "actual": 0.000322145248,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 2.0134078,
+          "log_multiplier": 2.0134078,
+          "final_multiplier": 2.0134078
+        },
+        {
+          "key": "rotation_lr",
+          "actual": 0.0020134078,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 2.0134078,
+          "log_multiplier": 2.0134078,
+          "final_multiplier": 2.0134078
+        },
+        {
+          "key": "scaling_lr",
+          "actual": 0.010067039,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 2.0134078,
+          "log_multiplier": 2.0134078,
+          "final_multiplier": 2.0134078
+        }
+      ]
+    }
+  },
+  {
+    "project_id": "6ad4a11d-f21d-45ad-b5b6-f4ada6ce7094",
+    "project_name": "Chatteau",
+    "run_id": "chatteau_phase2_run2_20260627_164915",
+    "source_pipeline_id": "pipeline_748726953004",
+    "phase": null,
+    "is_baseline_row": false,
+    "x_features": {
+      "focal_length_mm": 12.29,
+      "shutter_s": 0.0015625,
+      "iso": 240.0,
+      "img_width_median": 1200,
+      "img_height_median": 899,
+      "gsd_median": 0.09609251353290843,
+      "overlap_proxy": 0.8157748305117738,
+      "coverage_spread": 0.4282478273390734,
+      "camera_angle_bucket": 2,
+      "heading_consistency": 0.6412987028096488,
+      "vegetation_cover_percentage": 0.11433919270833334,
+      "vegetation_complexity_score": 0.1159104394484686,
+      "terrain_roughness_proxy": 0.40581004059433246,
+      "texture_density": 0.10584807050479567,
+      "blur_motion_risk": 0.9145260009204632
+    },
+    "selected_multipliers": {
+      "geometry_lr_mult": 0.20153927,
+      "appearance_lr_mult": 2.36054511,
+      "densification_mult": 0.93197583
+    },
+    "selected_log_multipliers": {
+      "geometry_lr_mult": -1.6017710282461954,
+      "appearance_lr_mult": 0.8588925711795787,
+      "densification_mult": -0.07044839810921918
+    },
+    "relative_quality_score": -0.3340193928711771,
+    "convergence_score": null,
+    "score_reference_step": 2000,
+    "loss_at_reference_step_run": null,
+    "loss_at_reference_step_base": null,
+    "source": {
+      "project_id": "6ad4a11d-f21d-45ad-b5b6-f4ada6ce7094",
+      "run_id": "chatteau_phase2_run2_20260627_164915",
+      "pipeline_id": "pipeline_748726953004",
+      "stage": "offline_data_preparation",
+      "path": null,
+      "artifact_version": null
+    },
+    "metadata": {
+      "run_name": "chatteau_phase2_run2_20260627_164915",
+      "baseline_run_id": "chatteau_phase1_run1_20260627_153525",
+      "selected_preset": "jitter_only",
+      "best_loss": 0.3087422847747803,
+      "best_loss_step": 2000,
+      "final_loss": 0.3087422847747803,
+      "final_loss_step": 2000,
+      "best_psnr": 20.903026580810547,
+      "best_psnr_step": 2000,
+      "final_psnr": 20.903026580810547,
+      "final_psnr_step": 2000,
+      "best_ssim": 0.43939998745918274,
+      "best_ssim_step": 2000,
+      "final_ssim": 0.43939998745918274,
+      "final_ssim_step": 2000,
+      "best_lpips": 0.7954896092414856,
+      "best_lpips_step": 2000,
+      "final_lpips": 0.7954896092414856,
+      "final_lpips_step": 2000,
+      "s_best": 0.1713513569528939,
+      "s_end": 0.1713513569528939,
+      "s_run": 0.1713513569528939,
+      "s_base_best": 0.505370749824071,
+      "s_base_end": 0.505370749824071,
+      "s_base": 0.505370749824071,
+      "psnr_norm": 0.5140540708586817,
+      "ssim_norm": 0.0,
+      "lpips_norm": 1.0,
+      "q_quality": 0.1713513569528939,
+      "normalization_ranges": {
+        "psnr": [
+          17.78073501586914,
+          23.85459327697754
+        ],
+        "ssim": [
+          0.43939998745918274,
+          0.6788266897201538
+        ],
+        "lpips": [
+          0.48834410309791565,
+          0.7954896092414856
+        ]
+      },
+      "remarks": "visual baseline score (display only)",
+      "final_multiplier_formula": "params * log_multiplier",
+      "learned_input_params": {
+        "feature_lr": 0.005901362775,
+        "position_lr_init": 5e-05,
+        "scaling_lr": 0.0010076963499999999,
+        "opacity_lr": 0.1,
+        "rotation_lr": 0.00020153927,
+        "densify_grad_threshold": 0.000186395166,
+        "opacity_threshold": 0.00465987915,
+        "lambda_dssim": 0.472109022,
+        "run_jitter_multiplier": 0.20153927,
+        "geometry_lr_multiplier": 0.20153927,
+        "appearance_lr_multiplier": 2.36054511,
+        "scale_lr_multiplier": 0.93197583,
+        "densification_multiplier": 0.93197583,
+        "geometry_lr_log_action": -1.6017710282461954,
+        "appearance_lr_log_action": 0.8588925711795787,
+        "densification_log_action": -0.07044839810921918
+      },
+      "learning_param_rows": [
+        {
+          "key": "densify_grad_threshold",
+          "actual": 0.000186395166,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.93197583,
+          "log_multiplier": 0.93197583,
+          "final_multiplier": 0.93197583
+        },
+        {
+          "key": "feature_lr",
+          "actual": 0.005901362775,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 2.36054511,
+          "log_multiplier": 2.36054511,
+          "final_multiplier": 2.36054511
+        },
+        {
+          "key": "lambda_dssim",
+          "actual": 0.472109022,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 2.36054511,
+          "log_multiplier": 2.36054511,
+          "final_multiplier": 2.36054511
+        },
+        {
+          "key": "opacity_lr",
+          "actual": 0.1,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 2.36054511,
+          "log_multiplier": 2.36054511,
+          "final_multiplier": 2.0
+        },
+        {
+          "key": "opacity_threshold",
+          "actual": 0.00465987915,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.93197583,
+          "log_multiplier": 0.93197583,
+          "final_multiplier": 0.93197583
+        },
+        {
+          "key": "position_lr_init",
+          "actual": 5e-05,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.20153927,
+          "log_multiplier": 0.20153927,
+          "final_multiplier": 0.3125
+        },
+        {
+          "key": "rotation_lr",
+          "actual": 0.00020153927,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.20153927,
+          "log_multiplier": 0.20153927,
+          "final_multiplier": 0.20153927
+        },
+        {
+          "key": "scaling_lr",
+          "actual": 0.0010076963499999999,
+          "selected_multiplier": null,
+          "selected_multiplier_raw": null,
+          "jitter": 0.20153927,
+          "log_multiplier": 0.20153927,
+          "final_multiplier": 0.20153926999999996
+        }
+      ]
+    }
+  }
+]

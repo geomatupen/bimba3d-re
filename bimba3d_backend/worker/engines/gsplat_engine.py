@@ -1,0 +1,2736 @@
+import json
+import os
+import shutil
+import statistics
+import subprocess
+import time
+from pathlib import Path
+
+from ..modified_rule_scopes import (
+    apply_tune_scope,
+    build_rule_multiplier_summary,
+    normalize_tune_scope,
+    select_rule_profile,
+)
+from ..ai_input_modes import apply_initial_preset
+from ..ai_input_modes.relative_quality_score_runtime import (
+    update_from_run as compute_relative_quality_score_from_run,
+)
+
+
+LEARNING_TABLE_BASELINE_DEFAULTS = {
+    "feature_lr": 2.5e-3,
+    "position_lr_init": 1.6e-4,
+    "scaling_lr": 5.0e-3,
+    "opacity_lr": 5.0e-2,
+    "rotation_lr": 1.0e-3,
+    "densify_grad_threshold": 2.0e-4,
+    "opacity_threshold": 0.005,
+    "lambda_dssim": 0.2,
+}
+
+
+def _build_learning_param_rows(
+    actual_params,
+    selected_params,
+    selected_params_raw,
+    action_jitter_multiplier,
+    *,
+    run_jitter_only=False,
+    is_baseline_row=False,
+    session_execution_mode="train",
+):
+    jitter = float(action_jitter_multiplier) if isinstance(action_jitter_multiplier, (int, float)) else 1.0
+    rows = []
+    session_execution_mode = str(session_execution_mode or "train").strip().lower()
+    is_test_session = session_execution_mode == "test"
+    actual_params = actual_params if isinstance(actual_params, dict) else {}
+
+    metadata_keys = {
+        "run_jitter_multiplier",
+        "geometry_lr_multiplier",
+        "appearance_lr_multiplier",
+        "scale_lr_multiplier",
+        "densification_multiplier",
+        "geometry_lr_log_action",
+        "appearance_lr_log_action",
+        "densification_log_action",
+    }
+    group_keys = {
+        "geometry": {"position_lr_init", "position_lr_final", "scaling_lr", "rotation_lr"},
+        "appearance": {"feature_lr", "opacity_lr", "lambda_dssim"},
+        "densification": {"densify_grad_threshold", "opacity_threshold"},
+    }
+
+    def group_multiplier_for(base_key):
+        if base_key in group_keys["geometry"]:
+            return float(actual_params.get("geometry_lr_multiplier") or jitter)
+        if base_key in group_keys["appearance"]:
+            return float(actual_params.get("appearance_lr_multiplier") or jitter)
+        if base_key in group_keys["densification"]:
+            return float(actual_params.get("densification_multiplier") or actual_params.get("scale_lr_multiplier") or jitter)
+        return jitter
+
+    # Debug logging
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(
+        f"_build_learning_param_rows: session_mode={session_execution_mode}, run_jitter_only={run_jitter_only}, is_baseline_row={is_baseline_row}, jitter={jitter}"
+    )
+
+    for raw_key, raw_value in actual_params.items():
+        if raw_key in metadata_keys:
+            continue
+
+        base_key = raw_key[:-5] if raw_key.endswith("_mult") else raw_key
+        baseline_value = LEARNING_TABLE_BASELINE_DEFAULTS.get(base_key)
+        group_multiplier = group_multiplier_for(base_key)
+
+        if isinstance(raw_value, (int, float)):
+            if raw_key.endswith("_mult") and isinstance(baseline_value, (int, float)):
+                # For multiplier keys, convert to actual value
+                actual_value = float(baseline_value) * float(raw_value)
+            else:
+                # For non-multiplier keys (direct values)
+                actual_value = float(raw_value)
+                # If jitter_only mode, the actual value needs to be multiplied by jitter
+                # because captured_applied_params contains pre-jitter values
+                if run_jitter_only and not is_baseline_row and not any(key in actual_params for key in ("geometry_lr_multiplier", "appearance_lr_multiplier", "densification_multiplier", "scale_lr_multiplier")):
+                    actual_value = actual_value * jitter
+        else:
+            actual_value = None
+
+        selected_multiplier = None
+        if isinstance(selected_params, dict):
+            selected_raw = selected_params.get(f"{base_key}_mult")
+            if selected_raw is None:
+                selected_raw = selected_params.get(raw_key)
+            if selected_raw is None:
+                selected_raw = selected_params.get(base_key)
+            if isinstance(selected_raw, (int, float)):
+                selected_multiplier = float(selected_raw)
+
+        selected_multiplier_raw = None
+        if isinstance(selected_params_raw, dict):
+            selected_raw_value = selected_params_raw.get(f"{base_key}_mult")
+            if selected_raw_value is None:
+                selected_raw_value = selected_params_raw.get(raw_key)
+            if selected_raw_value is None:
+                selected_raw_value = selected_params_raw.get(base_key)
+            if isinstance(selected_raw_value, (int, float)):
+                selected_multiplier_raw = float(selected_raw_value)
+
+        actual_multiplier = None
+        if isinstance(actual_value, (int, float)) and isinstance(baseline_value, (int, float)) and abs(float(baseline_value)) > 1e-12:
+            actual_multiplier = float(actual_value) / float(baseline_value)
+
+        if is_baseline_row:
+            final_multiplier = 1.0
+            formula_used = "baseline"
+        elif is_test_session:
+            final_multiplier = actual_multiplier if actual_multiplier is not None else (selected_multiplier if selected_multiplier is not None else 1.0)
+            formula_used = "selected_only" if selected_multiplier is not None else "test_fallback"
+        elif run_jitter_only:
+            final_multiplier = actual_multiplier if actual_multiplier is not None else group_multiplier
+            formula_used = "log_multiplier_only"
+        elif selected_multiplier is not None:
+            final_multiplier = actual_multiplier if actual_multiplier is not None else selected_multiplier * group_multiplier
+            formula_used = "selected*log_multiplier"
+        else:
+            final_multiplier = actual_multiplier if actual_multiplier is not None else group_multiplier
+            formula_used = "log_multiplier_fallback"
+
+        logger.info(
+            f"  {base_key}: selected_mult={selected_multiplier}, jitter={jitter}, final={final_multiplier}, formula={formula_used}"
+        )
+
+        rows.append(
+            {
+                "key": base_key,
+                "actual": actual_value,
+                "selected_multiplier": selected_multiplier,
+                "selected_multiplier_raw": selected_multiplier_raw,
+                "jitter": 1.0 if is_baseline_row else group_multiplier,
+                "log_multiplier": 1.0 if is_baseline_row else group_multiplier,
+                "final_multiplier": final_multiplier,
+            }
+        )
+
+    logger.info(
+        "LEARNING_PARAM_ROWS session_mode=%s run_jitter_only=%s is_baseline_row=%s rows=%s",
+        session_execution_mode,
+        run_jitter_only,
+        is_baseline_row,
+        json.dumps(
+            [
+                {
+                    "key": row["key"],
+                    "selected_multiplier": row["selected_multiplier"],
+                    "jitter": row["jitter"],
+                    "final_multiplier": row["final_multiplier"],
+                }
+                for row in rows
+            ],
+            sort_keys=True,
+        ),
+    )
+
+    rows.sort(key=lambda row: str(row.get("key") or ""))
+    return rows
+
+
+def _find_vswhere_exe() -> Path | None:
+    candidates = []
+    for env_name in ("ProgramFiles(x86)", "ProgramFiles"):
+        base = os.environ.get(env_name)
+        if base:
+            candidates.append(Path(base) / "Microsoft Visual Studio" / "Installer" / "vswhere.exe")
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _load_msvc_build_env(logger) -> bool:
+    """Ensure cl.exe is available in current process env on Windows.
+
+    Returns True when cl.exe can be resolved after bootstrapping.
+    """
+    if os.name != "nt":
+        return True
+    if shutil.which("cl"):
+        return True
+
+    vswhere = _find_vswhere_exe()
+    if not vswhere:
+        logger.warning("vswhere.exe not found; cannot auto-load MSVC build environment.")
+        return False
+
+    try:
+        install_query = subprocess.run(
+            [
+                str(vswhere),
+                "-latest",
+                "-products",
+                "*",
+                "-property",
+                "installationPath",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        install_path = (install_query.stdout or "").strip().splitlines()
+        if not install_path:
+            logger.warning("Visual Studio C++ build tools installation not found via vswhere.")
+            return False
+        root = Path(install_path[0].strip())
+    except Exception as exc:
+        logger.warning("Failed querying Visual Studio installation with vswhere: %s", exc)
+        return False
+
+    vcvars = root / "VC" / "Auxiliary" / "Build" / "vcvars64.bat"
+    devcmd = root / "Common7" / "Tools" / "VsDevCmd.bat"
+
+    bootstrap_cmds: list[str] = []
+    if vcvars.exists():
+        bootstrap_cmds.append(f'call "{vcvars}" && set')
+    if devcmd.exists():
+        bootstrap_cmds.append(f'call "{devcmd}" -arch=x64 -host_arch=x64 -no_logo && set')
+
+    if not bootstrap_cmds:
+        logger.warning("No vcvars64.bat or VsDevCmd.bat found under %s", root)
+        return False
+
+    loaded = False
+    for bootstrap_cmd in bootstrap_cmds:
+        try:
+            env_dump = subprocess.run(
+                ["cmd.exe", "/d", "/s", "/c", bootstrap_cmd],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            for line in (env_dump.stdout or "").splitlines():
+                if "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                if key:
+                    os.environ[key] = value
+            loaded = True
+            break
+        except Exception as exc:
+            logger.warning("MSVC env command failed (%s): %s", bootstrap_cmd, exc)
+
+    if not loaded:
+        msvc_glob = root / "VC" / "Tools" / "MSVC"
+        if msvc_glob.exists():
+            versions = sorted([p for p in msvc_glob.iterdir() if p.is_dir()])
+            if versions:
+                latest = versions[-1]
+                cl_dir = latest / "bin" / "Hostx64" / "x64"
+                if (cl_dir / "cl.exe").exists():
+                    os.environ["PATH"] = str(cl_dir) + os.pathsep + os.environ.get("PATH", "")
+                    logger.warning(
+                        "Fell back to direct cl.exe PATH injection from %s (INCLUDE/LIB env may be incomplete).",
+                        cl_dir,
+                    )
+
+    if shutil.which("cl"):
+        logger.info("Loaded MSVC build environment for gsplat CUDA extension.")
+        return True
+
+    logger.warning("MSVC environment bootstrap completed but cl.exe is still not on PATH.")
+    return False
+
+
+def run_training(
+    image_dir: Path,
+    colmap_dir: Path,
+    output_dir: Path,
+    params: dict,
+    *,
+    resume: bool = False,
+    context: dict,
+):
+    """Run upstream simple_trainer-compatible gsplat training."""
+    from ..gsplat_upstream.simple_trainer import Config, DefaultStrategy, Runner
+
+    logger = context["logger"]
+    update_status = context["update_status"]
+    write_metrics = context["write_metrics"]
+    get_engine_output_dir = context["get_engine_output_dir"]
+    materialize_eval_previews = context["materialize_eval_previews"]
+    export_with_gsplat = context["export_with_gsplat"]
+    parse_step_from_name = context["parse_step_from_name"]
+    collect_eval_history = context["collect_eval_history"]
+    write_json_atomic = context["write_json_atomic"]
+
+    logger.info("Starting gsplat training (upstream simple_trainer path)...")
+    base_output_dir = Path(output_dir)
+    base_output_dir.mkdir(parents=True, exist_ok=True)
+    engine_name = "gsplat"
+    engine_output_dir = get_engine_output_dir(base_output_dir, engine_name)
+    (engine_output_dir / "previews").mkdir(parents=True, exist_ok=True)
+    (engine_output_dir / "snapshots").mkdir(parents=True, exist_ok=True)
+
+    p = dict(params or {})
+    save_eval_images = bool(p.get("save_eval_images", True))
+    replace_eval_images = bool(p.get("replace_eval_images", False))
+    save_checkpoints = bool(p.get("save_checkpoints", True))
+    replace_checkpoints = bool(p.get("replace_checkpoints", False))
+    session_execution_mode = str(p.get("session_execution_mode") or "train").strip().lower()
+    is_session_test_mode = session_execution_mode == "test"
+
+    # Batch tracking: only update model on last run of batch
+    batch_index = int(p.get("batch_index", 1))
+    batch_total = int(p.get("batch_total", 1))
+    is_last_run_in_batch = (batch_index >= batch_total)
+
+    # Optional initial preset for core-ai runs; leaves legacy behavior unchanged
+    # when ai_input_mode is not selected.
+    preset_summary = apply_initial_preset(
+        p,
+        image_dir=Path(image_dir),
+        colmap_dir=Path(colmap_dir),
+        logger=logger,
+    )
+    mode = p.get("mode", "baseline")
+    max_steps = int(p.get("max_steps", 15_000))
+    try:
+        gaussian_hard_cap = max(1, int(p.get("gaussian_hard_cap", 6_000_000)))
+    except Exception:
+        gaussian_hard_cap = 6_000_000
+    raw_tune_start_step = p.get("tune_start_step", 100)
+    try:
+        modified_tune_start_step = max(1, int(raw_tune_start_step))
+    except Exception:
+        modified_tune_start_step = 100
+    raw_tune_end_step = p.get("tune_end_step", max_steps)
+    try:
+        modified_tune_end_step = max(1, int(raw_tune_end_step))
+    except Exception:
+        modified_tune_end_step = max_steps
+    if modified_tune_start_step > modified_tune_end_step:
+        modified_tune_start_step = modified_tune_end_step
+    raw_tune_interval = p.get("tune_interval", 100)
+    try:
+        modified_tune_interval = max(1, int(raw_tune_interval))
+    except Exception:
+        modified_tune_interval = 100
+    raw_tune_min_improvement = p.get("tune_min_improvement", 0.005)
+    try:
+        tune_min_improvement = max(0.0, min(1.0, float(raw_tune_min_improvement)))
+    except Exception:
+        tune_min_improvement = 0.005
+    tune_scope = normalize_tune_scope(p.get("tune_scope", "with_strategy"))
+    trend_scope_raw = str(p.get("trend_scope") or "run").strip().lower()
+    trend_scope = trend_scope_raw if trend_scope_raw in {"run", "phase"} else "run"
+    raw_densify_start = p.get("densify_from_iter", 500)
+    raw_densify_end = p.get("densify_until_iter", 10000)
+    try:
+        strategy_tune_start_step = max(1, int(raw_densify_start))
+    except Exception:
+        strategy_tune_start_step = 500
+    try:
+        strategy_tune_end_step = max(strategy_tune_start_step, int(raw_densify_end))
+    except Exception:
+        strategy_tune_end_step = max(strategy_tune_start_step, 10000)
+    splat_interval = p.get("splat_export_interval", 31000)
+    try:
+        splat_interval = max(1, int(splat_interval))
+    except Exception:
+        splat_interval = 31000
+    checkpoint_interval = p.get("save_interval", 31000)
+    try:
+        checkpoint_interval = max(1, int(checkpoint_interval))
+    except Exception:
+        checkpoint_interval = 31000
+    best_splat_interval = p.get("best_splat_interval", 100)
+    try:
+        best_splat_interval = max(1, int(best_splat_interval))
+    except Exception:
+        best_splat_interval = 100
+    best_splat_start_step = p.get("best_splat_start_step")
+    try:
+        best_splat_start_step = int(best_splat_start_step) if best_splat_start_step is not None else None
+    except Exception:
+        best_splat_start_step = None
+    save_best_splat_raw = p.get("save_best_splat", p.get("saveBestSplat", False))
+    if isinstance(save_best_splat_raw, str):
+        save_best_splat = save_best_splat_raw.strip().lower() not in {"0", "false", "no", "off"}
+    else:
+        save_best_splat = bool(save_best_splat_raw)
+    log_interval = p.get("log_interval", 100)
+    try:
+        log_interval = max(1, int(log_interval))
+    except Exception:
+        log_interval = 100
+    auto_early_stop = bool(p.get("auto_early_stop", False))
+    try:
+        early_stop_monitor_interval = max(1, int(p.get("early_stop_monitor_interval", 200)))
+    except Exception:
+        early_stop_monitor_interval = 200
+    try:
+        early_stop_decision_points = max(3, int(p.get("early_stop_decision_points", 10)))
+    except Exception:
+        early_stop_decision_points = 10
+    try:
+        early_stop_min_eval_points = max(2, int(p.get("early_stop_min_eval_points", 6)))
+    except Exception:
+        early_stop_min_eval_points = 6
+    try:
+        early_stop_min_step_ratio = max(0.0, min(1.0, float(p.get("early_stop_min_step_ratio", 0.25))))
+    except Exception:
+        early_stop_min_step_ratio = 0.25
+    try:
+        early_stop_monitor_min_rel_improvement = max(0.0, float(p.get("early_stop_monitor_min_relative_improvement", 0.0015)))
+    except Exception:
+        early_stop_monitor_min_rel_improvement = 0.0015
+    try:
+        early_stop_eval_min_rel_improvement = max(0.0, float(p.get("early_stop_eval_min_relative_improvement", 0.003)))
+    except Exception:
+        early_stop_eval_min_rel_improvement = 0.003
+    try:
+        early_stop_max_volatility_ratio = max(0.0, float(p.get("early_stop_max_volatility_ratio", 0.01)))
+    except Exception:
+        early_stop_max_volatility_ratio = 0.01
+    try:
+        early_stop_ema_alpha = max(0.001, min(1.0, float(p.get("early_stop_ema_alpha", 0.1))))
+    except Exception:
+        early_stop_ema_alpha = 0.1
+    if best_splat_start_step is None:
+        best_splat_start_step = max(
+            int(strategy_tune_start_step),
+            int(early_stop_monitor_interval) * int(early_stop_decision_points),
+        )
+    best_splat_start_step = max(1, int(best_splat_start_step))
+    project_dir = Path(image_dir).parent
+    stop_flag = project_dir / "stop_requested"
+    gsplat_start = time.time()
+    configured_run_id = str(p.get("run_id") or "").strip()
+    run_session_id = configured_run_id or f"engine-{os.getpid()}-{int(gsplat_start * 1000)}"
+    tuning_state: dict[str, object] = {
+        "updates": 0,
+        "last_event": None,
+        "events": [],
+        "last_tuned_step": None,
+        "last_checked_loss": None,
+        "phase_complete_logged": False,
+        "adaptive_schedule": None,
+        "runtime_samples": [],
+        "last_callback_step": None,
+        "last_callback_elapsed": None,
+        "last_gaussians": None,
+        "strategy_frozen": False,
+        "strategy_frozen_reason": None,
+        "elapsed_by_step": {},
+        "loss_by_step": {},
+        "best_splat": {"step": None, "loss": None, "path": None},
+        "input_mode_preset": preset_summary,
+        "gaussian_hard_cap": int(gaussian_hard_cap),
+        "gaussian_cap_reached": False,
+        "gaussian_cap_step": None,
+        "gaussian_cap_count": None,
+        "early_stop": {
+            "enabled": bool(auto_early_stop),
+            "candidate": False,
+            "candidate_since_step": None,
+            "triggered": False,
+            "trigger_step": None,
+            "reason": None,
+            "ema_loss": None,
+            "monitor_points": [],
+            "eval_points": [],
+            "monitor_relative_improvement": None,
+            "eval_relative_improvement": None,
+            "eval_volatility_ratio": None,
+        },
+    }
+    use_html_input_mode_flow = (
+        mode == "modified"
+        and tune_scope == "core_ai_optimization"
+        and bool(isinstance(preset_summary, dict) and preset_summary.get("applied"))
+    )
+    # Offline-only learning: always skip online model updates during runs.
+    allow_input_mode_learning_updates = False
+
+    run_artifact_root = project_dir
+    if configured_run_id:
+        candidate_run_root = project_dir / "runs" / configured_run_id
+        if candidate_run_root.exists():
+            run_artifact_root = candidate_run_root
+    analytics_path = run_artifact_root / "analytics" / "run_analytics_v1.json"
+    eval_history_path = engine_output_dir / "eval_history.json"
+    live_analytics_state: dict[str, int | None] = {
+        "last_step": None,
+    }
+
+    def _latest_series_point(series: list[dict], value_key: str) -> dict | None:
+        for row in reversed(series):
+            if not isinstance(row, dict):
+                continue
+            step = row.get("step")
+            value = row.get(value_key)
+            if isinstance(step, (int, float)) and isinstance(value, (int, float)):
+                return {"step": int(step), "value": float(value)}
+        return None
+
+    def _load_live_eval_history() -> list[dict]:
+        if not eval_history_path.exists():
+            return []
+        try:
+            payload = json.loads(eval_history_path.read_text(encoding="utf-8"))
+            if isinstance(payload, list):
+                return [row for row in payload if isinstance(row, dict)]
+        except Exception:
+            return []
+        return []
+
+    def _build_live_analytics_payload(live_status: str = "processing") -> dict:
+        eval_history_live = _load_live_eval_history()
+
+        elapsed_by_step = tuning_state.get("elapsed_by_step") if isinstance(tuning_state.get("elapsed_by_step"), dict) else {}
+        loss_by_step = tuning_state.get("loss_by_step") if isinstance(tuning_state.get("loss_by_step"), dict) else {}
+        best_splat_state = tuning_state.get("best_splat") if isinstance(tuning_state.get("best_splat"), dict) else {}
+
+        log_loss_series = [
+            {"step": int(step), "loss": float(loss)}
+            for step, loss in loss_by_step.items()
+            if isinstance(step, (int, float)) and isinstance(loss, (int, float))
+        ]
+        log_loss_series.sort(key=lambda row: int(row.get("step", 0)))
+
+        log_time_series = [
+            {"step": int(step), "elapsed_seconds": float(elapsed)}
+            for step, elapsed in elapsed_by_step.items()
+            if isinstance(step, (int, float)) and isinstance(elapsed, (int, float))
+        ]
+        log_time_series.sort(key=lambda row: int(row.get("step", 0)))
+
+        eval_psnr_series: list[dict] = []
+        eval_ssim_series: list[dict] = []
+        eval_lpips_series: list[dict] = []
+        eval_series: list[dict] = []
+        eval_time_series: list[dict] = []
+        for row in eval_history_live:
+            step_raw = row.get("step")
+            if not isinstance(step_raw, (int, float)):
+                continue
+            step_int = int(step_raw)
+
+            psnr_value = row.get("convergence_speed")
+            ssim_value = row.get("sharpness_mean")
+            lpips_value = row.get("lpips_mean")
+            loss_value = row.get("final_loss")
+            elapsed_value = row.get("elapsed_seconds")
+
+            if isinstance(psnr_value, (int, float)):
+                eval_psnr_series.append({"step": step_int, "value": float(psnr_value)})
+            if isinstance(ssim_value, (int, float)):
+                eval_ssim_series.append({"step": step_int, "value": float(ssim_value)})
+            if isinstance(lpips_value, (int, float)):
+                eval_lpips_series.append({"step": step_int, "value": float(lpips_value)})
+            if isinstance(loss_value, (int, float)):
+                eval_series.append({"step": step_int, "loss": float(loss_value)})
+            if isinstance(elapsed_value, (int, float)):
+                eval_time_series.append({"step": step_int, "elapsed_seconds": float(elapsed_value)})
+
+        latest_step = int(log_loss_series[-1].get("step")) if log_loss_series else None
+        latest_loss = float(log_loss_series[-1].get("loss")) if log_loss_series else None
+        latest_eval_loss = _latest_series_point(eval_series, "loss")
+        latest_psnr = _latest_series_point(eval_psnr_series, "value")
+        latest_ssim = _latest_series_point(eval_ssim_series, "value")
+        latest_lpips = _latest_series_point(eval_lpips_series, "value")
+        best_loss_point = None
+        if log_loss_series:
+            best_loss_point = min(log_loss_series, key=lambda row: float(row.get("loss", float("inf"))))
+        latest_elapsed = float(log_time_series[-1].get("elapsed_seconds")) if log_time_series else None
+        total_time_seconds = float(latest_elapsed) if isinstance(latest_elapsed, (int, float)) else max(0.0, float(time.time() - gsplat_start))
+
+        project_id = None
+        try:
+            if run_artifact_root.parent.name == "runs":
+                project_id = run_artifact_root.parent.parent.name
+        except Exception:
+            project_id = None
+
+        run_id_value = str(configured_run_id or run_artifact_root.name)
+        run_name = str(p.get("run_name") or run_id_value)
+
+        runtime_tuning_series = [
+            {"step": item.get("step"), "params": item.get("params")}
+            for item in list(tuning_state.get("events") or [])
+            if isinstance(item, dict) and isinstance(item.get("step"), (int, float)) and isinstance(item.get("params"), dict)
+        ]
+
+        summary_payload = {
+            "project_id": project_id,
+            "run_id": run_id_value,
+            "run_name": run_name,
+            "name": project_id,
+            "status": live_status,
+            "mode": mode,
+            "engine": "gsplat",
+            "metrics": {
+                "final_loss_step": latest_step,
+                "final_loss": latest_loss,
+                "total_time_seconds": total_time_seconds,
+                "num_gaussians": tuning_state.get("last_gaussians"),
+                "best_splat_step": best_splat_state.get("step"),
+                "best_splat_loss": best_splat_state.get("loss"),
+                "best_loss_source": "best_splat_update",
+                "best_loss_tracking_start_step": p.get("best_splat_start_step"),
+                "stopped_early": bool(
+                    isinstance(tuning_state.get("early_stop"), dict)
+                    and (tuning_state.get("early_stop") or {}).get("triggered")
+                ),
+                "early_stop_step": (
+                    (tuning_state.get("early_stop") or {}).get("trigger_step")
+                    if isinstance(tuning_state.get("early_stop"), dict)
+                    else None
+                ),
+            },
+            "tuning": {
+                "initial": {},
+                "final": {},
+                "end_params": (tuning_state.get("last_event") or {}).get("params", {}) if mode == "modified" else {},
+                "end_step": latest_step,
+                "runs": None,
+                "history_count": len(list(tuning_state.get("events") or [])),
+                "history": list(tuning_state.get("events") or []),
+                "tune_interval": p.get("tune_interval"),
+                "log_interval": p.get("log_interval"),
+                "runtime_series": runtime_tuning_series,
+            },
+            "major_params": {
+                "max_steps": p.get("max_steps"),
+                "total_steps_completed": latest_step,
+                "densify_from_iter": p.get("densify_from_iter"),
+                "densify_until_iter": p.get("densify_until_iter"),
+                "densification_interval": p.get("densification_interval"),
+                "eval_interval": p.get("eval_interval"),
+                "save_interval": p.get("save_interval"),
+                "splat_export_interval": p.get("splat_export_interval"),
+                "best_splat_interval": p.get("best_splat_interval"),
+                "best_splat_start_step": p.get("best_splat_start_step"),
+                "auto_early_stop": p.get("auto_early_stop"),
+                "batch_size": p.get("batch_size"),
+            },
+            "loss_milestones": {},
+            "log_loss_series": log_loss_series,
+            "log_time_series": log_time_series,
+            "eval_series": eval_series,
+            "eval_time_series": eval_time_series,
+            "eval_psnr_series": eval_psnr_series,
+            "eval_ssim_series": eval_ssim_series,
+            "eval_lpips_series": eval_lpips_series,
+            "preview_url": None,
+            "eval_points": len(eval_history_live),
+            "early_stop": tuning_state.get("early_stop") if isinstance(tuning_state.get("early_stop"), dict) else None,
+            "live_metrics": {
+                "run_id": run_id_value,
+                "latest_loss": latest_loss,
+                "latest_loss_step": latest_step,
+                "best_loss": (
+                    best_splat_state.get("loss")
+                    if isinstance(best_splat_state.get("loss"), (int, float))
+                    else (float(best_loss_point.get("loss")) if isinstance(best_loss_point, dict) else None)
+                ),
+                "best_loss_step": (
+                    best_splat_state.get("step")
+                    if isinstance(best_splat_state.get("step"), (int, float))
+                    else (int(best_loss_point.get("step")) if isinstance(best_loss_point, dict) else None)
+                ),
+                "eval_loss": latest_eval_loss.get("value") if latest_eval_loss else None,
+                "eval_loss_step": latest_eval_loss.get("step") if latest_eval_loss else None,
+                "psnr": latest_psnr.get("value") if latest_psnr else None,
+                "psnr_step": latest_psnr.get("step") if latest_psnr else None,
+                "ssim": latest_ssim.get("value") if latest_ssim else None,
+                "ssim_step": latest_ssim.get("step") if latest_ssim else None,
+                "lpips": latest_lpips.get("value") if latest_lpips else None,
+                "lpips_step": latest_lpips.get("step") if latest_lpips else None,
+            },
+        }
+
+        return {
+            "schema": "run_analytics_v1",
+            "version": 1,
+            "generated_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "project_id": project_id,
+            "run_id": run_id_value,
+            "run_name": run_name,
+            "engine": "gsplat",
+            "mode": mode,
+            "summary": summary_payload,
+            "ai": {
+                "input_mode_learning": None,
+                "input_mode_insights": {
+                    "ai_input_mode": str((preset_summary or {}).get("mode") or "") or None,
+                    "baseline_session_id": str(p.get("baseline_session_id") or "").strip() or None,
+                    "model_id": str(p.get("test_model_id") or "").strip() or None,
+                    "selected_preset": str((preset_summary or {}).get("selected_preset") or "") or None,
+                    "heuristic_preset": str((preset_summary or {}).get("heuristic_preset") or "") or None,
+                },
+                "controller": {
+                    "history_count": len(runtime_tuning_series),
+                    "runtime_series": runtime_tuning_series,
+                },
+            },
+        }
+
+    def _write_live_analytics(
+        live_status: str = "processing",
+        *,
+        step: int | None = None,
+        force: bool = False,
+    ) -> None:
+        if not force:
+            last_step = live_analytics_state.get("last_step")
+            if isinstance(step, int) and isinstance(last_step, int) and step <= last_step:
+                return
+        try:
+            payload = _build_live_analytics_payload(live_status)
+            write_json_atomic(analytics_path, payload)
+            summary = payload.get("summary") if isinstance(payload, dict) else {}
+            if isinstance(summary, dict):
+                update_status(
+                    project_dir,
+                    live_status,
+                    stage="training",
+                    currentStep=step,
+                    maxSteps=max_steps,
+                    live_metrics=summary.get("live_metrics"),
+                )
+            if isinstance(step, int):
+                live_analytics_state["last_step"] = int(step)
+        except Exception as exc:
+            logger.debug("Live analytics write skipped: %s", exc)
+
+    def _clamp_int(value: int, low: int, high: int) -> int:
+        return max(low, min(high, int(value)))
+
+    def _clamp_float(value: float, low: float, high: float) -> float:
+        return max(low, min(high, float(value)))
+
+    core_ai_controller = None
+    if mode == "modified" and tune_scope == "core_ai_optimization" and not use_html_input_mode_flow:
+        raise ValueError(
+            "AI-guided runs require ai_input_mode and ai_selector_strategy. "
+            "The old online adaptive controller has been removed."
+        )
+        bounded_start = _clamp_int(modified_tune_start_step, 100, 1500)
+        bounded_end = _clamp_int(modified_tune_end_step, bounded_start + 5000, max_steps)
+        bounded_interval = _clamp_int(modified_tune_interval, 50, 400)
+        bounded_min_improve = _clamp_float(tune_min_improvement, 0.001, 0.02)
+
+        modified_tune_start_step = bounded_start
+        modified_tune_end_step = bounded_end
+        modified_tune_interval = bounded_interval
+        tune_min_improvement = bounded_min_improve
+
+        tuning_state["adaptive_schedule"] = {
+            "start_step": int(bounded_start),
+            "end_step": int(bounded_end),
+            "interval": int(bounded_interval),
+            "min_improvement": float(bounded_min_improve),
+            "trend_scope": trend_scope,
+        }
+
+        # Extract AI tunable parameters from request payload with defaults matching CoreAIAdaptiveController signature.
+        ai_reward_step_weight = p.get("ai_reward_step_weight", 0.70)
+        try:
+            ai_reward_step_weight = max(0.0, float(ai_reward_step_weight))
+        except Exception:
+            ai_reward_step_weight = 0.70
+
+        ai_reward_trend_weight = p.get("ai_reward_trend_weight", 0.30)
+        try:
+            ai_reward_trend_weight = max(0.0, float(ai_reward_trend_weight))
+        except Exception:
+            ai_reward_trend_weight = 0.30
+
+        ai_lr_up_multiplier = p.get("ai_lr_up_multiplier", 1.30)
+        try:
+            ai_lr_up_multiplier = float(ai_lr_up_multiplier)
+        except Exception:
+            ai_lr_up_multiplier = 1.30
+
+        ai_lr_down_multiplier = p.get("ai_lr_down_multiplier", 0.90)
+        try:
+            ai_lr_down_multiplier = float(ai_lr_down_multiplier)
+        except Exception:
+            ai_lr_down_multiplier = 0.90
+
+        ai_gate_alpha = p.get("ai_gate_alpha", 0.30)
+        try:
+            ai_gate_alpha = float(ai_gate_alpha)
+        except Exception:
+            ai_gate_alpha = 0.30
+
+        ai_cooldown_intervals = p.get("ai_cooldown_intervals", 2)
+        try:
+            ai_cooldown_intervals = int(ai_cooldown_intervals)
+        except Exception:
+            ai_cooldown_intervals = 2
+
+        ai_small_change_band = p.get("ai_small_change_band", 0.015)
+        try:
+            ai_small_change_band = float(ai_small_change_band)
+        except Exception:
+            ai_small_change_band = 0.015
+
+        core_ai_controller = CoreAIAdaptiveController(
+            project_dir=project_dir,
+            run_id=run_session_id,
+            max_steps=max_steps,
+            tune_start_step=bounded_start,
+            tune_end_step=bounded_end,
+            strategy_start_step=strategy_tune_start_step,
+            strategy_end_step=strategy_tune_end_step,
+            base_min_improvement=bounded_min_improve,
+            decision_interval=bounded_interval,
+            reward_step_weight=ai_reward_step_weight,
+            reward_trend_weight=ai_reward_trend_weight,
+            trend_scope=trend_scope,
+            lr_up_multiplier=ai_lr_up_multiplier,
+            lr_down_multiplier=ai_lr_down_multiplier,
+            gate_alpha=ai_gate_alpha,
+            cooldown_intervals=ai_cooldown_intervals,
+            small_change_band=ai_small_change_band,
+        )
+    runner_ref: dict[str, object] = {"runner": None}
+    last_snapshot_step: dict[str, int] = {"value": -1}
+
+    def _log_training_snapshot(
+        step: int,
+        max_steps_local: int,
+        loss: float,
+        progress_fraction: float,
+        elapsed_seconds: float,
+        eta_seconds: float | None,
+    ):
+        runner_obj = runner_ref.get("runner")
+        if runner_obj is None:
+            return
+
+        try:
+            gaussians = None
+            gaussians_opacity_mean = None
+            gaussians_scale_mean = None
+            means_tensor = getattr(runner_obj, "splats", {}).get("means")
+            if means_tensor is not None and hasattr(means_tensor, "shape") and len(means_tensor.shape) > 0:
+                gaussians = int(means_tensor.shape[0])
+            opacity_tensor = getattr(runner_obj, "splats", {}).get("opacities")
+            if opacity_tensor is not None and hasattr(opacity_tensor, "mean"):
+                try:
+                    gaussians_opacity_mean = float(opacity_tensor.detach().mean().item())
+                except Exception:
+                    gaussians_opacity_mean = None
+            scale_tensor = getattr(runner_obj, "splats", {}).get("scales")
+            if scale_tensor is not None and hasattr(scale_tensor, "mean"):
+                try:
+                    gaussians_scale_mean = float(scale_tensor.detach().mean().item())
+                except Exception:
+                    gaussians_scale_mean = None
+
+            strategy_obj = getattr(getattr(runner_obj, "cfg", None), "strategy", None)
+            strategy_vals: dict[str, object] = {}
+            if strategy_obj is not None:
+                for key in ("grow_grad2d", "prune_opa", "refine_every", "reset_every"):
+                    if hasattr(strategy_obj, key):
+                        value = getattr(strategy_obj, key)
+                        if isinstance(value, float):
+                            strategy_vals[key] = round(value, 8)
+                        elif isinstance(value, int):
+                            strategy_vals[key] = value
+
+            optimizer_lrs: dict[str, float] = {}
+            optimizers = getattr(runner_obj, "optimizers", {})
+            for name in ("means", "opacities", "scales", "quats", "sh0", "shN"):
+                optimizer = optimizers.get(name) if isinstance(optimizers, dict) else None
+                if optimizer is None or not getattr(optimizer, "param_groups", None):
+                    continue
+                lr_val = optimizer.param_groups[0].get("lr")
+                if lr_val is None:
+                    continue
+                optimizer_lrs[name] = float(lr_val)
+
+            cfg_obj = getattr(runner_obj, "cfg", None)
+            sh_degree = getattr(runner_obj, "sh_degree_to_use", None)
+            eval_steps_cfg = list(getattr(cfg_obj, "eval_steps", []) or [])
+            save_steps_cfg = list(getattr(cfg_obj, "save_steps", []) or [])
+            next_eval_step = next((int(s) for s in eval_steps_cfg if int(s) >= int(step)), None)
+            next_save_step = next((int(s) for s in save_steps_cfg if int(s) >= int(step)), None)
+
+            steps_per_second = (float(step) / elapsed_seconds) if elapsed_seconds > 0 else None
+            tuning_applied = bool(int(tuning_state.get("updates", 0) or 0) > 0)
+
+            logger.info(
+                "[GSPLAT SNAPSHOT] step=%d/%d progress=%.2f%% loss=%.6f gs=%s opacity_mean=%s scale_mean=%s sh_degree=%s next_eval=%s next_save=%s elapsed=%.1fs eta=%s speed=%s tuning_applied=%s strategy=%s lrs=%s",
+                int(step),
+                int(max_steps_local),
+                float(progress_fraction * 100.0),
+                float(loss),
+                str(gaussians) if gaussians is not None else "n/a",
+                f"{gaussians_opacity_mean:.6f}" if gaussians_opacity_mean is not None else "n/a",
+                f"{gaussians_scale_mean:.6f}" if gaussians_scale_mean is not None else "n/a",
+                str(sh_degree) if sh_degree is not None else "n/a",
+                str(next_eval_step) if next_eval_step is not None else "n/a",
+                str(next_save_step) if next_save_step is not None else "n/a",
+                float(elapsed_seconds),
+                f"{float(eta_seconds):.1f}s" if eta_seconds is not None else "n/a",
+                f"{steps_per_second:.3f} step/s" if steps_per_second is not None else "n/a",
+                tuning_applied,
+                strategy_vals,
+                {k: round(v, 10) for k, v in optimizer_lrs.items()},
+            )
+        except Exception as exc:
+            logger.debug("Failed to emit gsplat training snapshot at step %s: %s", step, exc)
+
+    def apply_modified_rules(step: int, loss: float) -> bool:
+        if mode != "modified":
+            return False
+        if use_html_input_mode_flow and tune_scope == "core_ai_optimization":
+            return False
+
+        schedule = tuning_state.get("adaptive_schedule") if isinstance(tuning_state.get("adaptive_schedule"), dict) else None
+        tune_start = int(schedule.get("start_step")) if isinstance(schedule, dict) else int(modified_tune_start_step)
+        tune_end = int(schedule.get("end_step")) if isinstance(schedule, dict) else int(modified_tune_end_step)
+        tune_interval = int(schedule.get("interval")) if isinstance(schedule, dict) else int(modified_tune_interval)
+        min_improve = float(schedule.get("min_improvement")) if isinstance(schedule, dict) else float(tune_min_improvement)
+
+        effective_tune_end = max(tune_end, strategy_tune_end_step)
+        if step > effective_tune_end:
+            return False
+        if step < min(tune_start, strategy_tune_start_step):
+            return False
+        if step % max(1, tune_interval) != 0 and step not in {tune_end, strategy_tune_end_step}:
+            return False
+        if tuning_state.get("last_tuned_step") == step:
+            return False
+
+        runner_obj = runner_ref.get("runner")
+        if runner_obj is None:
+            return False
+
+        try:
+            try:
+                loss_value = float(loss)
+            except Exception:
+                loss_value = 0.0
+
+            previous_loss = tuning_state.get("last_checked_loss")
+            tuning_state["last_checked_loss"] = float(loss_value)
+            relative_improvement = None
+            if previous_loss is not None:
+                try:
+                    denom = max(abs(float(previous_loss)), 1e-8)
+                    relative_improvement = (float(previous_loss) - float(loss_value)) / denom
+                except Exception:
+                    relative_improvement = None
+
+            if tune_scope == "core_individual":
+                if relative_improvement is None:
+                    return False
+                if float(relative_improvement) >= float(min_improve):
+                    return False
+
+            apply_lr = tune_start <= step <= tune_end
+            apply_strategy = strategy_tune_start_step <= step <= strategy_tune_end_step
+            if bool(tuning_state.get("strategy_frozen")):
+                apply_strategy = False
+            if tune_scope == "core_individual":
+                apply_strategy = False
+            if not apply_lr and not apply_strategy:
+                return False
+
+            def _learn_schedule() -> None:
+                if tune_scope != "core_ai_optimization" or not isinstance(schedule, dict):
+                    return
+
+                nonlocal tune_start, tune_end, tune_interval, min_improve
+
+                updated = False
+                if relative_improvement is not None:
+                    rel = float(relative_improvement)
+                    if rel < min_improve * 0.5 and step < tune_start:
+                        tune_start = _clamp_int(tune_start - 50, 100, 1500)
+                        updated = True
+
+                    if rel < min_improve * 0.4:
+                        tune_interval = _clamp_int(tune_interval - 10, 50, 400)
+                        min_improve = _clamp_float(min_improve * 0.95, 0.001, 0.02)
+                        updated = True
+                    elif rel > min_improve * 1.6:
+                        tune_interval = _clamp_int(tune_interval + 10, 50, 400)
+                        min_improve = _clamp_float(min_improve * 1.05, 0.001, 0.02)
+                        updated = True
+
+                    if rel < min_improve * 0.3 and step < tune_end - 500:
+                        tune_end = _clamp_int(tune_end - 100, tune_start + 5000, max_steps)
+                        updated = True
+                    elif rel > min_improve * 2.0 and step > tune_end - 2000:
+                        tune_end = _clamp_int(tune_end + 100, tune_start + 5000, max_steps)
+                        updated = True
+
+                runtime_samples = tuning_state.get("runtime_samples") if isinstance(tuning_state.get("runtime_samples"), list) else []
+                means_tensor = getattr(runner_obj, "splats", {}).get("means")
+                gaussians = int(means_tensor.shape[0]) if means_tensor is not None and hasattr(means_tensor, "shape") and len(means_tensor.shape) > 0 else 0
+                last_gaussians = tuning_state.get("last_gaussians")
+                tuning_state["last_gaussians"] = gaussians
+
+                if (
+                    not bool(tuning_state.get("strategy_frozen"))
+                    and len(runtime_samples) >= 6
+                    and gaussians >= 200000
+                    and isinstance(last_gaussians, (int, float))
+                ):
+                    baseline = sum(float(v) for v in runtime_samples[:3]) / 3.0
+                    recent = sum(float(v) for v in runtime_samples[-3:]) / 3.0
+                    growth = (float(gaussians) - float(last_gaussians)) / max(abs(float(last_gaussians)), 1.0)
+                    if baseline > 0 and recent >= baseline * 3.0 and growth > 0.02:
+                        tuning_state["strategy_frozen"] = True
+                        tuning_state["strategy_frozen_reason"] = (
+                            f"runtime_slowdown baseline={baseline:.4f}s/step recent={recent:.4f}s/step gaussians={gaussians}"
+                        )
+
+                if updated:
+                    schedule["start_step"] = int(tune_start)
+                    schedule["end_step"] = int(tune_end)
+                    schedule["interval"] = int(tune_interval)
+                    schedule["min_improvement"] = float(min_improve)
+
+            _learn_schedule()
+
+            if tune_scope == "core_ai_optimization" and core_ai_controller is not None:
+                decision = core_ai_controller.decide_and_apply(
+                    step=int(step),
+                    loss=loss_value,
+                    runner_obj=runner_obj,
+                    apply_lr=bool(apply_lr),
+                    apply_strategy=bool(apply_strategy),
+                )
+                event = {
+                    "action_adjustment_tag": decision.action_adjustment_tag,
+                    "step": int(step),
+                    "loss": loss_value,
+                    "previous_loss": float(previous_loss) if previous_loss is not None else None,
+                    "relative_improvement": float(relative_improvement) if relative_improvement is not None else None,
+                    "required_min_improvement": float(tune_min_improvement),
+                    "adaptive_schedule": {
+                        "start_step": int(tune_start),
+                        "end_step": int(tune_end),
+                        "interval": int(tune_interval),
+                        "min_improvement": float(min_improve),
+                    },
+                    "apply_lr": bool(apply_lr),
+                    "apply_strategy": bool(apply_strategy),
+                    "profile": "ai_adaptive_light",
+                    "scope": tune_scope,
+                    "rule_multipliers": {},
+                    "scope_multipliers": {},
+                    "adjustments": [f"ai_action_{decision.action_adjustment_tag}"],
+                    "lr_changes": {},
+                    "params": {
+                        "learning_rates": {},
+                        "strategy": {},
+                    },
+                    "before": {
+                        "learning_rates": {},
+                        "strategy": {},
+                    },
+                    "ai_decision": {
+                        "action": decision.action,
+                        "action_adjustment_tag": decision.action_adjustment_tag,
+                        "reason": decision.reason,
+                        "gate_threshold": decision.gate_threshold,
+                        "reward_from_previous": decision.reward_from_previous,
+                        "relative_improvement": decision.relative_improvement,
+                        "scores": decision.action_scores,
+                    },
+                }
+                tuning_state["last_event"] = event
+                tuning_state["events"].append(event)
+                tuning_state["updates"] = int(tuning_state.get("updates", 0) or 0) + 1
+                tuning_state["last_tuned_step"] = int(step)
+
+                update_status(
+                    project_dir,
+                    "processing",
+                    mode=mode,
+                    tuning_active=True,
+                    last_tuning={
+                        "step": int(step),
+                        "action": f"AI adaptive action: {decision.action}",
+                        "reason": decision.reason,
+                        "scope": tune_scope,
+                        "profile": "ai_adaptive_light",
+                        "adjustments": [f"ai_action_{decision.action}"],
+                        "adaptive_schedule": {
+                            "start_step": int(tune_start),
+                            "end_step": int(tune_end),
+                            "interval": int(tune_interval),
+                            "min_improvement": float(min_improve),
+                        },
+                        "strategy_frozen": bool(tuning_state.get("strategy_frozen")),
+                        "strategy_frozen_reason": tuning_state.get("strategy_frozen_reason"),
+                    },
+                )
+                logger.info(
+                    "Core-AI adaptive decision step=%d action=%s reason=%s apply_lr=%s apply_strategy=%s loss=%.6f prev_loss=%s rel_improve=%s gate=%.6f reward_prev=%s",
+                    step,
+                    decision.action,
+                    decision.reason,
+                    str(bool(apply_lr)),
+                    str(bool(apply_strategy)),
+                    loss_value,
+                    f"{float(previous_loss):.6f}" if previous_loss is not None else "n/a",
+                    f"{float(relative_improvement):.6f}" if relative_improvement is not None else "n/a",
+                    float(decision.gate_threshold),
+                    f"{float(decision.reward_from_previous):.6f}" if decision.reward_from_previous is not None else "n/a",
+                )
+                return decision.action != ACTION_KEEP
+
+            profile_data = select_rule_profile(loss_value)
+            profile = profile_data.name
+            applied_multipliers = build_rule_multiplier_summary(tune_scope, profile_data)
+            scope_multipliers = {
+                "lr": dict(profile_data.lr_multipliers),
+                "strategy": dict(profile_data.strategy_multipliers),
+            }
+
+            scope_updates = apply_tune_scope(
+                tune_scope,
+                runner_obj,
+                profile_data,
+                apply_lr=apply_lr,
+                apply_strategy=apply_strategy,
+            )
+            before_lrs = dict(scope_updates.get("before_lrs") or {})
+            after_lrs = dict(scope_updates.get("after_lrs") or {})
+            strategy_before = dict(scope_updates.get("strategy_before") or {})
+            strategy_after = dict(scope_updates.get("strategy_after") or {})
+            adjustments = list(scope_updates.get("adjustments") or [])
+
+            lr_change_details: dict[str, dict[str, float]] = {}
+            for name, before_val in before_lrs.items():
+                after_val = after_lrs.get(name)
+                if after_val is None:
+                    continue
+                multiplier = 1.0
+                try:
+                    if float(before_val) != 0.0:
+                        multiplier = float(after_val) / float(before_val)
+                except Exception:
+                    multiplier = 1.0
+                lr_change_details[name] = {
+                    "before": float(before_val),
+                    "after": float(after_val),
+                    "multiplier": float(multiplier),
+                }
+
+            strategy_change_details: dict[str, dict[str, float]] = {}
+            for key, before_val in strategy_before.items():
+                after_val = strategy_after.get(key)
+                if after_val is None:
+                    continue
+                strategy_change_details[key] = {
+                    "before": float(before_val),
+                    "after": float(after_val),
+                }
+
+            has_lr_updates = any(
+                abs(float(v.get("after", 0.0)) - float(v.get("before", 0.0))) > 1e-15
+                for v in lr_change_details.values()
+            )
+            has_strategy_updates = any(
+                abs(float(v.get("after", 0.0)) - float(v.get("before", 0.0))) > 1e-12
+                for v in strategy_change_details.values()
+            )
+            if not has_lr_updates and not has_strategy_updates:
+                tuning_state["last_tuned_step"] = int(step)
+                return False
+
+            event = {
+                "step": int(step),
+                "loss": loss_value,
+                "previous_loss": float(previous_loss) if previous_loss is not None else None,
+                "relative_improvement": float(relative_improvement) if relative_improvement is not None else None,
+                "required_min_improvement": float(tune_min_improvement),
+                "adaptive_schedule": {
+                    "start_step": int(tune_start),
+                    "end_step": int(tune_end),
+                    "interval": int(tune_interval),
+                    "min_improvement": float(min_improve),
+                },
+                "apply_lr": bool(apply_lr),
+                "apply_strategy": bool(apply_strategy),
+                "profile": profile,
+                "scope": tune_scope,
+                "rule_multipliers": applied_multipliers,
+                "scope_multipliers": scope_multipliers,
+                "adjustments": adjustments,
+                "lr_changes": lr_change_details,
+                "params": {
+                    "learning_rates": after_lrs,
+                    "strategy": strategy_after,
+                },
+                "before": {
+                    "learning_rates": before_lrs,
+                    "strategy": strategy_before,
+                },
+            }
+            tuning_state["last_event"] = event
+            tuning_state["events"].append(event)
+            tuning_state["updates"] = int(tuning_state.get("updates", 0) or 0) + 1
+            tuning_state["last_tuned_step"] = int(step)
+
+            update_status(
+                project_dir,
+                "processing",
+                mode=mode,
+                tuning_active=True,
+                last_tuning={
+                    "step": int(step),
+                    "action": f"Rule-based {profile} update",
+                    "reason": f"Modified mode rule check (LR {modified_tune_start_step}-{modified_tune_end_step}, strategy {strategy_tune_start_step}-{strategy_tune_end_step})",
+                    "adaptive_schedule": {
+                        "start_step": int(tune_start),
+                        "end_step": int(tune_end),
+                        "interval": int(tune_interval),
+                        "min_improvement": float(min_improve),
+                    },
+                    "strategy_frozen": bool(tuning_state.get("strategy_frozen")),
+                    "strategy_frozen_reason": tuning_state.get("strategy_frozen_reason"),
+                    "scope": tune_scope,
+                    "profile": profile,
+                    "lr_changes": lr_change_details,
+                    "adjustments": adjustments,
+                },
+            )
+            logger.info(
+                "Modified rule update applied at step %d (lr_window=%d-%d, strategy_window=%d-%d, apply_lr=%s, apply_strategy=%s, loss=%.6f, prev_loss=%s, rel_improve=%s, min_improve=%.4f, profile=%s, scope=%s)",
+                step,
+                tune_start,
+                tune_end,
+                strategy_tune_start_step,
+                strategy_tune_end_step,
+                str(bool(apply_lr)),
+                str(bool(apply_strategy)),
+                loss_value,
+                f"{float(previous_loss):.6f}" if previous_loss is not None else "n/a",
+                f"{float(relative_improvement):.6f}" if relative_improvement is not None else "n/a",
+                min_improve,
+                profile,
+                tune_scope,
+            )
+            logger.info(
+                "Modified rule multipliers step=%d profile=%s scope=%s lr=%s strategy=%s",
+                step,
+                profile,
+                tune_scope,
+                json.dumps(scope_multipliers.get("lr", {}), sort_keys=True),
+                json.dumps(scope_multipliers.get("strategy", {}), sort_keys=True),
+            )
+            logger.info(
+                "Modified rule details step=%d lr_changes=%s before_strategy=%s after_strategy=%s",
+                step,
+                json.dumps(lr_change_details, sort_keys=True),
+                json.dumps(strategy_before, sort_keys=True),
+                json.dumps(strategy_after, sort_keys=True),
+            )
+            return True
+        except Exception as exc:
+            logger.warning(
+                "Failed modified-mode rule update at step %d/%d: %s",
+                step,
+                modified_tune_end_step,
+                exc,
+            )
+            return False
+
+    def stop_checker() -> bool:
+        return stop_flag.exists()
+
+    def _evaluate_early_stop_on_eval(step: int, max_steps_local: int) -> None:
+        early_state = tuning_state.get("early_stop") if isinstance(tuning_state.get("early_stop"), dict) else {}
+        if not isinstance(early_state, dict) or not bool(early_state.get("enabled")):
+            return
+        if bool(early_state.get("triggered")):
+            return
+
+        loss_by_step = tuning_state.get("loss_by_step") if isinstance(tuning_state.get("loss_by_step"), dict) else {}
+        eval_loss = loss_by_step.get(int(step))
+        if not isinstance(eval_loss, (int, float)):
+            return
+
+        eval_points = early_state.get("eval_points") if isinstance(early_state.get("eval_points"), list) else []
+        eval_points.append({"step": int(step), "loss": float(eval_loss)})
+        if len(eval_points) > 200:
+            del eval_points[:-200]
+        early_state["eval_points"] = eval_points
+
+        required_points = max(int(early_stop_min_eval_points), int(early_stop_decision_points))
+        if len(eval_points) < required_points:
+            tuning_state["early_stop"] = early_state
+            return
+
+        min_step_gate = int(max_steps_local * float(early_stop_min_step_ratio))
+        if int(step) < min_step_gate:
+            tuning_state["early_stop"] = early_state
+            return
+
+        candidate_since = early_state.get("candidate_since_step")
+        if not isinstance(candidate_since, int):
+            tuning_state["early_stop"] = early_state
+            return
+        if int(step) - int(candidate_since) < int(p.get("eval_interval") or 0):
+            tuning_state["early_stop"] = early_state
+            return
+
+        window = eval_points[-int(early_stop_decision_points):]
+        losses = [float(item.get("loss")) for item in window if isinstance(item.get("loss"), (int, float))]
+        if len(losses) < int(early_stop_decision_points):
+            tuning_state["early_stop"] = early_state
+            return
+
+        first_loss = losses[0]
+        last_loss = losses[-1]
+        denom = max(abs(first_loss), 1e-8)
+        rel_improve = (first_loss - last_loss) / denom
+
+        mean_loss = sum(losses) / max(len(losses), 1)
+        std_loss = statistics.pstdev(losses) if len(losses) > 1 else 0.0
+        volatility_ratio = std_loss / max(abs(mean_loss), 1e-8)
+
+        early_state["eval_relative_improvement"] = float(rel_improve)
+        early_state["eval_volatility_ratio"] = float(volatility_ratio)
+
+        should_stop = (
+            float(rel_improve) < float(early_stop_eval_min_rel_improvement)
+            and float(volatility_ratio) <= float(early_stop_max_volatility_ratio)
+        )
+
+        if should_stop:
+            early_state["triggered"] = True
+            early_state["trigger_step"] = int(step)
+            early_state["reason"] = (
+                f"plateau_confirmed rel_improve={rel_improve:.6f} "
+                f"volatility={volatility_ratio:.6f} points={len(losses)}"
+            )
+            stop_flag.write_text("early_stop")
+            logger.info(
+                "EARLY_STOP_TRIGGER step=%d rel_improve=%.6f volatility=%.6f points=%d candidate_since=%s min_step_ratio=%.3f",
+                int(step),
+                float(rel_improve),
+                float(volatility_ratio),
+                len(losses),
+                str(early_state.get("candidate_since_step")),
+                float(early_stop_min_step_ratio),
+            )
+            update_status(
+                project_dir,
+                "stopping",
+                progress=60 + int((float(step) / max(float(max_steps_local), 1.0)) * 35),
+                stage="training",
+                stage_progress=int((float(step) / max(float(max_steps_local), 1.0)) * 100),
+                message=(
+                    " Early stop candidate confirmed on eval; finishing current step and exporting outputs "
+                    f"(step {int(step)})."
+                ),
+                early_stop={
+                    "candidate": bool(early_state.get("candidate")),
+                    "candidate_since_step": early_state.get("candidate_since_step"),
+                    "triggered": True,
+                    "trigger_step": int(step),
+                    "reason": early_state.get("reason"),
+                    "eval_relative_improvement": float(rel_improve),
+                    "eval_volatility_ratio": float(volatility_ratio),
+                },
+            )
+
+        tuning_state["early_stop"] = early_state
+
+    def progress_callback(
+        step: int,
+        max_steps_local: int | None = None,
+        loss: float = 0.0,
+        **kwargs: object,
+    ) -> None:
+        schedule = tuning_state.get("adaptive_schedule") if isinstance(tuning_state.get("adaptive_schedule"), dict) else None
+        tune_end_for_phase = int(schedule.get("end_step")) if isinstance(schedule, dict) else int(modified_tune_end_step)
+        if max_steps_local is None:
+            raw_max_steps = kwargs.get("max_steps", max_steps)
+            try:
+                max_steps_local = int(raw_max_steps)
+            except Exception:
+                max_steps_local = int(max_steps)
+            if mode == "modified" and not tuning_state.get("phase_complete_logged") and step == tune_end_for_phase + 1:
+                tuning_state["phase_complete_logged"] = True
+        apply_modified_rules(step, loss)
+        progress_fraction = 0.0 if max_steps_local <= 0 else float(step) / float(max_steps_local)
+        progress_fraction = max(0.0, min(1.0, progress_fraction))
+
+        now = time.time()
+        elapsed = now - gsplat_start
+
+        elapsed_by_step = tuning_state.get("elapsed_by_step") if isinstance(tuning_state.get("elapsed_by_step"), dict) else {}
+        loss_by_step = tuning_state.get("loss_by_step") if isinstance(tuning_state.get("loss_by_step"), dict) else {}
+        elapsed_by_step[int(step)] = float(elapsed)
+        loss_by_step[int(step)] = float(loss)
+        tuning_state["elapsed_by_step"] = elapsed_by_step
+        tuning_state["loss_by_step"] = loss_by_step
+
+        early_state = tuning_state.get("early_stop") if isinstance(tuning_state.get("early_stop"), dict) else {}
+        if isinstance(early_state, dict) and bool(early_state.get("enabled")) and int(step) % int(early_stop_monitor_interval) == 0:
+            prev_ema = early_state.get("ema_loss")
+            if isinstance(prev_ema, (int, float)):
+                ema_loss = float(early_stop_ema_alpha) * float(loss) + (1.0 - float(early_stop_ema_alpha)) * float(prev_ema)
+            else:
+                ema_loss = float(loss)
+            early_state["ema_loss"] = float(ema_loss)
+
+            monitor_points = early_state.get("monitor_points") if isinstance(early_state.get("monitor_points"), list) else []
+            monitor_points.append({"step": int(step), "ema_loss": float(ema_loss)})
+            if len(monitor_points) > 200:
+                del monitor_points[:-200]
+            early_state["monitor_points"] = monitor_points
+
+            if len(monitor_points) >= int(early_stop_decision_points):
+                window = monitor_points[-int(early_stop_decision_points):]
+                first_ema = float(window[0].get("ema_loss"))
+                last_ema = float(window[-1].get("ema_loss"))
+                monitor_rel_improve = (first_ema - last_ema) / max(abs(first_ema), 1e-8)
+                early_state["monitor_relative_improvement"] = float(monitor_rel_improve)
+
+                if float(monitor_rel_improve) < float(early_stop_monitor_min_rel_improvement):
+                    if not bool(early_state.get("candidate")):
+                        early_state["candidate"] = True
+                        early_state["candidate_since_step"] = int(step)
+                else:
+                    early_state["candidate"] = False
+                    early_state["candidate_since_step"] = None
+
+            tuning_state["early_stop"] = early_state
+
+        last_step = tuning_state.get("last_callback_step")
+        last_elapsed = tuning_state.get("last_callback_elapsed")
+        if isinstance(last_step, int) and isinstance(last_elapsed, (int, float)) and step > last_step:
+            delta_steps = step - last_step
+            delta_time = float(elapsed - float(last_elapsed))
+            if delta_time > 0:
+                sec_per_step = delta_time / float(delta_steps)
+                samples = tuning_state.get("runtime_samples") if isinstance(tuning_state.get("runtime_samples"), list) else []
+                samples.append(float(sec_per_step))
+                if len(samples) > 20:
+                    del samples[:-20]
+                tuning_state["runtime_samples"] = samples
+        tuning_state["last_callback_step"] = int(step)
+        tuning_state["last_callback_elapsed"] = float(elapsed)
+
+        if not bool(tuning_state.get("gaussian_cap_reached")):
+            runner_obj = runner_ref.get("runner")
+            if runner_obj is not None:
+                try:
+                    means_tensor = getattr(runner_obj, "splats", {}).get("means")
+                    gaussians = (
+                        int(means_tensor.shape[0])
+                        if means_tensor is not None and hasattr(means_tensor, "shape") and len(means_tensor.shape) > 0
+                        else 0
+                    )
+                    if gaussians >= int(gaussian_hard_cap) and not stop_flag.exists():
+                        tuning_state["gaussian_cap_reached"] = True
+                        tuning_state["gaussian_cap_step"] = int(step)
+                        tuning_state["gaussian_cap_count"] = int(gaussians)
+                        stop_flag.write_text(
+                            f"gaussian_hard_cap_reached:{int(gaussians)}:{int(gaussian_hard_cap)}:{int(step)}",
+                            encoding="utf-8",
+                        )
+                        logger.warning(
+                            "Gaussian hard cap reached at step %d: gaussians=%d cap=%d",
+                            int(step),
+                            int(gaussians),
+                            int(gaussian_hard_cap),
+                        )
+                except Exception as exc:
+                    logger.debug("Failed gaussian hard-cap check at step %s: %s", step, exc)
+
+        requested_stop = stop_checker()
+
+        eta = (
+            (elapsed / progress_fraction) * (1 - progress_fraction)
+            if progress_fraction > 0
+            else None
+        )
+        timing = {"start": gsplat_start, "elapsed": elapsed}
+        if eta is not None:
+            timing["eta"] = eta
+
+        gaussian_cap_reached = bool(tuning_state.get("gaussian_cap_reached"))
+        if gaussian_cap_reached:
+            cap_count = tuning_state.get("gaussian_cap_count")
+            message = (
+                f" Gaussian hard cap reached ({cap_count}/{int(gaussian_hard_cap)}). "
+                f"Stopping this run after step {step}/{max_steps_local}."
+            )
+        else:
+            message = (
+                f" Stopping after step {step}/{max_steps_local} completes (loss: {loss:.6f})..."
+                if requested_stop
+                else f" Training step {step}/{max_steps_local} (loss: {loss:.6f})"
+            )
+
+        update_status(
+            project_dir,
+            "stopping" if requested_stop else "processing",
+            progress=60 + int(progress_fraction * 35),
+            mode=mode,
+            tuning_active=(mode == "modified" and step <= max(tune_end_for_phase, strategy_tune_end_step)),
+            currentStep=step,
+            maxSteps=max_steps_local,
+            current_loss=float(loss),
+            stop_requested=requested_stop,
+            stage="training",
+            stage_progress=int(progress_fraction * 100),
+            message=message,
+            timing=timing,
+            early_stop=(
+                {
+                    "candidate": bool(early_state.get("candidate")),
+                    "candidate_since_step": early_state.get("candidate_since_step"),
+                    "triggered": bool(early_state.get("triggered")),
+                    "trigger_step": early_state.get("trigger_step"),
+                    "reason": early_state.get("reason"),
+                    "monitor_relative_improvement": early_state.get("monitor_relative_improvement"),
+                    "eval_relative_improvement": early_state.get("eval_relative_improvement"),
+                    "eval_volatility_ratio": early_state.get("eval_volatility_ratio"),
+                }
+                if isinstance(early_state, dict) and bool(early_state.get("enabled"))
+                else None
+            ),
+        )
+        write_metrics(project_dir, {
+            "step": step,
+            "loss": loss,
+            "progress": progress_fraction,
+        }, engine=engine_name)
+
+        if step == 1 or step == max_steps_local or step % log_interval == 0:
+            _write_live_analytics("processing", step=int(step), force=True)
+
+        should_log_snapshot = (
+            step == 1
+            or step == max_steps_local
+            or step % log_interval == 0
+        )
+        if should_log_snapshot and step != last_snapshot_step["value"]:
+            _log_training_snapshot(step, max_steps_local, loss, progress_fraction, elapsed, eta)
+            last_snapshot_step["value"] = step
+
+    torch_version = None
+    torch_cuda_version = None
+    try:
+        import torch
+        torch_version = getattr(torch, "__version__", None)
+        torch_cuda_version = getattr(getattr(torch, "version", None), "cuda", None)
+        cuda_ok = torch.cuda.is_available()
+    except Exception:
+        cuda_ok = False
+    device = "cuda" if (p.get("use_cuda", True) and cuda_ok) else "cpu"
+
+    if stop_flag.exists():
+        update_status(project_dir, "stopped", progress=55, stage="training", message="Processing stopped before gsplat training.", stop_requested=True, stopped_stage="training")
+        return 0
+
+    ai_mode_name = str((preset_summary or {}).get("mode") or "")
+    ai_selected_preset = str((preset_summary or {}).get("selected_preset") or "")
+    init_message = f" Initializing upstream simple_trainer ({'GPU ' if device == 'cuda' else 'CPU'})..."
+    if use_html_input_mode_flow and ai_mode_name and ai_selected_preset:
+        init_message = (
+            f" Initializing upstream simple_trainer ({'GPU ' if device == 'cuda' else 'CPU'})... "
+            f"AI mode {ai_mode_name}: preset {ai_selected_preset}."
+        )
+
+    update_status(
+        project_dir,
+        "processing",
+        progress=55,
+        stage="training",
+        stage_progress=0,
+        message=init_message,
+        mode=mode,
+        timing={"start": gsplat_start},
+    )
+    _write_live_analytics("processing", force=True)
+
+    dataset_dir = Path(image_dir).parent
+
+    def _build_steps(interval_value, fallback):
+        if interval_value is None:
+            return fallback
+        try:
+            interval = max(1, int(interval_value))
+        except Exception:
+            return fallback
+        out = list(range(interval, max_steps + 1, interval))
+        if max_steps not in out:
+            out.append(max_steps)
+        return sorted(set(out))
+
+    strategy = DefaultStrategy(
+        verbose=True,
+        prune_opa=float(p.get("opacity_threshold", 0.005)),
+        grow_grad2d=float(p.get("densify_grad_threshold", 0.0002)),
+        grow_scale3d=float(p.get("percent_dense", 0.01)),
+        refine_start_iter=int(p.get("densify_from_iter", 500)),
+        refine_stop_iter=int(p.get("densify_until_iter", 15000)),
+        refine_every=max(1, int(p.get("densification_interval", 100))),
+        reset_every=max(1, int(p.get("opacity_reset_interval", 3000))),
+    )
+
+    feature_lr = float(p.get("feature_lr", 2.5e-3))
+    eval_steps = _build_steps(p.get("eval_interval"), [7000, 30000])
+    save_steps = sorted(set(
+        _build_steps(checkpoint_interval, [31000])
+        + _build_steps(splat_interval, [31000])
+        + _build_steps(best_splat_interval, [7000, 30000])
+    ))
+
+    cfg = Config(
+        disable_viewer=True,
+        disable_video=True,
+        load_exposure=False,
+        data_dir=str(dataset_dir),
+        image_dir_override=str(Path(image_dir)),
+        sparse_dir_override=str(Path(colmap_dir)),
+        data_factor=1,
+        result_dir=str(engine_output_dir),
+        test_every=8,
+        normalize_world_space=True,
+        batch_size=1,
+        max_steps=max_steps,
+        eval_steps=eval_steps,
+        save_steps=save_steps,
+        save_ply=False,
+        ssim_lambda=float(p.get("lambda_dssim", 0.2)),
+        means_lr=float(p.get("position_lr_init", 1.6e-4)),
+        scales_lr=float(p.get("scaling_lr", 5.0e-3)),
+        opacities_lr=float(p.get("opacity_lr", 5.0e-2)),
+        quats_lr=float(p.get("rotation_lr", 1.0e-3)),
+        sh0_lr=feature_lr,
+        shN_lr=feature_lr / 20.0,
+        strategy=strategy,
+        tb_every=0,
+    )
+
+    # Capture actual applied parameters for learning table (from Config - these are the ACTUAL values used in training)
+    captured_applied_params = {
+        "feature_lr": float(cfg.sh0_lr),
+        "position_lr_init": float(cfg.means_lr),
+        "scaling_lr": float(cfg.scales_lr),
+        "opacity_lr": float(cfg.opacities_lr),
+        "rotation_lr": float(cfg.quats_lr),
+        "densify_grad_threshold": float(strategy.grow_grad2d),
+        "opacity_threshold": float(strategy.prune_opa),
+        "lambda_dssim": float(cfg.ssim_lambda),
+    }
+    if p.get("run_jitter_multiplier") is not None:
+        captured_applied_params["run_jitter_multiplier"] = float(p.get("run_jitter_multiplier"))
+    for key in (
+        "geometry_lr_multiplier",
+        "appearance_lr_multiplier",
+        "scale_lr_multiplier",
+        "densification_multiplier",
+        "geometry_lr_log_action",
+        "appearance_lr_log_action",
+        "densification_log_action",
+    ):
+        if p.get(key) is not None:
+            captured_applied_params[key] = float(p.get(key))
+
+    # Initialize run_jitter_only and formula for learning table (used throughout training)
+    run_jitter_only = bool(p.get("run_jitter_only", False))
+    final_multiplier_formula = (
+        "1.0"
+        if mode == "baseline"
+        else (
+            "params * selected_multiplier"
+            if is_session_test_mode
+            else ("params * log_multiplier" if run_jitter_only else "params * selected_multiplier * log_multiplier")
+        )
+    )
+
+    # Build learning param rows early so they can be written during training callbacks
+    learning_param_rows = []
+    if isinstance(preset_summary, dict) and bool(preset_summary.get("applied")):
+        learning_param_rows = _build_learning_param_rows(
+            captured_applied_params,
+            dict((preset_summary or {}).get("yhat_scores") or {}),
+            dict((preset_summary or {}).get("selected_multipliers_raw") or {}),
+            p.get("run_jitter_multiplier"),
+            run_jitter_only=run_jitter_only,
+            is_baseline_row=mode == "baseline",
+            session_execution_mode=session_execution_mode,
+        )
+
+    cfg.disable_tqdm = not bool(p.get("enable_tqdm", False))
+    progress_every = max(1, int(log_interval))
+    if mode == "modified":
+        progress_every = min(progress_every, max(1, int(modified_tune_interval)))
+    progress_every = min(progress_every, best_splat_interval)
+    cfg.progress_every = progress_every
+    if cfg.disable_tqdm:
+        os.environ["TQDM_DISABLE"] = "1"
+    else:
+        os.environ.pop("TQDM_DISABLE", None)
+
+    logger.info(
+        "GSPLAT logging cadence: snapshot every %d steps (log_interval), callback every %d steps, modified_tune_interval=%d, best_splat_start_step=%d; tqdm=%s",
+        log_interval,
+        cfg.progress_every,
+        modified_tune_interval,
+        best_splat_start_step,
+        "disabled" if cfg.disable_tqdm else "enabled",
+    )
+
+    cfg.stop_checker = stop_checker
+    cfg.progress_callback = progress_callback
+
+    snapshots_dir = engine_output_dir / "snapshots"
+    snapshots_dir.mkdir(parents=True, exist_ok=True)
+
+    def _prune_for_replace_policy(step: int | None = None) -> None:
+        """Apply pipeline storage policy after trainer writes artifacts.
+
+        The upstream trainer writes checkpoints/renders at configured intervals.  These
+        flags are pipeline-level storage policy controls, so prune after writes instead
+        of disabling trainer internals.
+        """
+        try:
+            if not save_checkpoints or replace_checkpoints:
+                ckpt_dir_policy = engine_output_dir / "ckpts"
+                ckpts_policy = sorted(ckpt_dir_policy.glob("ckpt_*.pt"), key=lambda pth: pth.stat().st_mtime)
+                keep = ckpts_policy[-1] if (save_checkpoints and replace_checkpoints and ckpts_policy) else None
+                for ckpt_path in ckpts_policy:
+                    if keep is not None and ckpt_path == keep:
+                        continue
+                    ckpt_path.unlink(missing_ok=True)
+
+            if not save_eval_images or replace_eval_images:
+                for folder_name, pattern in (("renders", "*.png"), ("previews", "preview_*.png")):
+                    folder = engine_output_dir / folder_name
+                    if not folder.exists():
+                        continue
+                    files_policy = sorted(folder.glob(pattern), key=lambda pth: pth.stat().st_mtime)
+                    keep_set: set[Path] = set()
+                    if save_eval_images and replace_eval_images and files_policy:
+                        latest_step = None
+                        if step is not None:
+                            latest_step = max(0, int(step) - 1)
+                        for file_path in files_policy:
+                            if latest_step is not None and f"val_step{latest_step}" in file_path.name:
+                                keep_set.add(file_path)
+                        if not keep_set:
+                            keep_set.add(files_policy[-1])
+                    for file_path in files_policy:
+                        if file_path in keep_set:
+                            continue
+                        file_path.unlink(missing_ok=True)
+        except Exception as exc:
+            logger.debug("Failed applying gsplat storage replace policy: %s", exc)
+
+    def eval_callback(step: int) -> None:
+        materialize_eval_previews(engine_output_dir, eval_step=step)
+        _prune_for_replace_policy(step)
+        _evaluate_early_stop_on_eval(int(step), int(max_steps))
+        try:
+            elapsed_by_step = tuning_state.get("elapsed_by_step") if isinstance(tuning_state.get("elapsed_by_step"), dict) else {}
+            loss_by_step = tuning_state.get("loss_by_step") if isinstance(tuning_state.get("loss_by_step"), dict) else {}
+            live_eval_history = collect_eval_history(engine_output_dir, p, mode, elapsed_by_step, loss_by_step)
+            if live_eval_history:
+                write_json_atomic(eval_history_path, live_eval_history)
+        except Exception as exc:
+            logger.debug("Live eval history refresh skipped: %s", exc)
+        _write_live_analytics("processing", step=int(step), force=True)
+
+    def checkpoint_callback(step: int, checkpoint_path: str) -> None:
+        _prune_for_replace_policy(step)
+        if step >= best_splat_start_step and (step % best_splat_interval == 0 or step == max_steps):
+            try:
+                loss_by_step = tuning_state.get("loss_by_step") if isinstance(tuning_state.get("loss_by_step"), dict) else {}
+                best_state = tuning_state.get("best_splat") if isinstance(tuning_state.get("best_splat"), dict) else {}
+                current_loss = loss_by_step.get(int(step))
+                best_loss = best_state.get("loss") if isinstance(best_state, dict) else None
+                should_update_best = isinstance(current_loss, (int, float)) and (
+                    not isinstance(best_loss, (int, float)) or float(current_loss) < float(best_loss)
+                )
+                if should_update_best:
+                    previous_best = float(best_loss) if isinstance(best_loss, (int, float)) else None
+                    if save_best_splat:
+                        export_with_gsplat(
+                            Path(checkpoint_path),
+                            engine_output_dir,
+                            splat_name="best.splat",
+                            export_ply=False,
+                            log_details=False,
+                        )
+                        tuning_state["best_splat"] = {
+                            "step": int(step),
+                            "loss": float(current_loss),
+                            "path": str(engine_output_dir / "best.splat"),
+                        }
+                        best_path = engine_output_dir / "best.splat"
+                        best_size = best_path.stat().st_size if best_path.exists() else None
+                    else:
+                        tuning_state["best_splat"] = {
+                            "step": int(step),
+                            "loss": float(current_loss),
+                            "path": None,
+                        }
+                        best_size = None
+                    improvement = (previous_best - float(current_loss)) if previous_best is not None else None
+                    logger.info(
+                        "BEST_SPLAT_UPDATE step=%d loss=%.6f prev_best=%s improvement=%s bytes=%s save=%s",
+                        int(step),
+                        float(current_loss),
+                        f"{previous_best:.6f}" if previous_best is not None else "n/a",
+                        f"{improvement:.6f}" if improvement is not None else "n/a",
+                        str(best_size) if best_size is not None else "n/a",
+                        str(save_best_splat),
+                    )
+                    _write_live_analytics("processing", step=int(step), force=True)
+            except Exception as exc:
+                logger.warning("Failed to export best.splat at step %s: %s", step, exc)
+
+        if splat_interval and step % splat_interval != 0 and step != max_steps:
+            return
+        snapshot_name = f"snapshot_step_{step:06d}.splat"
+        snapshot_path = snapshots_dir / snapshot_name
+        if snapshot_path.exists():
+            return
+        export_with_gsplat(
+            Path(checkpoint_path),
+            snapshots_dir,
+            splat_name=snapshot_name,
+            export_ply=False,
+        )
+
+    cfg.eval_callback = eval_callback
+    cfg.checkpoint_callback = checkpoint_callback
+
+    if device == "cpu":
+        cuda_home = os.environ.get("CUDA_HOME") or os.environ.get("CUDA_PATH") or "<unset>"
+        nvcc_path = shutil.which("nvcc") or "<not-found>"
+        cl_path = shutil.which("cl") or "<not-found>"
+        msg = (
+            "Upstream simple_trainer requires CUDA in this worker path. "
+            f"torch={torch_version or '<unknown>'}, torch.version.cuda={torch_cuda_version or '<none>'}, "
+            f"torch.cuda.is_available={cuda_ok}, CUDA_HOME/CUDA_PATH={cuda_home}, nvcc={nvcc_path}, cl={cl_path}."
+        )
+        update_status(project_dir, "failed", progress=55, stage="training", message=msg, error=msg)
+        raise RuntimeError(msg)
+
+    _load_msvc_build_env(logger)
+
+    gsplat_cuda_error: str | None = None
+    try:
+        import gsplat.cuda._wrapper as _gsplat_cuda_wrapper
+        if hasattr(_gsplat_cuda_wrapper, "_make_lazy_cuda_obj"):
+            _gsplat_cuda_wrapper._make_lazy_cuda_obj("CameraModelType")
+            _gsplat_cuda_ready = True
+        else:
+            _gsplat_cuda_ext = getattr(_gsplat_cuda_wrapper, "_C", None)
+            _gsplat_cuda_ready = _gsplat_cuda_ext is not None
+    except Exception as exc:
+        _gsplat_cuda_ready = False
+        gsplat_cuda_error = str(exc)
+
+    if not _gsplat_cuda_ready:
+        msg = (
+            "gsplat CUDA extension is unavailable. Install CUDA Toolkit and a CUDA-enabled PyTorch build, "
+            "then reinstall gsplat so CUDA extensions can be built/loaded."
+        )
+        if gsplat_cuda_error:
+            msg = f"{msg} Details: {gsplat_cuda_error}"
+        update_status(project_dir, "failed", progress=55, stage="training", message=msg, error=msg)
+        raise RuntimeError(msg)
+
+    runner = Runner(local_rank=0, world_rank=0, world_size=1, cfg=cfg)
+
+    start_model_mode = str(p.get("start_model_mode") or "scratch").strip().lower()
+    source_model_id = str(p.get("source_model_id") or "").strip()
+    source_model_name = str(p.get("source_model_name") or "").strip()
+    source_model_checkpoint = str(p.get("source_model_checkpoint") or "").strip()
+    if start_model_mode == "reuse" and source_model_checkpoint:
+        try:
+            _ckpt_path = Path(source_model_checkpoint)
+            if not _ckpt_path.is_file():
+                raise ValueError(
+                    f"source_model_checkpoint is not a valid file: '{source_model_checkpoint}'. "
+                    "It may be a directory, empty string, or unresolved placeholder ('.'). "
+                    "Ensure the model was elevated from a completed gsplat run with a real checkpoint."
+                )
+            ckpt = torch.load(source_model_checkpoint, map_location=runner.device)
+            splats_state = ckpt.get("splats") if isinstance(ckpt, dict) else None
+            if not isinstance(splats_state, dict):
+                raise ValueError("Checkpoint missing 'splats' state")
+            for key in runner.splats.keys():
+                if key not in splats_state:
+                    raise ValueError(f"Checkpoint missing splat tensor '{key}'")
+                runner.splats[key].data = splats_state[key].to(runner.device).clone()
+
+            update_status(
+                project_dir,
+                "processing",
+                progress=55,
+                stage="training",
+                stage_progress=2,
+                message=(
+                    f"Loaded reusable model '{source_model_name}' for warm-start."
+                    if source_model_name
+                    else f"Loaded reusable model '{source_model_id or 'selected-model'}' for warm-start."
+                ),
+            )
+            logger.info(
+                "Warm-started gsplat from reusable model checkpoint %s (model_id=%s, model_name=%s)",
+                source_model_checkpoint,
+                source_model_id or "<unknown>",
+                source_model_name or "<unknown>",
+            )
+        except Exception as exc:
+            msg = f"Failed to load reusable model checkpoint: {exc}"
+            update_status(project_dir, "failed", progress=55, stage="training", message=msg, error=msg)
+            raise RuntimeError(msg) from exc
+
+    runner_ref["runner"] = runner
+    stop_reason = runner.train()
+    gsplat_end = time.time()
+    early_stop_state = tuning_state.get("early_stop") if isinstance(tuning_state.get("early_stop"), dict) else {}
+    early_stop_triggered = bool(isinstance(early_stop_state, dict) and early_stop_state.get("triggered"))
+    stop_flag_reason = None
+    if stop_flag.exists():
+        try:
+            stop_flag_reason = stop_flag.read_text(encoding="utf-8").strip() or None
+        except Exception:
+            stop_flag_reason = None
+
+    if stop_reason is not None or stop_flag_reason:
+        gaussian_cap_hit = isinstance(stop_flag_reason, str) and stop_flag_reason.startswith("gaussian_hard_cap_reached")
+        if gaussian_cap_hit:
+            cap_count = tuning_state.get("gaussian_cap_count")
+            cap_step = tuning_state.get("gaussian_cap_step")
+            stop_message = (
+                "Gaussian hard cap reached; run marked partially completed and batch will continue. "
+                f"gaussians={cap_count}, cap={int(gaussian_hard_cap)}, step={cap_step}"
+            )
+
+            input_mode_learning_payload = None
+            selected_preset = str((preset_summary or {}).get("selected_preset") or "")
+            yhat_scores = dict((preset_summary or {}).get("yhat_scores") or {})
+            mode_name = str((preset_summary or {}).get("mode") or "")
+            if selected_preset and mode_name:
+                if allow_input_mode_learning_updates:
+                    try:
+                        input_mode_learning_payload = {
+                            "updated": False,
+                            "reason": "gaussian_hard_cap_reached",
+                            "relative_score": -1.0,
+                            "relative_quality_score": -1.0,
+                            "quality_score_source": "gaussian_cap_penalty",
+                            "exclude_from_normalization": True,
+                            "valid_completed_quality": False,
+                            "mode": mode_name,
+                            "selected_preset": selected_preset,
+                            "run_id": run_session_id,
+                            "x_features": dict((preset_summary or {}).get("features") or {}),
+                            "selected_multipliers": dict((preset_summary or {}).get("selected_multipliers") or (preset_summary or {}).get("yhat_scores") or {}),
+                            "selected_multipliers_raw": dict((preset_summary or {}).get("selected_multipliers_raw") or {}),
+                            "selected_log_multipliers": dict((preset_summary or {}).get("selected_log_multipliers") or {}),
+                            "selected_log_multipliers_raw": dict((preset_summary or {}).get("selected_log_multipliers_raw") or {}),
+                        }
+                        if isinstance(input_mode_learning_payload, dict):
+                            input_mode_learning_payload["learning_param_rows"] = learning_param_rows
+                            input_mode_learning_payload["run_jitter_only"] = run_jitter_only
+                            input_mode_learning_payload["final_multiplier_formula"] = final_multiplier_formula
+                        write_json_atomic(
+                            engine_output_dir / "input_mode_learning_results.json",
+                            input_mode_learning_payload,
+                        )
+                    except Exception as exc:
+                        logger.warning("Failed to apply input-mode penalty after gaussian hard cap: %s", exc)
+                else:
+                    input_mode_learning_payload = {
+                        "updated": False,
+                        "mode": mode_name,
+                        "selected_preset": selected_preset,
+                        "relative_quality_score": -1.0,
+                        "score": -1.0,
+                        "reason": "gaussian_hard_cap_reached",
+                        "penalty": True,
+                        "quality_score_source": "gaussian_cap_penalty",
+                        "exclude_from_normalization": True,
+                        "valid_completed_quality": False,
+                        "yhat_scores": yhat_scores,
+                        "x_features": dict((preset_summary or {}).get("features") or {}),
+                        "selected_multipliers": dict((preset_summary or {}).get("selected_multipliers") or (preset_summary or {}).get("yhat_scores") or {}),
+                        "selected_multipliers_raw": dict((preset_summary or {}).get("selected_multipliers_raw") or {}),
+                        "selected_log_multipliers": dict((preset_summary or {}).get("selected_log_multipliers") or {}),
+                        "selected_log_multipliers_raw": dict((preset_summary or {}).get("selected_log_multipliers_raw") or {}),
+                        "learning_param_rows": learning_param_rows,
+                        "run_jitter_only": run_jitter_only,
+                        "final_multiplier_formula": final_multiplier_formula,
+                    }
+                    write_json_atomic(
+                        engine_output_dir / "input_mode_learning_results.json",
+                        input_mode_learning_payload,
+                    )
+
+            metadata_path = engine_output_dir / "metadata.json"
+            metadata = {}
+            if metadata_path.exists():
+                try:
+                    with open(metadata_path, "r", encoding="utf-8") as handle:
+                        metadata = json.load(handle)
+                except Exception:
+                    metadata = {}
+            metadata["mode"] = mode
+            metadata["stop_reason"] = stop_flag_reason
+            metadata["gaussian_hard_cap"] = int(gaussian_hard_cap)
+            metadata["gaussian_cap_step"] = cap_step
+            metadata["gaussian_cap_count"] = cap_count
+            metadata["gaussian_cap_reached"] = True
+            metadata["partial_completed"] = True
+            metadata["valid_completed_quality"] = False
+            metadata["exclude_from_normalization"] = True
+            metadata["quality_score_source"] = "gaussian_cap_penalty"
+            metadata["relative_quality_score"] = -1.0
+            if input_mode_learning_payload is not None:
+                metadata["input_mode_learning"] = input_mode_learning_payload
+            write_json_atomic(metadata_path, metadata)
+
+            analytics_payload = _build_live_analytics_payload("partial_completed")
+            analytics_summary = analytics_payload.get("summary") if isinstance(analytics_payload.get("summary"), dict) else {}
+            analytics_summary["status"] = "partial_completed"
+            analytics_summary["gaussian_cap_reached"] = True
+            analytics_summary["gaussian_cap_step"] = cap_step
+            analytics_summary["gaussian_cap_count"] = cap_count
+            analytics_summary["gaussian_hard_cap"] = int(gaussian_hard_cap)
+            analytics_summary["quality_score_source"] = "gaussian_cap_penalty"
+            analytics_summary["relative_quality_score"] = -1.0
+            analytics_summary["exclude_from_normalization"] = True
+            analytics_summary["valid_completed_quality"] = False
+            analytics_payload["summary"] = analytics_summary
+            analytics_ai = analytics_payload.get("ai") if isinstance(analytics_payload.get("ai"), dict) else {}
+            analytics_ai["input_mode_learning"] = input_mode_learning_payload
+            insights = analytics_ai.get("input_mode_insights") if isinstance(analytics_ai.get("input_mode_insights"), dict) else {}
+            insights.update(
+                {
+                    "feature_details": dict((preset_summary or {}).get("features") or {}),
+                    "initial_params": captured_applied_params,
+                    "selected_multipliers": dict((preset_summary or {}).get("selected_multipliers") or (preset_summary or {}).get("yhat_scores") or {}),
+                    "selected_multipliers_raw": dict((preset_summary or {}).get("selected_multipliers_raw") or {}),
+                    "selected_log_multipliers": dict((preset_summary or {}).get("selected_log_multipliers") or {}),
+                    "selected_log_multipliers_raw": dict((preset_summary or {}).get("selected_log_multipliers_raw") or {}),
+                    "group_multipliers": dict((preset_summary or {}).get("group_multipliers") or {}),
+                    "final_multiplier_formula": final_multiplier_formula,
+                    "relative_quality_score": -1.0,
+                    "quality_score_source": "gaussian_cap_penalty",
+                }
+            )
+            analytics_ai["input_mode_insights"] = insights
+            analytics_payload["ai"] = analytics_ai
+            write_json_atomic(analytics_path, analytics_payload)
+
+            logger.warning(stop_message)
+            update_status(
+                project_dir,
+                "partial_completed",
+                progress=60,
+                stage="training",
+                message=(
+                    " Gaussian count hard cap reached; this run is partially completed with a penalty. "
+                    "The batch will continue with the next run."
+                ),
+                error=None,
+                stop_requested=False,
+                stopped_step=int(cap_step) if isinstance(cap_step, int) else None,
+                gaussian_cap_reached=True,
+                gaussian_cap_step=int(cap_step) if isinstance(cap_step, int) else None,
+                gaussian_cap_count=int(cap_count) if isinstance(cap_count, int) else cap_count,
+                gaussian_hard_cap=int(gaussian_hard_cap),
+                quality_score_source="gaussian_cap_penalty",
+                relative_quality_score=-1.0,
+                exclude_from_normalization=True,
+                valid_completed_quality=False,
+            )
+            if stop_flag.exists():
+                stop_flag.unlink()
+            return {
+                "terminal_state": "partial_completed",
+                "reason": "gaussian_hard_cap_reached",
+                "step": int(cap_step) if isinstance(cap_step, int) else None,
+                "score": -1.0,
+                "message": stop_message,
+            }
+
+        if not early_stop_triggered:
+            stop_message = " Training stopped by user."
+            logger.info("Training stopped before export; reason=%s", stop_flag_reason or stop_reason)
+            update_status(
+                project_dir,
+                "stopped",
+                progress=60,
+                stage="training",
+                message=stop_message,
+                stopped_stage="training",
+                stopped_step=stop_reason if isinstance(stop_reason, int) else None,
+            )
+            if stop_flag.exists():
+                stop_flag.unlink()
+            return stop_reason if isinstance(stop_reason, int) else 1
+
+        logger.info(
+            "Early stop confirmed at step %s; continuing to export artifacts.",
+            early_stop_state.get("trigger_step") if isinstance(early_stop_state, dict) else None,
+        )
+
+    logger.info("Training complete, exporting final checkpoint...")
+    update_status(
+        project_dir, "processing", stage="training", stage_progress=100,
+        message="Gsplat training complete",
+        timing={"start": gsplat_start, "end": gsplat_end, "elapsed": gsplat_end - gsplat_start}
+    )
+    update_status(project_dir, "completed", progress=90, stage="training", message="Training done")
+    time.sleep(1.5)
+    update_status(project_dir, "processing", stage="export", stage_progress=10, message="Preparing export of final artifacts...")
+    ckpt_dir = engine_output_dir / "ckpts"
+    ckpts = sorted(ckpt_dir.glob("ckpt_*.pt"))
+    snapshots_dir = engine_output_dir / "snapshots"
+    snapshots_dir.mkdir(parents=True, exist_ok=True)
+
+    exported_snapshots = 0
+    for ckpt in ckpts:
+        step_zero = parse_step_from_name(ckpt.stem, "ckpt_")
+        if step_zero is None:
+            continue
+        step = step_zero + 1
+        if splat_interval and step % splat_interval != 0 and step != max_steps:
+            continue
+        snapshot_name = f"snapshot_step_{step:06d}.splat"
+        snapshot_path = snapshots_dir / snapshot_name
+        if snapshot_path.exists():
+            continue
+        try:
+            export_with_gsplat(
+                ckpt,
+                snapshots_dir,
+                splat_name=snapshot_name,
+                export_ply=False,
+            )
+            exported_snapshots += 1
+        except Exception as exc:
+            logger.warning("Failed snapshot export for %s: %s", ckpt.name, exc)
+
+    if ckpts:
+        latest = ckpts[-1]
+        logger.info("Exporting checkpoint: %s", latest)
+        update_status(project_dir, "processing", stage="export", stage_progress=40, message="Exporting .splat file...")
+        if stop_flag.exists() and not early_stop_triggered:
+            update_status(project_dir, "stopped", progress=0, stop_requested=True, stage="export", message="Processing stopped by user before export.", stopped_stage="export")
+            try:
+                stop_flag.unlink()
+            except Exception:
+                pass
+            return None
+        export_with_gsplat(latest, engine_output_dir)
+        update_status(project_dir, "processing", stage="export", stage_progress=100, message="Export complete")
+    else:
+        logger.info("No saved checkpoints found; skipping checkpoint export")
+
+    if exported_snapshots:
+        logger.info("Exported %d interval snapshot(s) to %s", exported_snapshots, snapshots_dir)
+
+    materialize_eval_previews(engine_output_dir)
+    _prune_for_replace_policy(max_steps)
+    elapsed_by_step = tuning_state.get("elapsed_by_step") if isinstance(tuning_state.get("elapsed_by_step"), dict) else {}
+    loss_by_step = tuning_state.get("loss_by_step") if isinstance(tuning_state.get("loss_by_step"), dict) else {}
+    eval_history = collect_eval_history(engine_output_dir, p, mode, elapsed_by_step, loss_by_step)
+    if eval_history:
+        for row in eval_history:
+            if not isinstance(row, dict):
+                continue
+            step_value = row.get("step")
+            if not isinstance(step_value, (int, float)):
+                continue
+            step_int = int(step_value)
+            measured_loss = loss_by_step.get(step_int)
+            measured_elapsed = elapsed_by_step.get(step_int)
+            row["final_loss"] = float(measured_loss) if isinstance(measured_loss, (int, float)) else None
+            row["elapsed_seconds"] = float(measured_elapsed) if isinstance(measured_elapsed, (int, float)) else None
+    if eval_history and mode == "modified":
+        for row in eval_history:
+            tuning_params = row.get("tuning_params") if isinstance(row, dict) else None
+            if isinstance(tuning_params, dict):
+                tuning_params["modified_rule_updates"] = int(tuning_state.get("updates", 0) or 0)
+                if tuning_state.get("last_event"):
+                    tuning_params["modified_last_rule_step"] = tuning_state["last_event"].get("step")
+    if eval_history:
+        final_eval = eval_history[-1]
+        write_json_atomic(engine_output_dir / "eval_history.json", eval_history)
+        final_metrics = {
+            "lpips_score": final_eval.get("lpips_mean"),
+            "sharpness": final_eval.get("sharpness_mean"),
+            "convergence_speed": final_eval.get("convergence_speed"),
+            "final_loss": final_eval.get("final_loss"),
+            "gaussian_count": final_eval.get("num_gaussians"),
+        }
+        adaptive_payload = {
+            "mode": mode,
+            "tune_scope": tune_scope if mode == "modified" else None,
+            "final_evaluation": final_metrics,
+            "tune_start_step": modified_tune_start_step if mode == "modified" else None,
+            "tune_end_step": modified_tune_end_step if mode == "modified" else final_eval.get("step"),
+            "tune_interval": modified_tune_interval if mode == "modified" else None,
+            "tune_min_improvement": tune_min_improvement if mode == "modified" else None,
+            "strategy_tune_start_step": strategy_tune_start_step if mode == "modified" else None,
+            "strategy_tune_end_step": strategy_tune_end_step if mode == "modified" else None,
+            "tuning_history": list(tuning_state.get("events") or []),
+            "final_params": (tuning_state.get("last_event") or {}).get("params", {}),
+        }
+        write_json_atomic(engine_output_dir / "adaptive_tuning_results.json", adaptive_payload)
+
+        metadata_path = engine_output_dir / "metadata.json"
+        metadata = {}
+        if metadata_path.exists():
+            try:
+                with open(metadata_path, "r", encoding="utf-8") as handle:
+                    metadata = json.load(handle)
+            except Exception:
+                metadata = {}
+        metadata["evaluation_metrics"] = final_metrics
+        metadata["final_metrics"] = {
+            "convergence_speed": final_eval.get("convergence_speed"),
+            "final_loss": final_eval.get("final_loss"),
+            "lpips_mean": final_eval.get("lpips_mean"),
+            "sharpness_mean": final_eval.get("sharpness_mean"),
+        }
+
+        baseline_eval_history: list[dict] = []
+        baseline_loss_by_step_from_analytics: dict[int, float] = {}
+        baseline_session_id = str(p.get("baseline_session_id") or "").strip()
+        if baseline_session_id:
+            baseline_eval_path = (
+                project_dir / "runs" / baseline_session_id / "outputs" / "engines" / "gsplat" / "eval_history.json"
+            )
+            if baseline_eval_path.exists():
+                try:
+                    raw = json.loads(baseline_eval_path.read_text(encoding="utf-8"))
+                    if isinstance(raw, list):
+                        baseline_eval_history = [row for row in raw if isinstance(row, dict)]
+                except Exception as exc:
+                    logger.warning("Failed loading baseline eval history from %s: %s", baseline_eval_path, exc)
+
+            # Load baseline dense loss_by_step from its analytics JSON so AUC uses
+            # the full training trajectory rather than sparse eval-step losses.
+            baseline_analytics_path = (
+                project_dir / "runs" / baseline_session_id / "analytics" / "run_analytics_v1.json"
+            )
+            if baseline_analytics_path.exists():
+                try:
+                    baseline_analytics = json.loads(baseline_analytics_path.read_text(encoding="utf-8"))
+                    raw_baseline_loss = baseline_analytics.get("loss_by_step") if isinstance(baseline_analytics, dict) else None
+                    if isinstance(raw_baseline_loss, dict):
+                        for k, v in raw_baseline_loss.items():
+                            try:
+                                baseline_loss_by_step_from_analytics[int(k)] = float(v)
+                            except Exception:
+                                pass
+                    if baseline_loss_by_step_from_analytics:
+                        logger.info(
+                            "Loaded %d baseline loss_by_step samples from analytics for AUC (session=%s)",
+                            len(baseline_loss_by_step_from_analytics),
+                            baseline_session_id,
+                        )
+                    else:
+                        logger.info(
+                            "No baseline loss_by_step found in analytics for session=%s; AUC will use eval-step losses only",
+                            baseline_session_id,
+                        )
+                except Exception as exc:
+                    logger.warning("Failed loading baseline analytics from %s: %s", baseline_analytics_path, exc)
+
+        loss_by_step_num = {int(k): float(v) for k, v in (loss_by_step or {}).items()}
+        elapsed_by_step_num = {int(k): float(v) for k, v in (elapsed_by_step or {}).items()}
+        training_data_score_reference_step = None
+        if bool(p.get("update_training_data")):
+            raw_reference_step = p.get("score_reference_step") or p.get("model_evaluation_step")
+            if isinstance(raw_reference_step, (int, float)) and int(raw_reference_step) > 0:
+                training_data_score_reference_step = int(raw_reference_step)
+
+        input_mode_learning_payload = None
+        if use_html_input_mode_flow:
+            selected_preset = str((preset_summary or {}).get("selected_preset") or "")
+            yhat_scores = dict((preset_summary or {}).get("yhat_scores") or {})
+            mode_name = str((preset_summary or {}).get("mode") or "")
+            if selected_preset and mode_name:
+                try:
+                    input_mode_learning_payload = compute_relative_quality_score_from_run(
+                        project_dir=project_dir,
+                        mode=mode_name,
+                        selected_preset=selected_preset,
+                        yhat_scores=yhat_scores,
+                        eval_history=eval_history,
+                        baseline_eval_history=baseline_eval_history,
+                        loss_by_step=loss_by_step_num,
+                        elapsed_by_step=elapsed_by_step_num,
+                        x_features=dict((preset_summary or {}).get("features") or {}),
+                        run_id=run_session_id,
+                        logger=logger,
+                        apply_update=allow_input_mode_learning_updates,
+                        baseline_loss_by_step_override=baseline_loss_by_step_from_analytics,
+                        score_reference_step=training_data_score_reference_step,
+                    )
+                    if isinstance(input_mode_learning_payload, dict):
+                        input_mode_learning_payload["learning_param_rows"] = learning_param_rows
+                        input_mode_learning_payload["run_jitter_only"] = run_jitter_only
+                        input_mode_learning_payload["final_multiplier_formula"] = final_multiplier_formula
+                        input_mode_learning_payload.setdefault(
+                            "selected_multipliers",
+                            dict((preset_summary or {}).get("selected_multipliers") or (preset_summary or {}).get("yhat_scores") or {}),
+                        )
+                        input_mode_learning_payload.setdefault(
+                            "selected_multipliers_raw",
+                            dict((preset_summary or {}).get("selected_multipliers_raw") or {}),
+                        )
+                        input_mode_learning_payload.setdefault(
+                            "selected_log_multipliers",
+                            dict((preset_summary or {}).get("selected_log_multipliers") or {}),
+                        )
+                        input_mode_learning_payload.setdefault(
+                            "selected_log_multipliers_raw",
+                            dict((preset_summary or {}).get("selected_log_multipliers_raw") or {}),
+                        )
+                    write_json_atomic(
+                        engine_output_dir / "input_mode_learning_results.json",
+                        input_mode_learning_payload,
+                    )
+                    if isinstance(input_mode_learning_payload, dict) and input_mode_learning_payload.get("updated"):
+                        update_status(
+                            project_dir,
+                            "processing",
+                            stage="training",
+                            stage_progress=95,
+                            message=(
+                                "AI input-mode learner updated preset scores "
+                                f"(mode={mode_name}, preset={selected_preset})."
+                            ),
+                        )
+                    elif is_session_test_mode:
+                        logger.info(
+                            "Session test mode: computed comparison metrics without updating input-mode learner state."
+                        )
+                except Exception as exc:
+                    logger.warning("Failed input-mode learner update: %s", exc)
+        elif isinstance(preset_summary, dict) and preset_summary.get("applied"):
+            # Compute reward metrics for any AI-presetted run (test or train session mode)
+            # even when not in use_html_input_mode_flow. This covers:
+            # - Test pipeline Phase 2 test runs (is_session_test_mode=True)
+            # - Test pipeline Phase 1 baseline runs (session_execution_mode=train)
+            # Rewards are computed and stored in analytics for display only  never used for model updates.
+            selected_preset = str((preset_summary or {}).get("selected_preset") or "")
+            yhat_scores = dict((preset_summary or {}).get("yhat_scores") or {})
+            mode_name = str((preset_summary or {}).get("mode") or "")
+            if selected_preset and mode_name:
+                try:
+                    input_mode_learning_payload = compute_relative_quality_score_from_run(
+                        project_dir=project_dir,
+                        mode=mode_name,
+                        selected_preset=selected_preset,
+                        yhat_scores=yhat_scores,
+                        eval_history=eval_history,
+                        baseline_eval_history=baseline_eval_history,
+                        loss_by_step=loss_by_step_num,
+                        elapsed_by_step=elapsed_by_step_num,
+                        x_features=dict((preset_summary or {}).get("features") or {}),
+                        run_id=run_session_id,
+                        logger=logger,
+                        apply_update=False,
+                        baseline_loss_by_step_override=baseline_loss_by_step_from_analytics,
+                        score_reference_step=training_data_score_reference_step,
+                    )
+                    if isinstance(input_mode_learning_payload, dict):
+                        input_mode_learning_payload["learning_param_rows"] = learning_param_rows
+                        input_mode_learning_payload["run_jitter_only"] = run_jitter_only
+                        input_mode_learning_payload["final_multiplier_formula"] = final_multiplier_formula
+                        write_json_atomic(
+                            engine_output_dir / "input_mode_learning_results.json",
+                            input_mode_learning_payload,
+                        )
+                except Exception as exc:
+                    logger.warning("Failed input-mode reward-only computation: %s", exc)
+
+        metadata["num_gaussians"] = final_eval.get("num_gaussians")
+        metadata["mode"] = mode
+        metadata["tune_scope"] = tune_scope if mode == "modified" else None
+        metadata["best_splat"] = tuning_state.get("best_splat")
+        metadata["early_stop"] = tuning_state.get("early_stop")
+        metadata["stop_reason"] = stop_flag_reason or (f"runner_stop_step={stop_reason}" if isinstance(stop_reason, int) else None)
+        if input_mode_learning_payload is not None:
+            metadata["input_mode_learning"] = input_mode_learning_payload
+        write_json_atomic(metadata_path, metadata)
+
+        loss_milestones: dict[str, float] = {}
+        eval_series: list[dict] = []
+        eval_time_series: list[dict] = []
+        eval_psnr_series: list[dict] = []
+        eval_ssim_series: list[dict] = []
+        eval_lpips_series: list[dict] = []
+        log_loss_series: list[dict] = []
+        log_time_series: list[dict] = []
+        for point in eval_history:
+            if not isinstance(point, dict):
+                continue
+            step_value = point.get("step")
+            if isinstance(step_value, (int, float)):
+                step_int = int(step_value)
+                loss_value = point.get("final_loss")
+                if isinstance(loss_value, (int, float)):
+                    eval_series.append({"step": step_int, "loss": float(loss_value)})
+
+                elapsed_value = point.get("elapsed_seconds")
+                if isinstance(elapsed_value, (int, float)) and float(elapsed_value) >= 0:
+                    eval_time_series.append({
+                        "step": step_int,
+                        "elapsed_seconds": float(elapsed_value),
+                    })
+
+                psnr_value = point.get("convergence_speed")
+                if isinstance(psnr_value, (int, float)):
+                    eval_psnr_series.append({"step": step_int, "value": float(psnr_value)})
+
+                ssim_value = point.get("sharpness_mean")
+                if isinstance(ssim_value, (int, float)):
+                    eval_ssim_series.append({"step": step_int, "value": float(ssim_value)})
+
+                lpips_value = point.get("lpips_mean")
+                if isinstance(lpips_value, (int, float)):
+                    eval_lpips_series.append({"step": step_int, "value": float(lpips_value)})
+
+            for key, value in point.items():
+                if isinstance(key, str) and key.startswith("loss_at_") and isinstance(value, (int, float)):
+                    loss_milestones[key] = float(value)
+
+        if isinstance(loss_by_step, dict):
+            for step_value, loss_value in loss_by_step.items():
+                try:
+                    step_int = int(step_value)
+                except Exception:
+                    continue
+                if isinstance(loss_value, (int, float)):
+                    log_loss_series.append({"step": step_int, "loss": float(loss_value)})
+        if log_loss_series:
+            log_loss_series.sort(key=lambda row: int(row.get("step", 0)))
+
+        if isinstance(elapsed_by_step, dict):
+            for step_value, elapsed_value in elapsed_by_step.items():
+                try:
+                    step_int = int(step_value)
+                except Exception:
+                    continue
+                if isinstance(elapsed_value, (int, float)) and float(elapsed_value) >= 0:
+                    log_time_series.append({"step": step_int, "elapsed_seconds": float(elapsed_value)})
+        if log_time_series:
+            log_time_series.sort(key=lambda row: int(row.get("step", 0)))
+
+        runtime_tuning_series = [
+            {"step": item.get("step"), "params": item.get("params")}
+            for item in list(tuning_state.get("events") or [])
+            if isinstance(item, dict) and isinstance(item.get("step"), (int, float)) and isinstance(item.get("params"), dict)
+        ]
+
+        final_loss_value = final_eval.get("final_loss")
+        if not isinstance(final_loss_value, (int, float)):
+            final_loss_value = None
+
+        total_time_seconds = max(0.0, float(time.time() - gsplat_start))
+        run_name = str(p.get("run_name") or p.get("run_id") or project_dir.name)
+        run_id_value = str(p.get("run_id") or project_dir.name)
+
+        project_id = None
+        try:
+            if project_dir.parent.name == "runs":
+                project_id = project_dir.parent.parent.name
+        except Exception:
+            project_id = None
+
+        summary_payload = {
+            "project_id": project_id,
+            "run_id": run_id_value,
+            "run_name": run_name,
+            "name": project_id,
+            "status": "completed",
+            "mode": mode,
+            "engine": "gsplat",
+            "metrics": {
+                "convergence_speed": final_eval.get("convergence_speed"),
+                "final_loss": final_loss_value,
+                "lpips_mean": final_eval.get("lpips_mean"),
+                "sharpness_mean": final_eval.get("sharpness_mean"),
+                "num_gaussians": final_eval.get("num_gaussians"),
+                "total_time_seconds": total_time_seconds,
+                "best_splat_step": (
+                    (tuning_state.get("best_splat") or {}).get("step")
+                    if isinstance(tuning_state.get("best_splat"), dict)
+                    else None
+                ),
+                "best_splat_loss": (
+                    (tuning_state.get("best_splat") or {}).get("loss")
+                    if isinstance(tuning_state.get("best_splat"), dict)
+                    else None
+                ),
+                "best_loss_source": "best_splat_update",
+                "best_loss_tracking_start_step": p.get("best_splat_start_step"),
+                "stopped_early": bool(
+                    isinstance(tuning_state.get("early_stop"), dict)
+                    and (tuning_state.get("early_stop") or {}).get("triggered")
+                ),
+                "early_stop_step": (
+                    (tuning_state.get("early_stop") or {}).get("trigger_step")
+                    if isinstance(tuning_state.get("early_stop"), dict)
+                    else None
+                ),
+            },
+            "tuning": {
+                "initial": (eval_history[0].get("tuning_params") if isinstance(eval_history[0], dict) else {}) or {},
+                "final": (final_eval.get("tuning_params") if isinstance(final_eval, dict) else {}) or {},
+                "end_params": (tuning_state.get("last_event") or {}).get("params", {}) if mode == "modified" else {},
+                "end_step": modified_tune_end_step if mode == "modified" else final_eval.get("step"),
+                "runs": metadata.get("tuning_runs") if isinstance(metadata, dict) else None,
+                "history_count": len(list(tuning_state.get("events") or [])),
+                "history": list(tuning_state.get("events") or []),
+                "tune_interval": p.get("tune_interval"),
+                "log_interval": p.get("log_interval"),
+                "runtime_series": runtime_tuning_series,
+            },
+            "major_params": {
+                "max_steps": p.get("max_steps"),
+                "total_steps_completed": final_eval.get("step"),
+                "densify_from_iter": p.get("densify_from_iter"),
+                "densify_until_iter": p.get("densify_until_iter"),
+                "densification_interval": p.get("densification_interval"),
+                "eval_interval": p.get("eval_interval"),
+                "save_interval": p.get("save_interval"),
+                "splat_export_interval": p.get("splat_export_interval"),
+                "best_splat_interval": p.get("best_splat_interval"),
+                "best_splat_start_step": p.get("best_splat_start_step"),
+                "auto_early_stop": p.get("auto_early_stop"),
+                "early_stop_monitor_interval": p.get("early_stop_monitor_interval"),
+                "early_stop_decision_points": p.get("early_stop_decision_points"),
+                "early_stop_min_eval_points": p.get("early_stop_min_eval_points"),
+                "early_stop_min_step_ratio": p.get("early_stop_min_step_ratio"),
+                "early_stop_monitor_min_relative_improvement": p.get("early_stop_monitor_min_relative_improvement"),
+                "early_stop_eval_min_relative_improvement": p.get("early_stop_eval_min_relative_improvement"),
+                "early_stop_max_volatility_ratio": p.get("early_stop_max_volatility_ratio"),
+                "early_stop_ema_alpha": p.get("early_stop_ema_alpha"),
+                "batch_size": p.get("batch_size"),
+            },
+            "loss_milestones": loss_milestones,
+            "log_loss_series": log_loss_series,
+            "log_time_series": log_time_series,
+            "eval_series": eval_series,
+            "eval_time_series": eval_time_series,
+            "eval_psnr_series": eval_psnr_series,
+            "eval_ssim_series": eval_ssim_series,
+            "eval_lpips_series": eval_lpips_series,
+            "preview_url": None,
+            "eval_points": len(eval_history),
+            "early_stop": tuning_state.get("early_stop") if isinstance(tuning_state.get("early_stop"), dict) else None,
+        }
+
+        input_mode_insights = None
+        # learning_param_rows, run_jitter_only, and final_multiplier_formula are already defined earlier (after Config creation)
+        if isinstance(preset_summary, dict) and bool(preset_summary.get("applied")):
+            transition = input_mode_learning_payload.get("transition") if isinstance(input_mode_learning_payload, dict) and isinstance(input_mode_learning_payload.get("transition"), dict) else {}
+            outcomes = transition.get("outcomes") if isinstance(transition, dict) and isinstance(transition.get("outcomes"), dict) else {}
+            baseline_comparison = transition.get("baseline_comparison") if isinstance(transition, dict) and isinstance(transition.get("baseline_comparison"), dict) else {}
+            score_signal = None
+            if isinstance(input_mode_learning_payload, dict):
+                score_signal = input_mode_learning_payload.get("relative_quality_score")
+                if score_signal is None:
+                    score_signal = input_mode_learning_payload.get("relative_score")
+                if score_signal is None:
+                    score_signal = input_mode_learning_payload.get("reward_signal")
+
+            input_mode_insights = {
+                "ai_input_mode": str((preset_summary or {}).get("mode") or "") or None,
+                "baseline_session_id": str(p.get("baseline_session_id") or "").strip() or None,
+                "model_id": str(p.get("test_model_id") or "").strip() or None,
+                "selected_preset": (
+                    input_mode_learning_payload.get("selected_preset")
+                    if isinstance(input_mode_learning_payload, dict)
+                    else str((preset_summary or {}).get("selected_preset") or "") or None
+                ),
+                "heuristic_preset": str((preset_summary or {}).get("heuristic_preset") or "") or None,
+                "cache_used": bool((preset_summary or {}).get("cache_used")) if (preset_summary or {}).get("cache_used") is not None else None,
+                "relative_quality_score": score_signal,
+                "score_positive": (
+                    bool(score_signal > 0.0)
+                    if isinstance(score_signal, (int, float))
+                    else None
+                ),
+                "score_label": (
+                    "positive_improvement"
+                    if isinstance(score_signal, (int, float)) and score_signal > 0.0
+                    else ("penalized_or_neutral" if isinstance(score_signal, (int, float)) else "unknown")
+                ),
+                "score_mode": str((preset_summary or {}).get("mode") or "") or None,
+                "score_preset": (
+                    input_mode_learning_payload.get("selected_preset")
+                    if isinstance(input_mode_learning_payload, dict)
+                    else str((preset_summary or {}).get("selected_preset") or "") or None
+                ),
+                "feature_source": "runtime",
+                "initial_params": captured_applied_params,
+                "feature_details": dict((preset_summary or {}).get("features") or {}),
+                "selected_multipliers": dict((preset_summary or {}).get("selected_multipliers") or (preset_summary or {}).get("yhat_scores") or {}),
+                "selected_multipliers_raw": dict((preset_summary or {}).get("selected_multipliers_raw") or {}),
+                "selected_log_multipliers": dict((preset_summary or {}).get("selected_log_multipliers") or {}),
+                "selected_log_multipliers_raw": dict((preset_summary or {}).get("selected_log_multipliers_raw") or {}),
+                # Per-group log-space multipliers for data collection runs (4.X.2)
+                "group_multipliers": dict((preset_summary or {}).get("group_multipliers") or {}),
+                "final_multiplier_formula": final_multiplier_formula,
+                "learn_snapshot": {
+                    "s_best": input_mode_learning_payload.get("s_best") if isinstance(input_mode_learning_payload, dict) else None,
+                    "s_end": input_mode_learning_payload.get("s_end") if isinstance(input_mode_learning_payload, dict) else None,
+                    "s_run": input_mode_learning_payload.get("s_run") if isinstance(input_mode_learning_payload, dict) else None,
+                    "t_best": input_mode_learning_payload.get("t_best") if isinstance(input_mode_learning_payload, dict) else None,
+                    "t_eval_best": input_mode_learning_payload.get("t_eval_best") if isinstance(input_mode_learning_payload, dict) else None,
+                    "t_end": input_mode_learning_payload.get("t_end") if isinstance(input_mode_learning_payload, dict) else None,
+                    "best_anchor": outcomes.get("best_anchor") if isinstance(outcomes, dict) else None,
+                    "end_anchor": outcomes.get("end_anchor") if isinstance(outcomes, dict) else None,
+                    "baseline_comparison": baseline_comparison if isinstance(baseline_comparison, dict) else None,
+                },
+            }
+
+        analytics_payload = {
+            "schema": "run_analytics_v1",
+            "version": 1,
+            "generated_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "project_id": project_id,
+            "run_id": run_id_value,
+            "run_name": run_name,
+            "engine": "gsplat",
+            "mode": mode,
+            # Persist dense training loss samples so downstream runs can compute
+            # accurate AUC_baseline from the full training trajectory.
+            "loss_by_step": {str(k): float(v) for k, v in loss_by_step_num.items()},
+            "summary": summary_payload,
+            "ai": {
+                "input_mode_learning": input_mode_learning_payload if isinstance(input_mode_learning_payload, dict) else None,
+                "input_mode_insights": input_mode_insights,
+                "learning_param_rows": learning_param_rows,
+                "controller": {
+                    "history_count": len(runtime_tuning_series),
+                    "runtime_series": runtime_tuning_series,
+                },
+            },
+        }
+
+        if not isinstance(input_mode_learning_payload, dict) and (learning_param_rows or input_mode_insights is not None):
+            selected_multipliers = dict((preset_summary or {}).get("selected_multipliers") or (preset_summary or {}).get("yhat_scores") or {})
+            final_learning_payload = {
+                "selected_preset": str((preset_summary or {}).get("selected_preset") or "") or None,
+                "relative_quality_score": None,
+                "updated": False,
+                "run_jitter_only": run_jitter_only,
+                "final_multiplier_formula": final_multiplier_formula,
+                "learned_input_params_source": "run_end_fallback",
+                "learned_input_params_status": "run_end_fallback",
+                "yhat_scores": selected_multipliers,
+                "selected_multipliers": selected_multipliers,
+                "selected_multipliers_raw": dict((preset_summary or {}).get("selected_multipliers_raw") or {}),
+                "selected_log_multipliers": dict((preset_summary or {}).get("selected_log_multipliers") or {}),
+                "selected_log_multipliers_raw": dict((preset_summary or {}).get("selected_log_multipliers_raw") or {}),
+                "learning_param_rows": learning_param_rows,
+            }
+            input_mode_learning_payload = final_learning_payload
+            write_json_atomic(engine_output_dir / "input_mode_learning_results.json", final_learning_payload)
+            analytics_payload["ai"]["input_mode_learning"] = final_learning_payload
+
+        run_artifact_root = project_dir
+        if configured_run_id:
+            candidate_run_root = project_dir / "runs" / configured_run_id
+            if candidate_run_root.exists():
+                run_artifact_root = candidate_run_root
+
+        analytics_dir = run_artifact_root / "analytics"
+        analytics_dir.mkdir(parents=True, exist_ok=True)
+        write_json_atomic(analytics_dir / "run_analytics_v1.json", analytics_payload)
+
+    # Persist durable training timing into metadata.json so total elapsed survives log rotation.
+    training_time_payload = {
+        "start_unix": float(gsplat_start),
+        "end_unix": float(gsplat_end),
+        "total_elapsed_seconds": max(0.0, float(gsplat_end - gsplat_start)),
+        "start_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(gsplat_start)),
+        "end_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(gsplat_end)),
+    }
+    metadata_path = engine_output_dir / "metadata.json"
+    metadata_timing = {}
+    if metadata_path.exists():
+        try:
+            with open(metadata_path, "r", encoding="utf-8") as handle:
+                metadata_timing = json.load(handle)
+        except Exception:
+            metadata_timing = {}
+    if not isinstance(metadata_timing, dict):
+        metadata_timing = {}
+    metadata_timing["training_time"] = training_time_payload
+    metadata_timing["total_time_seconds"] = float(training_time_payload["total_elapsed_seconds"])
+    write_json_atomic(metadata_path, metadata_timing)
+
+    if stop_flag.exists():
+        stop_flag.unlink()
+
+    return None

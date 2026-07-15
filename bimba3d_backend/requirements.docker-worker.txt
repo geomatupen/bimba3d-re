@@ -1,0 +1,19 @@
+# Python dependencies for the Docker worker runtime.
+# NOTE:
+# - torch/torchvision/torchaudio are installed in Dockerfile.worker via compatibility matrix profile.
+# - gsplat is installed conditionally in Dockerfile.worker via compatibility profile.
+
+numpy<2
+pillow
+tqdm
+imageio
+opencv-python
+pycolmap
+piexif
+scikit-learn
+scipy
+matplotlib
+pyyaml
+torchmetrics
+tensorboard
+tyro

@@ -1,0 +1,113 @@
+Windows gsplat CUDA Setup (Verified Working)
+
+Worked versions
+- Visual Studio Build Tools 2022 (v17)
+- CUDA Toolkit 12.5
+- Python 64-bit (x64) for venv creation
+
+Download links
+- Visual Studio Build Tools 2022 (v17): https://aka.ms/vs/17/release/vs_BuildTools.exe
+- CUDA Toolkit 12.5 archive page: https://developer.nvidia.com/cuda-toolkit-archive
+- COLMAP releases (download Windows CUDA build): https://github.com/colmap/colmap/releases
+
+COLMAP with CUDA (Windows)
+1) Download a Windows CUDA-enabled COLMAP package from releases and extract it.
+  Example extract path:
+  D:\colmap\COLMAP-3.9.1-windows-cuda
+
+2) Use COLMAP.bat (recommended on Windows):
+  set COLMAP_EXE=D:\colmap\COLMAP-3.9.1-windows-cuda\COLMAP.bat
+
+3) Verify COLMAP works:
+  %COLMAP_EXE% -h
+  %COLMAP_EXE% feature_extractor -h
+
+4) (Optional) If you want plain `colmap` command to work too, add the COLMAP folder to PATH.
+
+Note:
+- If `colmap.exe` behaves oddly on Windows, keep using `COLMAP.bat` via `COLMAP_EXE`.
+
+Important
+- Use x64 compiler environment before building gsplat.
+- Python must be 64-bit (x64). 32-bit Python will fail for CUDA builds.
+- In this setup, venv is created with `C:\Anaconda\python.exe`, which must be x64.
+- Do NOT use `py -m venv` here.
+
+Python architecture check (run before creating venv)
+python -c "import platform,sys; print(platform.architecture()[0], sys.maxsize > 2**32)"
+
+Expected:
+- `64bit True`
+
+Option A (recommended):
+- Open `x64 Native Tools Command Prompt for VS 2022`
+
+Option B (if using normal cmd):
+- Run:
+  call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" amd64
+
+Installed app behavior (Windows)
+- The packaged launcher now auto-attempts x64 toolchain activation before gsplat build:
+  - `vcvarsall.bat amd64` (preferred), or
+  - `VsDevCmd.bat -arch=x64 -host_arch=x64`
+- This means you should not need to manually switch from 32-bit to x64 every run for installed-app bootstrap.
+- If Build Tools scripts are missing, gsplat install will fail and status will show guidance links.
+
+Then run these steps:
+
+1) Go to project
+cd C:\Users\ROG\Documents\bimba3d\bimba3d
+
+2) Remove old venv
+rmdir /s /q .venv
+
+3) Create venv with Anaconda Python
+C:\Anaconda\python.exe -m venv .venv
+
+4) Activate venv
+.venv\Scripts\activate
+
+5) Upgrade tooling
+python -m pip install --upgrade pip setuptools wheel
+
+6) Install pinned CUDA PyTorch stack + ninja
+pip install --index-url https://download.pytorch.org/whl/cu121 torch==2.5.1+cu121 torchvision==0.20.1+cu121 torchaudio==2.5.1+cu121
+pip install --force-reinstall ninja
+
+7) Set env vars (every new terminal session before build/install)
+set CUDA_HOME=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.5
+set CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.5
+set DISTUTILS_USE_SDK=1
+set PATH=%CUDA_PATH%\bin;%CUDA_PATH%\libnvvp;%PATH%
+
+8) Install gsplat from source (without changing torch deps)
+pip install --force-reinstall --no-deps --no-cache-dir --no-binary=gsplat gsplat==1.5.3 --no-build-isolation -v
+
+8.1) Install remaining backend dependencies (without reinstalling torch/gsplat)
+python -m pip install -r bimba3d_backend\requirements.windows.txt
+
+9) Verify
+python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available(), torch.cuda.device_count())"
+python -c "import gsplat.cuda._wrapper as w; w._make_lazy_cuda_obj('CameraModelType'); print('gsplat lazy CUDA ok:', True)"
+
+Quick x64 check (optional but recommended)
+where cl
+cl
+
+Expected:
+- `where cl` path contains `Hostx64\x64`
+- `cl` output says `for x64`
+
+Run backend on Windows (uvicorn)
+
+From project root:
+ .venv\Scripts\activate
+python -m uvicorn bimba3d_backend.app.main:app --reload --port 8005
+
+Or from backend folder:
+cd bimba3d-backend
+ .venv\Scripts\activate
+python -m uvicorn app.main:app --reload --port 8005
+
+Open in browser:
+http://127.0.0.1:8005/docs

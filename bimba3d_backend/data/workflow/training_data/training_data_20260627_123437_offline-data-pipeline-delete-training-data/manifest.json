@@ -1,0 +1,20 @@
+{
+  "training_data_id": "training_data_20260627_123437_offline-data-pipeline-delete-training-data",
+  "name": "offline-data-pipeline-delete Training Data",
+  "status": "ready",
+  "source_pipeline_id": "pipeline_748726953004",
+  "dataset_version": "c1e9a031aae248049962a4f144642c3b",
+  "feature_schema": "mode3_exif_flight_scene_v1",
+  "multiplier_schema": "geometry_appearance_densification_v1",
+  "row_count": 5,
+  "schema_valid": true,
+  "rows_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\training_data\\training_data_20260627_123437_offline-data-pipeline-delete-training-data\\rows.json",
+  "manifest_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\training_data\\training_data_20260627_123437_offline-data-pipeline-delete-training-data\\manifest.json",
+  "created_at": "2026-06-27T12:34:37.868366Z",
+  "last_built_at": "2026-07-13T08:32:01.272899Z",
+  "errors": [],
+  "build_options": {},
+  "build_summary": {
+    "removed_missing_x_feature_flags": 65
+  }
+}

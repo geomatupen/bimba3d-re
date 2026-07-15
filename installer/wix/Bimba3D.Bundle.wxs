@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+    xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal"
+    xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <Bundle
+      Name="Bimba3D"
+      Version="1.0.11.0"
+      Manufacturer="Bimba3D"
+      UpgradeCode="2CBDBF2C-F413-4E26-969A-788991D4A82B"
+      IconSourceFile="assets\Bimba3D.ico"
+      Compressed="yes"
+      DisableModify="yes"
+      DisableRemove="no">
+
+    <BootstrapperApplication>
+      <bal:WixStandardBootstrapperApplication
+                    Theme="hyperlinkSidebarLicense"
+                        LogoFile="assets\Bimba3D-setup-small-logo.png"
+                        LogoSideFile="assets\Bimba3D-setup-side-logo.png"
+            LicenseUrl="https://github.com/geomatupen/bimba3d/blob/main/installer/wix/EULA.md"
+                    SuppressOptionsUI="no" />
+    </BootstrapperApplication>
+
+    <Variable Name="Bimba3DInstallDir" Type="string" Value="[ProgramFiles64Folder]Bimba3D" />
+    <Variable Name="LogRoot" Type="string" Value="[ProgramDataFolder]Bimba3D\\Logs" />
+    <Variable Name="ColmapInstallDir" Type="string" Value="C:\\ProgramData\\Bimba3D\\third_party\\colmap" />
+    <Variable Name="CudaInstallDir" Type="string" Value="C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.5" />
+    <Variable Name="PythonInstallDir" Type="string" Value="C:\\Program Files\\Python312" />
+    <Variable Name="ColmapVersion" Type="string" Value="4.0.1" />
+
+    <util:RegistrySearch
+        Id="SearchVCRedistInstalled"
+        Root="HKLM"
+        Key="SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64"
+        Value="Installed"
+        Variable="VCREDIST_X64_INSTALLED"
+        Result="value" />
+
+    <util:RegistrySearch
+        Id="SearchBuildToolsPath"
+        Root="HKLM"
+        Key="SOFTWARE\Microsoft\VisualStudio\Setup\Instances\BuildTools_17"
+        Value="InstallationPath"
+        Variable="VSBT_17_PATH"
+        Result="value" />
+
+    <util:RegistrySearch
+        Id="SearchVs2022SxS"
+        Root="HKLM"
+        Key="SOFTWARE\Microsoft\VisualStudio\SxS\VS7"
+        Value="17.0"
+        Variable="VS2022_SXS_PATH"
+        Result="value" />
+
+    <util:FileSearch
+        Id="SearchCudaNvcc"
+        Path="[CudaInstallDir]\bin\nvcc.exe"
+        Variable="CUDA_NVCC_PATH"
+        Result="exists" />
+
+    <util:RegistrySearch Id="SearchCudaV128" Root="HKLM" Key="SOFTWARE\NVIDIA Corporation\GPU Computing Toolkit\CUDA\v12.8" Value="InstallDir" Variable="CUDA_V128_DIR" Result="value" />
+    <util:RegistrySearch Id="SearchCudaV127" Root="HKLM" Key="SOFTWARE\NVIDIA Corporation\GPU Computing Toolkit\CUDA\v12.7" Value="InstallDir" Variable="CUDA_V127_DIR" Result="value" />
+    <util:RegistrySearch Id="SearchCudaV126" Root="HKLM" Key="SOFTWARE\NVIDIA Corporation\GPU Computing Toolkit\CUDA\v12.6" Value="InstallDir" Variable="CUDA_V126_DIR" Result="value" />
+    <util:RegistrySearch Id="SearchCudaV125" Root="HKLM" Key="SOFTWARE\NVIDIA Corporation\GPU Computing Toolkit\CUDA\v12.5" Value="InstallDir" Variable="CUDA_V125_DIR" Result="value" />
+    <util:RegistrySearch Id="SearchCudaV124" Root="HKLM" Key="SOFTWARE\NVIDIA Corporation\GPU Computing Toolkit\CUDA\v12.4" Value="InstallDir" Variable="CUDA_V124_DIR" Result="value" />
+    <util:RegistrySearch Id="SearchCudaV123" Root="HKLM" Key="SOFTWARE\NVIDIA Corporation\GPU Computing Toolkit\CUDA\v12.3" Value="InstallDir" Variable="CUDA_V123_DIR" Result="value" />
+    <util:RegistrySearch Id="SearchCudaV122" Root="HKLM" Key="SOFTWARE\NVIDIA Corporation\GPU Computing Toolkit\CUDA\v12.2" Value="InstallDir" Variable="CUDA_V122_DIR" Result="value" />
+    <util:RegistrySearch Id="SearchCudaV121" Root="HKLM" Key="SOFTWARE\NVIDIA Corporation\GPU Computing Toolkit\CUDA\v12.1" Value="InstallDir" Variable="CUDA_V121_DIR" Result="value" />
+    <util:RegistrySearch Id="SearchCudaV120" Root="HKLM" Key="SOFTWARE\NVIDIA Corporation\GPU Computing Toolkit\CUDA\v12.0" Value="InstallDir" Variable="CUDA_V120_DIR" Result="value" />
+    <util:RegistrySearch Id="SearchCudaV119" Root="HKLM" Key="SOFTWARE\NVIDIA Corporation\GPU Computing Toolkit\CUDA\v11.9" Value="InstallDir" Variable="CUDA_V119_DIR" Result="value" />
+    <util:RegistrySearch Id="SearchCudaV118" Root="HKLM" Key="SOFTWARE\NVIDIA Corporation\GPU Computing Toolkit\CUDA\v11.8" Value="InstallDir" Variable="CUDA_V118_DIR" Result="value" />
+    <util:RegistrySearch Id="SearchCudaV117" Root="HKLM" Key="SOFTWARE\NVIDIA Corporation\GPU Computing Toolkit\CUDA\v11.7" Value="InstallDir" Variable="CUDA_V117_DIR" Result="value" />
+    <util:RegistrySearch Id="SearchCudaV116" Root="HKLM" Key="SOFTWARE\NVIDIA Corporation\GPU Computing Toolkit\CUDA\v11.6" Value="InstallDir" Variable="CUDA_V116_DIR" Result="value" />
+    <util:RegistrySearch Id="SearchCudaV115" Root="HKLM" Key="SOFTWARE\NVIDIA Corporation\GPU Computing Toolkit\CUDA\v11.5" Value="InstallDir" Variable="CUDA_V115_DIR" Result="value" />
+    <util:RegistrySearch Id="SearchCudaV114" Root="HKLM" Key="SOFTWARE\NVIDIA Corporation\GPU Computing Toolkit\CUDA\v11.4" Value="InstallDir" Variable="CUDA_V114_DIR" Result="value" />
+    <util:RegistrySearch Id="SearchCudaV113" Root="HKLM" Key="SOFTWARE\NVIDIA Corporation\GPU Computing Toolkit\CUDA\v11.3" Value="InstallDir" Variable="CUDA_V113_DIR" Result="value" />
+    <util:RegistrySearch Id="SearchCudaV112" Root="HKLM" Key="SOFTWARE\NVIDIA Corporation\GPU Computing Toolkit\CUDA\v11.2" Value="InstallDir" Variable="CUDA_V112_DIR" Result="value" />
+    <util:RegistrySearch Id="SearchCudaV111" Root="HKLM" Key="SOFTWARE\NVIDIA Corporation\GPU Computing Toolkit\CUDA\v11.1" Value="InstallDir" Variable="CUDA_V111_DIR" Result="value" />
+    <util:RegistrySearch Id="SearchCudaV110" Root="HKLM" Key="SOFTWARE\NVIDIA Corporation\GPU Computing Toolkit\CUDA\v11.0" Value="InstallDir" Variable="CUDA_V110_DIR" Result="value" />
+       <util:FileSearch
+           Id="SearchPythonX64"
+           Path="[PythonInstallDir]\python.exe"
+           Variable="PYTHON_X64_EXISTS"
+           Result="exists" />
+
+    <util:FileSearch
+        Id="SearchColmapBat"
+        Path="[ColmapInstallDir]\COLMAP.bat"
+        Variable="COLMAP_BAT_EXISTS"
+        Result="exists" />
+
+    <Chain>
+      <ExePackage
+          Id="Bimba3DPrereqCheck"
+          CacheId="Bimba3DPrereqCheck"
+          DisplayName="Bimba3D Prerequisite Check (Build Tools + CUDA)"
+          SourceFile="payloads\\run-prereq-check.cmd"
+          DetectCondition="0"
+          InstallCondition="VersionNT64 AND NOT WixBundleInstalled"
+          PerMachine="yes"
+          Vital="yes"
+          Compressed="yes"
+          Permanent="yes">
+        <Payload SourceFile="payloads\\prereq-check.ps1" />
+                <Payload SourceFile="payloads\compatibility-resolver.ps1" Name="compatibility-resolver-prereq.ps1" />
+        <Payload SourceFile="payloads\\compatibility-matrix-prereq.json" />
+      </ExePackage>
+
+      <ExePackage
+          Id="Python312X64"
+          DisplayName="Python 3.12 (x64)"
+          SourceFile="payloads\\python-3.12.8-amd64.exe"
+          InstallArguments="/quiet InstallAllUsers=1 PrependPath=1 Include_pip=1 Include_test=0 Include_tcltk=0 Include_doc=0 Include_launcher=1 Shortcuts=0 TargetDir=&quot;[PythonInstallDir]&quot;"
+          DetectCondition="PYTHON_X64_EXISTS"
+          PerMachine="yes"
+          Vital="yes"
+          Compressed="yes"
+          Permanent="yes" />
+
+      <ExePackage
+          Id="VcRedistX64"
+          DisplayName="Microsoft Visual C++ Runtime (x64)"
+          SourceFile="payloads\\vc_redist.x64.exe"
+          InstallArguments="/install /quiet /norestart"
+          RepairArguments="/repair /quiet /norestart"
+          DetectCondition="VCREDIST_X64_INSTALLED = 1"
+          PerMachine="yes"
+          Vital="yes"
+          Compressed="yes"
+          Permanent="yes" />
+
+      <!-- COLMAP zip extracted by helper package/script -->
+      <ExePackage
+          Id="ColmapInstall"
+          DisplayName="COLMAP [ColmapVersion]"
+          SourceFile="payloads\\install-colmap.cmd"
+          InstallArguments="&quot;[ColmapInstallDir]&quot; &quot;[WixBundleExecutePackageCacheFolder]colmap-x64-windows-cuda.zip&quot; &quot;[WixBundleExecutePackageCacheFolder]colmap-x64-windows-nocuda.zip&quot; &quot;[WixBundleLog_ColmapInstall]&quot;"
+          DetectCondition="COLMAP_BAT_EXISTS"
+          InstallCondition="VersionNT64"
+          PerMachine="yes"
+          Vital="no"
+          Compressed="yes"
+          Permanent="yes">
+        <Payload SourceFile="payloads\\install-colmap.ps1" />
+                <Payload SourceFile="payloads\\compatibility-resolver.ps1" Name="compatibility-resolver-colmap.ps1" />
+        <Payload SourceFile="payloads\\compatibility-matrix-colmap.json" />
+        <Payload SourceFile="payloads\\colmap-x64-windows-cuda.zip" />
+        <Payload SourceFile="payloads\\colmap-x64-windows-nocuda.zip" />
+      </ExePackage>
+
+      <!-- Bimba3D app payload -->
+      <MsiPackage
+          Id="Bimba3DApp"
+          DisplayName="Bimba3D"
+          SourceFile="payloads\\Bimba3D.msi"
+          InstallCondition="VersionNT64"
+          Vital="yes"
+          Compressed="yes" />
+
+      <ExePackage
+          Id="Bimba3DRuntimePrepare"
+          CacheId="Bimba3DRuntimePrepare"
+          DisplayName="Bimba3D Runtime: Create Python environment"
+          SourceFile="payloads\\run-runtime-bootstrap-prepare.cmd"
+                    DetectCondition="0"
+          InstallCondition="VersionNT64 AND NOT WixBundleInstalled"
+          PerMachine="yes"
+          Vital="yes"
+          Compressed="yes"
+          Permanent="yes">
+        <Payload SourceFile="payloads\\runtime-bootstrap.ps1" />
+                <Payload SourceFile="payloads\\compatibility-resolver.ps1" Name="compatibility-resolver-runtime.ps1" />
+        <Payload SourceFile="payloads\\compatibility-matrix-runtime.json" />
+      </ExePackage>
+
+      <ExePackage
+          Id="Bimba3DRuntimeTorch"
+          CacheId="Bimba3DRuntimeTorch"
+          DisplayName="Bimba3D Runtime: Install torch"
+          SourceFile="payloads\\run-runtime-bootstrap-torch.cmd"
+          DetectCondition="0"
+          InstallCondition="VersionNT64 AND NOT WixBundleInstalled"
+          PerMachine="yes"
+          Vital="yes"
+          Compressed="yes"
+          Permanent="yes" />
+
+      <ExePackage
+          Id="Bimba3DRuntimeGsplat"
+          CacheId="Bimba3DRuntimeGsplat"
+          DisplayName="Bimba3D Runtime: Build gsplat"
+          SourceFile="payloads\\run-runtime-bootstrap-gsplat.cmd"
+          DetectCondition="0"
+          InstallCondition="VersionNT64 AND NOT WixBundleInstalled"
+          PerMachine="yes"
+          Vital="yes"
+          Compressed="yes"
+          Permanent="yes" />
+
+      <ExePackage
+          Id="Bimba3DRuntimeRequirements"
+          CacheId="Bimba3DRuntimeRequirements"
+          DisplayName="Bimba3D Runtime: Install backend packages"
+          SourceFile="payloads\\run-runtime-bootstrap-requirements.cmd"
+          DetectCondition="0"
+          InstallCondition="VersionNT64 AND NOT WixBundleInstalled"
+          PerMachine="yes"
+          Vital="yes"
+          Compressed="yes"
+          Permanent="yes" />
+
+    </Chain>
+
+  </Bundle>
+</Wix>

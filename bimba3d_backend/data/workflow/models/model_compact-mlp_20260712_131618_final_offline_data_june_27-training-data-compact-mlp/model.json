@@ -1,0 +1,55 @@
+{
+  "model_id": "model_compact-mlp_20260712_131618_final_offline_data_june_27-training-data-compact-mlp",
+  "model_name": "Final_offline_data_June_27 Training Data - Compact MLP",
+  "model_family": "compact_featurewise_mlp",
+  "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
+  "source_pipeline_id": "pipeline_55776ebd244e",
+  "artifact_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_compact-mlp_20260712_131618_final_offline_data_june_27-training-data-compact-mlp\\compact_featurewise_mlp\\compact_featurewise_20260712_151631.pt",
+  "metadata_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_compact-mlp_20260712_131618_final_offline_data_june_27-training-data-compact-mlp\\compact_featurewise_mlp\\compact_featurewise_20260712_151631_metadata.json",
+  "training_report_path": null,
+  "trained_at": "2026-07-12T13:16:31.282629Z",
+  "training_samples": 653,
+  "model_evaluation_step": 5000,
+  "metrics": {
+    "best_val_loss": 0.0026797098107635975,
+    "final_train_loss": 0.0031071435660123825,
+    "final_val_loss": 0.002676836447790265,
+    "epochs_trained": 395,
+    "max_epochs": 1000,
+    "best_epoch": 345,
+    "early_stopping_patience": 50,
+    "total_parameters": 913,
+    "learning_rate": 0.001,
+    "weight_decay": 0.001,
+    "hidden": 16,
+    "dropout": 0.2
+  },
+  "config": {
+    "candidate_points": 21,
+    "hidden": 16,
+    "dropout": 0.2,
+    "learning_rate": 0.001,
+    "weight_decay": 0.001,
+    "max_epochs": 1000,
+    "early_stopping_patience": 50,
+    "model_evaluation_step": 5000,
+    "score_reference_step": 5000,
+    "log_multiplier_bounds": {
+      "geometry_lr": [
+        0.2,
+        5.0
+      ],
+      "appearance_lr": [
+        0.2,
+        5.0
+      ],
+      "scale_lr": [
+        0.7,
+        1.43
+      ]
+    },
+    "log_multiplier_bounds_source": "source_offline_data_pipeline",
+    "include_phases": null,
+    "include_run_ids": null
+  }
+}

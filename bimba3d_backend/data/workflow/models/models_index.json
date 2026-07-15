@@ -1,0 +1,565 @@
+[
+  {
+    "model_id": "model_compact-mlp_20260713_095531_final_compact_mlp_with_hard_cap_data_july13",
+    "model_name": "Final_compact_mlp_with_hard_cap_data_July13",
+    "model_family": "compact_featurewise_mlp",
+    "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
+    "source_pipeline_id": "pipeline_55776ebd244e",
+    "artifact_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_compact-mlp_20260713_095531_final_compact_mlp_with_hard_cap_data_july13\\compact_featurewise_mlp\\compact_featurewise_20260713_115539.pt",
+    "metadata_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_compact-mlp_20260713_095531_final_compact_mlp_with_hard_cap_data_july13\\compact_featurewise_mlp\\compact_featurewise_20260713_115539_metadata.json",
+    "training_report_path": null,
+    "trained_at": "2026-07-13T09:55:39.320280Z",
+    "training_samples": 697,
+    "model_evaluation_step": 5000,
+    "metrics": {
+      "best_val_loss": 0.00857463013380766,
+      "final_train_loss": 0.010347841307520866,
+      "final_val_loss": 0.008613747544586658,
+      "epochs_trained": 714,
+      "max_epochs": 1000,
+      "best_epoch": 664,
+      "early_stopping_patience": 50,
+      "total_parameters": 913,
+      "learning_rate": 0.001,
+      "weight_decay": 0.001,
+      "hidden": 16,
+      "dropout": 0.2,
+      "training_log": [
+        {
+          "level": "info",
+          "message": "Loaded 697 rows from Training Data."
+        },
+        {
+          "level": "info",
+          "message": "Using 697 non-baseline rows after phase/run filters."
+        },
+        {
+          "level": "info",
+          "message": "Prepared model artifact folder: model_compact-mlp_20260713_095531_final_compact_mlp_with_hard_cap_data_july13."
+        },
+        {
+          "level": "info",
+          "message": "Validated one model evaluation step: 5000."
+        },
+        {
+          "level": "info",
+          "message": "Loaded multiplier bounds from source_offline_data_pipeline."
+        },
+        {
+          "level": "info",
+          "message": "Prepared 697 compact MLP score rows."
+        },
+        {
+          "level": "info",
+          "message": "Started compact MLP optimizer with train/validation split and early stopping."
+        },
+        {
+          "level": "info",
+          "message": "Split data into 557 training rows and 140 validation rows."
+        },
+        {
+          "level": "info",
+          "message": "Built compact MLP network: input_dim=47, hidden=16."
+        },
+        {
+          "level": "success",
+          "message": "Finished 714/1000 epochs; best epoch 664; best validation loss 0.008575."
+        },
+        {
+          "level": "info",
+          "message": "Final train loss 0.010348; final validation loss 0.008614."
+        },
+        {
+          "level": "info",
+          "message": "Optimizer config: lr=0.001, weight_decay=0.001, dropout=0.2, parameters=913."
+        },
+        {
+          "level": "info",
+          "message": "Saved compact MLP checkpoint and metadata."
+        }
+      ]
+    },
+    "config": {
+      "candidate_points": 21,
+      "hidden": 16,
+      "dropout": 0.2,
+      "learning_rate": 0.001,
+      "weight_decay": 0.001,
+      "max_epochs": 1000,
+      "early_stopping_patience": 50,
+      "model_evaluation_step": 5000,
+      "score_reference_step": 5000,
+      "log_multiplier_bounds": {
+        "geometry_lr": [
+          0.2,
+          5.0
+        ],
+        "appearance_lr": [
+          0.2,
+          5.0
+        ],
+        "scale_lr": [
+          0.7,
+          1.43
+        ]
+      },
+      "log_multiplier_bounds_source": "source_offline_data_pipeline",
+      "include_phases": null,
+      "include_run_ids": null
+    }
+  },
+  {
+    "model_id": "model_compact-ridge_20260713_095334_final_compact_ridge_with_hard_cap_data_july13",
+    "model_name": "Final_compact_ridge_with_hard_cap_data_July13",
+    "model_family": "compact_featurewise_ridge_regression",
+    "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
+    "source_pipeline_id": "pipeline_55776ebd244e",
+    "artifact_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_compact-ridge_20260713_095334_final_compact_ridge_with_hard_cap_data_july13\\compact_featurewise_ridge_model.json",
+    "metadata_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_compact-ridge_20260713_095334_final_compact_ridge_with_hard_cap_data_july13\\compact_featurewise_ridge_metadata.json",
+    "training_report_path": null,
+    "trained_at": "2026-07-13T09:53:37.235135Z",
+    "training_samples": 697,
+    "model_evaluation_step": 5000,
+    "metrics": {
+      "lambda_selected": 0.1,
+      "selected_lambda": 0.1,
+      "train_fit_metrics": {
+        "mse": 0.010969106726507758,
+        "rmse": 0.10473350336214175,
+        "mae": 0.06864599154783275,
+        "r_squared": 0.5132167904528764,
+        "samples": 697,
+        "avg_val_mse": 0.010969106726507758
+      },
+      "theta_norm": 0.8084553927062549,
+      "lambda_search": [
+        {
+          "lambda_ridge": 0.1,
+          "avg_val_mse": 0.010969106726507758
+        },
+        {
+          "lambda_ridge": 0.5,
+          "avg_val_mse": 0.011097428031376791
+        },
+        {
+          "lambda_ridge": 1.0,
+          "avg_val_mse": 0.011231131303377417
+        },
+        {
+          "lambda_ridge": 2.0,
+          "avg_val_mse": 0.011397253780451895
+        },
+        {
+          "lambda_ridge": 5.0,
+          "avg_val_mse": 0.011615440504654986
+        },
+        {
+          "lambda_ridge": 10.0,
+          "avg_val_mse": 0.011763052815582872
+        },
+        {
+          "lambda_ridge": 20.0,
+          "avg_val_mse": 0.011896956307798665
+        }
+      ],
+      "candidate_points": 21,
+      "training_log": [
+        {
+          "level": "info",
+          "message": "Loaded 697 rows from Training Data."
+        },
+        {
+          "level": "info",
+          "message": "Using 697 non-baseline rows after phase/run filters."
+        },
+        {
+          "level": "info",
+          "message": "Prepared model artifact folder: model_compact-ridge_20260713_095334_final_compact_ridge_with_hard_cap_data_july13."
+        },
+        {
+          "level": "info",
+          "message": "Validated one model evaluation step: 5000."
+        },
+        {
+          "level": "info",
+          "message": "Loaded multiplier bounds from source_offline_data_pipeline."
+        },
+        {
+          "level": "info",
+          "message": "Prepared 697 compact Ridge score rows."
+        },
+        {
+          "level": "info",
+          "message": "Searching 7 compact Ridge lambda candidates with 21 multiplier candidate points."
+        },
+        {
+          "level": "info",
+          "message": "Lambda 0.1: average validation MSE 0.010969."
+        },
+        {
+          "level": "info",
+          "message": "Lambda 0.5: average validation MSE 0.011097."
+        },
+        {
+          "level": "info",
+          "message": "Lambda 1: average validation MSE 0.011231."
+        },
+        {
+          "level": "info",
+          "message": "Lambda 2: average validation MSE 0.011397."
+        },
+        {
+          "level": "info",
+          "message": "Lambda 5: average validation MSE 0.011615."
+        },
+        {
+          "level": "info",
+          "message": "Lambda 10: average validation MSE 0.011763."
+        },
+        {
+          "level": "info",
+          "message": "Lambda 20: average validation MSE 0.011897."
+        },
+        {
+          "level": "success",
+          "message": "Selected lambda 0.1 with lowest validation MSE."
+        },
+        {
+          "level": "info",
+          "message": "Saved compact Ridge model artifact and metadata."
+        }
+      ]
+    },
+    "config": {
+      "candidate_points": 21,
+      "lambda_selected": 0.1,
+      "lambda_candidates": [
+        0.1,
+        0.5,
+        1.0,
+        2.0,
+        5.0,
+        10.0,
+        20.0
+      ],
+      "lambda_search_count": 7,
+      "model_evaluation_step": 5000,
+      "score_reference_step": 5000,
+      "log_multiplier_bounds": {
+        "geometry_lr": [
+          0.2,
+          5.0
+        ],
+        "appearance_lr": [
+          0.2,
+          5.0
+        ],
+        "scale_lr": [
+          0.7,
+          1.43
+        ]
+      },
+      "log_multiplier_bounds_source": "source_offline_data_pipeline",
+      "include_phases": null,
+      "include_run_ids": null
+    }
+  },
+  {
+    "model_id": "model_compact-mlp_20260712_131618_final_offline_data_june_27-training-data-compact-mlp",
+    "model_name": "Final_offline_data_June_27 Training Data - Compact MLP",
+    "model_family": "compact_featurewise_mlp",
+    "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
+    "source_pipeline_id": "pipeline_55776ebd244e",
+    "artifact_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_compact-mlp_20260712_131618_final_offline_data_june_27-training-data-compact-mlp\\compact_featurewise_mlp\\compact_featurewise_20260712_151631.pt",
+    "metadata_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_compact-mlp_20260712_131618_final_offline_data_june_27-training-data-compact-mlp\\compact_featurewise_mlp\\compact_featurewise_20260712_151631_metadata.json",
+    "training_report_path": null,
+    "trained_at": "2026-07-12T13:16:31.282629Z",
+    "training_samples": 653,
+    "model_evaluation_step": 5000,
+    "metrics": {
+      "best_val_loss": 0.0026797098107635975,
+      "final_train_loss": 0.0031071435660123825,
+      "final_val_loss": 0.002676836447790265,
+      "epochs_trained": 395,
+      "max_epochs": 1000,
+      "best_epoch": 345,
+      "early_stopping_patience": 50,
+      "total_parameters": 913,
+      "learning_rate": 0.001,
+      "weight_decay": 0.001,
+      "hidden": 16,
+      "dropout": 0.2
+    },
+    "config": {
+      "candidate_points": 21,
+      "hidden": 16,
+      "dropout": 0.2,
+      "learning_rate": 0.001,
+      "weight_decay": 0.001,
+      "max_epochs": 1000,
+      "early_stopping_patience": 50,
+      "model_evaluation_step": 5000,
+      "score_reference_step": 5000,
+      "log_multiplier_bounds": {
+        "geometry_lr": [
+          0.2,
+          5.0
+        ],
+        "appearance_lr": [
+          0.2,
+          5.0
+        ],
+        "scale_lr": [
+          0.7,
+          1.43
+        ]
+      },
+      "log_multiplier_bounds_source": "source_offline_data_pipeline",
+      "include_phases": null,
+      "include_run_ids": null
+    }
+  },
+  {
+    "model_id": "model_compact-ridge_20260712_131550_final_offline_data_june_27-training-data-compact-ridge",
+    "model_name": "Final_offline_data_June_27 Training Data - Compact Ridge",
+    "model_family": "compact_featurewise_ridge_regression",
+    "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
+    "source_pipeline_id": "pipeline_55776ebd244e",
+    "artifact_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_compact-ridge_20260712_131550_final_offline_data_june_27-training-data-compact-ridge\\compact_featurewise_ridge_model.json",
+    "metadata_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_compact-ridge_20260712_131550_final_offline_data_june_27-training-data-compact-ridge\\compact_featurewise_ridge_metadata.json",
+    "training_report_path": null,
+    "trained_at": "2026-07-12T13:15:53.103278Z",
+    "training_samples": 653,
+    "model_evaluation_step": 5000,
+    "metrics": {
+      "lambda_selected": 0.1,
+      "selected_lambda": 0.1,
+      "train_fit_metrics": {
+        "mse": 0.00261099533074423,
+        "rmse": 0.05109789947487303,
+        "mae": 0.03157451250794493,
+        "r_squared": 0.7279431890770457,
+        "samples": 653,
+        "avg_val_mse": 0.00261099533074423
+      },
+      "theta_norm": 0.3737086592877393,
+      "lambda_search": [
+        {
+          "lambda_ridge": 0.1,
+          "avg_val_mse": 0.00261099533074423
+        },
+        {
+          "lambda_ridge": 0.5,
+          "avg_val_mse": 0.002640115769737275
+        },
+        {
+          "lambda_ridge": 1.0,
+          "avg_val_mse": 0.002670613556641484
+        },
+        {
+          "lambda_ridge": 2.0,
+          "avg_val_mse": 0.002707159940693178
+        },
+        {
+          "lambda_ridge": 5.0,
+          "avg_val_mse": 0.002751081447621042
+        },
+        {
+          "lambda_ridge": 10.0,
+          "avg_val_mse": 0.0027782481764701073
+        },
+        {
+          "lambda_ridge": 20.0,
+          "avg_val_mse": 0.0028044808563324887
+        }
+      ],
+      "candidate_points": 21
+    },
+    "config": {
+      "candidate_points": 21,
+      "lambda_selected": 0.1,
+      "lambda_candidates": [
+        0.1,
+        0.5,
+        1.0,
+        2.0,
+        5.0,
+        10.0,
+        20.0
+      ],
+      "lambda_search_count": 7,
+      "model_evaluation_step": 5000,
+      "score_reference_step": 5000,
+      "log_multiplier_bounds": {
+        "geometry_lr": [
+          0.2,
+          5.0
+        ],
+        "appearance_lr": [
+          0.2,
+          5.0
+        ],
+        "scale_lr": [
+          0.7,
+          1.43
+        ]
+      },
+      "log_multiplier_bounds_source": "source_offline_data_pipeline",
+      "include_phases": null,
+      "include_run_ids": null
+    }
+  },
+  {
+    "model_id": "model_mlp_20260710_205501_final_offline_data_june_27-training-data-mlp",
+    "model_name": "Final_offline_data_June_27 Training Data - MLP",
+    "model_family": "featurewise_mlp",
+    "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
+    "source_pipeline_id": "pipeline_55776ebd244e",
+    "artifact_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_mlp_20260710_205501_final_offline_data_june_27-training-data-mlp\\featurewise_mlp\\featurewise_20260710_225509.pt",
+    "metadata_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_mlp_20260710_205501_final_offline_data_june_27-training-data-mlp\\featurewise_mlp\\featurewise_20260710_225509_metadata.json",
+    "training_report_path": null,
+    "trained_at": "2026-07-10T20:55:09.412795Z",
+    "training_samples": 653,
+    "model_evaluation_step": 5000,
+    "metrics": {
+      "best_val_loss": 0.006185855716466904,
+      "final_train_loss": 0.006494318600744009,
+      "final_val_loss": 0.006185104604810476,
+      "epochs_trained": 1000,
+      "max_epochs": 1000,
+      "best_epoch": 986,
+      "early_stopping_patience": 50,
+      "total_parameters": 587,
+      "learning_rate": 0.001,
+      "weight_decay": 0.001,
+      "hidden": 8,
+      "dropout": 0.2
+    },
+    "config": {
+      "candidate_points": 21,
+      "hidden": 8,
+      "dropout": 0.2,
+      "learning_rate": 0.001,
+      "weight_decay": 0.001,
+      "max_epochs": 1000,
+      "early_stopping_patience": 50,
+      "model_evaluation_step": 5000,
+      "score_reference_step": 5000,
+      "log_multiplier_bounds": {
+        "geometry_lr": [
+          0.2,
+          5.0
+        ],
+        "appearance_lr": [
+          0.2,
+          5.0
+        ],
+        "scale_lr": [
+          0.7,
+          1.43
+        ]
+      },
+      "log_multiplier_bounds_source": "source_offline_data_pipeline",
+      "include_phases": null,
+      "include_run_ids": null
+    }
+  },
+  {
+    "model_id": "model_ridge_20260710_203218_final_offline_data_june_27-training-data-ridge",
+    "model_name": "Final_offline_data_June_27 Training Data - Ridge",
+    "model_family": "featurewise_ridge_regression",
+    "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
+    "source_pipeline_id": "pipeline_55776ebd244e",
+    "artifact_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_ridge_20260710_203218_final_offline_data_june_27-training-data-ridge\\featurewise_ridge_model.json",
+    "metadata_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_ridge_20260710_203218_final_offline_data_june_27-training-data-ridge\\featurewise_ridge_metadata.json",
+    "training_report_path": null,
+    "trained_at": "2026-07-10T20:32:19.575598Z",
+    "training_samples": 653,
+    "model_evaluation_step": 5000,
+    "metrics": {
+      "lambda_selected": 0.1,
+      "train_fit_metrics": {
+        "geometry_lr_mult": {
+          "mse": 0.003952488130998845,
+          "rmse": 0.06286881684109258,
+          "mae": 0.04228921706890243,
+          "r_squared": 0.5881642132910773,
+          "samples": 653
+        },
+        "appearance_lr_mult": {
+          "mse": 0.0044809328542871635,
+          "rmse": 0.06693977034833003,
+          "mae": 0.05123479497721647,
+          "r_squared": 0.5331020749279634,
+          "samples": 653
+        },
+        "densification_mult": {
+          "mse": 0.0071818360846156734,
+          "rmse": 0.08474571425515082,
+          "mae": 0.06485200969748184,
+          "r_squared": 0.2516771674214321,
+          "samples": 653
+        },
+        "avg_val_mse": 0.005205085689967227
+      },
+      "theta_norms": {
+        "geometry_lr_mult": 0.08676502401158931,
+        "appearance_lr_mult": 0.09828639576545398,
+        "densification_mult": 1.011636261089259
+      },
+      "lambda_search": [
+        {
+          "lambda_ridge": 0.1,
+          "avg_val_mse": 0.005205085689967227
+        },
+        {
+          "lambda_ridge": 0.5,
+          "avg_val_mse": 0.005266632300733722
+        },
+        {
+          "lambda_ridge": 1.0,
+          "avg_val_mse": 0.005354249510492518
+        },
+        {
+          "lambda_ridge": 2.0,
+          "avg_val_mse": 0.005483301420051945
+        },
+        {
+          "lambda_ridge": 5.0,
+          "avg_val_mse": 0.005659607276428669
+        },
+        {
+          "lambda_ridge": 10.0,
+          "avg_val_mse": 0.005760390492208617
+        },
+        {
+          "lambda_ridge": 20.0,
+          "avg_val_mse": 0.005832872773479324
+        }
+      ],
+      "candidate_points": 21
+    },
+    "config": {
+      "candidate_points": 21,
+      "model_evaluation_step": 5000,
+      "score_reference_step": 5000,
+      "log_multiplier_bounds": {
+        "geometry_lr": [
+          0.2,
+          5.0
+        ],
+        "appearance_lr": [
+          0.2,
+          5.0
+        ],
+        "scale_lr": [
+          0.7,
+          1.43
+        ]
+      },
+      "log_multiplier_bounds_source": "source_offline_data_pipeline",
+      "include_phases": null,
+      "include_run_ids": null
+    }
+  }
+]

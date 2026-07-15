@@ -1,0 +1,212 @@
+[
+  {
+    "ai_profile": {
+      "pipeline_kind": "input_mode",
+      "ai_input_mode": "exif_compact_featurewise",
+      "offline_objective": "quality",
+      "ai_selector_strategy": "contextual_continuous",
+      "context_dim": null
+    },
+    "artifact_format": "learner_json",
+    "paths": {
+      "checkpoint": null,
+      "artifact": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260621_110601_new_5_training_june_2-exif_compact_featurewise_quality_exif_compact_featurewise/learner_exif_compact_featurewise.json",
+      "model_dir": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260621_110601_new_5_training_june_2-exif_compact_featurewise_quality_exif_compact_featurewise",
+      "configs_dir": null,
+      "lineage": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260621_110601_new_5_training_june_2-exif_compact_featurewise_quality_exif_compact_featurewise/lineage.json"
+    },
+    "engine": "gsplat",
+    "source": {
+      "project_id": null,
+      "project_name": "Training_June_2",
+      "run_id": null
+    },
+    "provenance_summary": {
+      "contributor_count": 46,
+      "unique_project_count": 46,
+      "project_names": [
+        "1-Montreal-City-Hall",
+        "10_Holy_Ghost_Ukrainian_Church",
+        "11-St-George-Church",
+        "13-Murugan-Temple",
+        "14-Hindu-Mandir",
+        "15-Congregation-Shaar-Hashomayim",
+        "16-Mosque",
+        "17-Shaughnessy-Mansion",
+        "2-Resurrection-Chapel",
+        "3-Maison_Louis-Hippolyte_Lafontaine"
+      ]
+    },
+    "model_name": "New_5_Training_June_2 - exif_compact_featurewise_quality",
+    "model_id": "model_20260621_110601_new_5_training_june_2-exif_compact_featurewise_quality_exif_compact_featurewise",
+    "created_at": "2026-06-21T11:06:01.160765Z"
+  },
+  {
+    "ai_profile": {
+      "pipeline_kind": "input_mode",
+      "ai_input_mode": "exif_compact_featurewise",
+      "offline_objective": "quality",
+      "ai_selector_strategy": "contextual_continuous",
+      "context_dim": null
+    },
+    "artifact_format": "learner_json",
+    "paths": {
+      "checkpoint": null,
+      "artifact": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260621_174801_june_21_exif_compact_featurewise_exif_compact_featurewise/learner_exif_compact_featurewise.json",
+      "model_dir": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260621_174801_june_21_exif_compact_featurewise_exif_compact_featurewise",
+      "configs_dir": null,
+      "lineage": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260621_174801_june_21_exif_compact_featurewise_exif_compact_featurewise/lineage.json"
+    },
+    "engine": "gsplat",
+    "source": {
+      "project_id": null,
+      "project_name": "Training_June_2",
+      "run_id": null
+    },
+    "provenance_summary": {
+      "contributor_count": 46,
+      "unique_project_count": 46,
+      "project_names": [
+        "1-Montreal-City-Hall",
+        "10_Holy_Ghost_Ukrainian_Church",
+        "11-St-George-Church",
+        "13-Murugan-Temple",
+        "14-Hindu-Mandir",
+        "15-Congregation-Shaar-Hashomayim",
+        "16-Mosque",
+        "17-Shaughnessy-Mansion",
+        "2-Resurrection-Chapel",
+        "3-Maison_Louis-Hippolyte_Lafontaine"
+      ]
+    },
+    "model_name": "June_21_exif_compact_featurewise",
+    "model_id": "model_20260621_174801_june_21_exif_compact_featurewise_exif_compact_featurewise",
+    "created_at": "2026-06-21T17:48:01.935037Z"
+  },
+  {
+    "ai_profile": {
+      "pipeline_kind": "input_mode",
+      "ai_input_mode": "neural_featurewise",
+      "offline_objective": "quality",
+      "ai_selector_strategy": "neural_contextual",
+      "context_dim": null
+    },
+    "artifact_format": "neural_pt",
+    "paths": {
+      "checkpoint": null,
+      "artifact": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260621_174815_june_21_neural_featurewise_neural_featurewise/learner_neural_featurewise.pt",
+      "model_dir": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260621_174815_june_21_neural_featurewise_neural_featurewise",
+      "configs_dir": null,
+      "lineage": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260621_174815_june_21_neural_featurewise_neural_featurewise/lineage.json"
+    },
+    "engine": "gsplat",
+    "source": {
+      "project_id": null,
+      "project_name": "Training_June_2",
+      "run_id": null
+    },
+    "provenance_summary": {
+      "contributor_count": 46,
+      "unique_project_count": 46,
+      "project_names": [
+        "1-Montreal-City-Hall",
+        "10_Holy_Ghost_Ukrainian_Church",
+        "11-St-George-Church",
+        "13-Murugan-Temple",
+        "14-Hindu-Mandir",
+        "15-Congregation-Shaar-Hashomayim",
+        "16-Mosque",
+        "17-Shaughnessy-Mansion",
+        "2-Resurrection-Chapel",
+        "3-Maison_Louis-Hippolyte_Lafontaine"
+      ]
+    },
+    "model_name": "June_21_neural_featurewise",
+    "model_id": "model_20260621_174815_june_21_neural_featurewise_neural_featurewise",
+    "created_at": "2026-06-21T17:48:15.341505Z"
+  },
+  {
+    "ai_profile": {
+      "pipeline_kind": "input_mode",
+      "ai_input_mode": "exif_compact_featurewise",
+      "offline_objective": "quality",
+      "ai_selector_strategy": "contextual_continuous",
+      "context_dim": null
+    },
+    "artifact_format": "learner_json",
+    "paths": {
+      "checkpoint": null,
+      "artifact": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260622_074502_new5_lambda2_exif_compact_featurewise_20260622073153_exif_compact_featurewise/learner_exif_compact_featurewise.json",
+      "model_dir": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260622_074502_new5_lambda2_exif_compact_featurewise_20260622073153_exif_compact_featurewise",
+      "configs_dir": null,
+      "lineage": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260622_074502_new5_lambda2_exif_compact_featurewise_20260622073153_exif_compact_featurewise/lineage.json"
+    },
+    "engine": "gsplat",
+    "source": {
+      "project_id": null,
+      "project_name": "Training_June_2",
+      "run_id": null
+    },
+    "provenance_summary": {
+      "contributor_count": 46,
+      "unique_project_count": 46,
+      "project_names": [
+        "1-Montreal-City-Hall",
+        "10_Holy_Ghost_Ukrainian_Church",
+        "11-St-George-Church",
+        "13-Murugan-Temple",
+        "14-Hindu-Mandir",
+        "15-Congregation-Shaar-Hashomayim",
+        "16-Mosque",
+        "17-Shaughnessy-Mansion",
+        "2-Resurrection-Chapel",
+        "3-Maison_Louis-Hippolyte_Lafontaine"
+      ]
+    },
+    "model_name": "New5_lambda2_exif_compact_featurewise_20260622073153",
+    "model_id": "model_20260622_074502_new5_lambda2_exif_compact_featurewise_20260622073153_exif_compact_featurewise",
+    "created_at": "2026-06-22T07:45:02.478899Z"
+  },
+  {
+    "ai_profile": {
+      "pipeline_kind": "input_mode",
+      "ai_input_mode": "exif_compact_featurewise",
+      "offline_objective": "quality",
+      "ai_selector_strategy": "contextual_continuous",
+      "context_dim": null
+    },
+    "artifact_format": "learner_json",
+    "paths": {
+      "checkpoint": null,
+      "artifact": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260622_074506_new6_lambda4_exif_compact_featurewise_20260622073252_exif_compact_featurewise/learner_exif_compact_featurewise.json",
+      "model_dir": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260622_074506_new6_lambda4_exif_compact_featurewise_20260622073252_exif_compact_featurewise",
+      "configs_dir": null,
+      "lineage": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260622_074506_new6_lambda4_exif_compact_featurewise_20260622073252_exif_compact_featurewise/lineage.json"
+    },
+    "engine": "gsplat",
+    "source": {
+      "project_id": null,
+      "project_name": "Training_June_2",
+      "run_id": null
+    },
+    "provenance_summary": {
+      "contributor_count": 46,
+      "unique_project_count": 46,
+      "project_names": [
+        "1-Montreal-City-Hall",
+        "10_Holy_Ghost_Ukrainian_Church",
+        "11-St-George-Church",
+        "13-Murugan-Temple",
+        "14-Hindu-Mandir",
+        "15-Congregation-Shaar-Hashomayim",
+        "16-Mosque",
+        "17-Shaughnessy-Mansion",
+        "2-Resurrection-Chapel",
+        "3-Maison_Louis-Hippolyte_Lafontaine"
+      ]
+    },
+    "model_name": "New6_lambda4_exif_compact_featurewise_20260622073252",
+    "model_id": "model_20260622_074506_new6_lambda4_exif_compact_featurewise_20260622073252_exif_compact_featurewise",
+    "created_at": "2026-06-22T07:45:06.247484Z"
+  }
+]

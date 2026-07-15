@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+  xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Package
+      Name="Bimba3D"
+      Manufacturer="Bimba3D"
+      Version="1.0.1.0"
+      UpgradeCode="B88A1C8E-6FD5-4D9B-98C2-3A7EE95F0D54"
+      Language="1033"
+      Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Bimba3D is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <Icon Id="Bimba3DIcon" SourceFile="..\assets\Bimba3D.ico" />
+    <Property Id="ARPPRODUCTICON" Value="Bimba3DIcon" />
+    <Property Id="DELETE_PROJECTS" Value="0" />
+    <Property Id="BIMBA3D_RUNTIME_ROOT" Value="C:\ProgramData\Bimba3D\runtime" />
+    <Property Id="BIMBA3D_PROJECTS_ROOT" Value="C:\Bimba3D_NoDelete" />
+    <SetProperty Id="BIMBA3D_PROJECTS_ROOT" Value="C:\ProgramData\Bimba3D\data\projects" After="AppSearch" Condition="DELETE_PROJECTS = 1" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Bimba3D" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="Bimba3D" />
+    </StandardDirectory>
+
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="..\staging\**" />
+    </ComponentGroup>
+
+    <Component Id="cmpStartMenuShortcut" Directory="ApplicationProgramsFolder" Guid="*">
+      <Shortcut
+          Id="scStartBimba3D"
+          Name="Bimba3D"
+          Description="Start Bimba3D backend + frontend"
+          Target="[INSTALLFOLDER]start_bimba3d.bat"
+          Icon="Bimba3DIcon"
+          WorkingDirectory="INSTALLFOLDER" />
+      <Shortcut
+          Id="scUninstallBimba3D"
+          Name="Uninstall Bimba3D"
+          Description="Uninstall Bimba3D with optional project data deletion"
+          Target="[INSTALLFOLDER]uninstall_bimba3d.cmd"
+          Icon="Bimba3DIcon"
+          WorkingDirectory="INSTALLFOLDER" />
+      <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\Bimba3D" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Component Id="cmpCleanupRuntimeVenv" Directory="INSTALLFOLDER" Guid="*">
+      <util:RemoveFolderEx Id="RemoveRuntimeVenvOnUninstall" Property="BIMBA3D_RUNTIME_ROOT" On="uninstall" />
+      <RegistryValue Root="HKLM" Key="Software\Bimba3D" Name="CleanupRuntimeVenv" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Component Id="cmpCleanupProjectData" Directory="INSTALLFOLDER" Guid="*">
+      <util:RemoveFolderEx Id="RemoveProjectDataOnUninstall" Property="BIMBA3D_PROJECTS_ROOT" On="uninstall" />
+      <RegistryValue Root="HKLM" Key="Software\Bimba3D" Name="CleanupProjectData" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Feature Id="MainFeature" Title="Bimba3D" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="cmpStartMenuShortcut" />
+      <ComponentRef Id="cmpCleanupRuntimeVenv" />
+      <ComponentRef Id="cmpCleanupProjectData" />
+    </Feature>
+  </Package>
+</Wix>

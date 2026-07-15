@@ -1,0 +1,98 @@
+{
+  "model_id": "model_ridge_20260710_203218_final_offline_data_june_27-training-data-ridge",
+  "model_name": "Final_offline_data_June_27 Training Data - Ridge",
+  "model_family": "featurewise_ridge_regression",
+  "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
+  "source_pipeline_id": "pipeline_55776ebd244e",
+  "artifact_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_ridge_20260710_203218_final_offline_data_june_27-training-data-ridge\\featurewise_ridge_model.json",
+  "metadata_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_ridge_20260710_203218_final_offline_data_june_27-training-data-ridge\\featurewise_ridge_metadata.json",
+  "training_report_path": null,
+  "trained_at": "2026-07-10T20:32:19.575598Z",
+  "training_samples": 653,
+  "model_evaluation_step": 5000,
+  "metrics": {
+    "lambda_selected": 0.1,
+    "train_fit_metrics": {
+      "geometry_lr_mult": {
+        "mse": 0.003952488130998845,
+        "rmse": 0.06286881684109258,
+        "mae": 0.04228921706890243,
+        "r_squared": 0.5881642132910773,
+        "samples": 653
+      },
+      "appearance_lr_mult": {
+        "mse": 0.0044809328542871635,
+        "rmse": 0.06693977034833003,
+        "mae": 0.05123479497721647,
+        "r_squared": 0.5331020749279634,
+        "samples": 653
+      },
+      "densification_mult": {
+        "mse": 0.0071818360846156734,
+        "rmse": 0.08474571425515082,
+        "mae": 0.06485200969748184,
+        "r_squared": 0.2516771674214321,
+        "samples": 653
+      },
+      "avg_val_mse": 0.005205085689967227
+    },
+    "theta_norms": {
+      "geometry_lr_mult": 0.08676502401158931,
+      "appearance_lr_mult": 0.09828639576545398,
+      "densification_mult": 1.011636261089259
+    },
+    "lambda_search": [
+      {
+        "lambda_ridge": 0.1,
+        "avg_val_mse": 0.005205085689967227
+      },
+      {
+        "lambda_ridge": 0.5,
+        "avg_val_mse": 0.005266632300733722
+      },
+      {
+        "lambda_ridge": 1.0,
+        "avg_val_mse": 0.005354249510492518
+      },
+      {
+        "lambda_ridge": 2.0,
+        "avg_val_mse": 0.005483301420051945
+      },
+      {
+        "lambda_ridge": 5.0,
+        "avg_val_mse": 0.005659607276428669
+      },
+      {
+        "lambda_ridge": 10.0,
+        "avg_val_mse": 0.005760390492208617
+      },
+      {
+        "lambda_ridge": 20.0,
+        "avg_val_mse": 0.005832872773479324
+      }
+    ],
+    "candidate_points": 21
+  },
+  "config": {
+    "candidate_points": 21,
+    "model_evaluation_step": 5000,
+    "score_reference_step": 5000,
+    "log_multiplier_bounds": {
+      "geometry_lr": [
+        0.2,
+        5.0
+      ],
+      "appearance_lr": [
+        0.2,
+        5.0
+      ],
+      "scale_lr": [
+        0.7,
+        1.43
+      ]
+    },
+    "log_multiplier_bounds_source": "source_offline_data_pipeline",
+    "include_phases": null,
+    "include_run_ids": null
+  }
+}

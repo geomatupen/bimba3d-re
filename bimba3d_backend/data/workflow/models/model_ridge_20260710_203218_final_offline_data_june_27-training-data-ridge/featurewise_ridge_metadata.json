@@ -1,0 +1,9 @@
+{
+  "model_family": "featurewise_ridge_regression",
+  "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
+  "source_pipeline_id": "pipeline_55776ebd244e",
+  "training_samples": 653,
+  "model_evaluation_step": 5000,
+  "lambda_selected": 0.1,
+  "candidate_points": 21
+}

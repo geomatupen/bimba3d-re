@@ -1,0 +1,2 @@
+# Backward-compatible alias for local development dependencies.
+-r requirements.local.txt

@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "model_id": "model_20260408_184614_model_b5740a69-5358-4702-a6d6-1bc57147e0a1_test-7_session2_run3",
+  "captured_at": "2026-04-08T18:46:14.960097Z",
+  "source_model_id": null,
+  "contributors": [
+    {
+      "contributor_id": "b5740a69-5358-4702-a6d6-1bc57147e0a1:test-7_session2",
+      "project_id": "b5740a69-5358-4702-a6d6-1bc57147e0a1",
+      "project_name": "Test 7",
+      "run_id": "test-7_session2",
+      "captured_at": "2026-04-08T18:46:14.960097Z",
+      "files": {
+        "run_config": {
+          "path": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260408_184614_model_b5740a69-5358-4702-a6d6-1bc57147e0a1_test-7_session2_run3/configs/b5740a69-5358-4702-a6d6-1bc57147e0a1/test-7_session2/run_config.json",
+          "sha256": "f004372e5548482bd51e34b030ef8a3a578565ee3a3b2ba3107f71a8d561c9d8",
+          "size": 5313
+        },
+        "shared_config": {
+          "path": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260408_184614_model_b5740a69-5358-4702-a6d6-1bc57147e0a1_test-7_session2_run3/configs/b5740a69-5358-4702-a6d6-1bc57147e0a1/test-7_session2/shared_config.json",
+          "sha256": "f251e1da1923eadc30e58f650914675ab1e02ac551573c4cf47c72e7d133dffc",
+          "size": 710
+        },
+        "metadata": {
+          "path": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260408_184614_model_b5740a69-5358-4702-a6d6-1bc57147e0a1_test-7_session2_run3/configs/b5740a69-5358-4702-a6d6-1bc57147e0a1/test-7_session2/metadata.json",
+          "sha256": "3f562e480cc5a9a0b24948c81dde6e3cfcf6a8050c44de1514cc20831b8bd099",
+          "size": 8621
+        }
+      }
+    },
+    {
+      "contributor_id": "b5740a69-5358-4702-a6d6-1bc57147e0a1:test-7_session2_run2",
+      "project_id": "b5740a69-5358-4702-a6d6-1bc57147e0a1",
+      "project_name": "Test 7",
+      "run_id": "test-7_session2_run2",
+      "captured_at": "2026-04-08T18:46:14.960097Z",
+      "files": {
+        "run_config": {
+          "path": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260408_184614_model_b5740a69-5358-4702-a6d6-1bc57147e0a1_test-7_session2_run3/configs/b5740a69-5358-4702-a6d6-1bc57147e0a1/test-7_session2_run2/run_config.json",
+          "sha256": "e948c82c1b0aafbc19d25db38e72ecd060428b2af1ea9916076a0af1472c9ace",
+          "size": 5611
+        },
+        "shared_config": {
+          "path": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260408_184614_model_b5740a69-5358-4702-a6d6-1bc57147e0a1_test-7_session2_run3/configs/b5740a69-5358-4702-a6d6-1bc57147e0a1/test-7_session2_run2/shared_config.json",
+          "sha256": "f251e1da1923eadc30e58f650914675ab1e02ac551573c4cf47c72e7d133dffc",
+          "size": 710
+        },
+        "metadata": {
+          "path": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260408_184614_model_b5740a69-5358-4702-a6d6-1bc57147e0a1_test-7_session2_run3/configs/b5740a69-5358-4702-a6d6-1bc57147e0a1/test-7_session2_run2/metadata.json",
+          "sha256": "6644979e0e421995ac3231d46d99e70aad4ff47df087a5c50717688102181a91",
+          "size": 8618
+        }
+      }
+    },
+    {
+      "contributor_id": "b5740a69-5358-4702-a6d6-1bc57147e0a1:test-7_session2_run3",
+      "project_id": "b5740a69-5358-4702-a6d6-1bc57147e0a1",
+      "project_name": "Test 7",
+      "run_id": "test-7_session2_run3",
+      "captured_at": "2026-04-08T18:46:14.960097Z",
+      "files": {
+        "run_config": {
+          "path": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260408_184614_model_b5740a69-5358-4702-a6d6-1bc57147e0a1_test-7_session2_run3/configs/b5740a69-5358-4702-a6d6-1bc57147e0a1/test-7_session2_run3/run_config.json",
+          "sha256": "676dcbdfcec4a686dcf944694de23ac708667de1e026088bbebc4a07e66ff021",
+          "size": 5626
+        },
+        "shared_config": {
+          "path": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260408_184614_model_b5740a69-5358-4702-a6d6-1bc57147e0a1_test-7_session2_run3/configs/b5740a69-5358-4702-a6d6-1bc57147e0a1/test-7_session2_run3/shared_config.json",
+          "sha256": "f251e1da1923eadc30e58f650914675ab1e02ac551573c4cf47c72e7d133dffc",
+          "size": 710
+        },
+        "metadata": {
+          "path": "D:/bimba3d-re/bimba3d_backend/data/models/model_20260408_184614_model_b5740a69-5358-4702-a6d6-1bc57147e0a1_test-7_session2_run3/configs/b5740a69-5358-4702-a6d6-1bc57147e0a1/test-7_session2_run3/metadata.json",
+          "sha256": "7579e6247642da40113d1c0eba7f91024ffb218a5d9422ddaed79ac0bbfb2a59",
+          "size": 8633
+        }
+      }
+    }
+  ]
+}
