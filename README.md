@@ -4,7 +4,7 @@ This repository contains:
 - `bimba3d_backend`: FastAPI API, project processing, model training, and pipeline workflow services.
 - `bimba3d_frontend`: React + Vite frontend.
 
-The current backend can serve the built frontend directly. If `bimba3d_frontend/dist` exists, `uvicorn` serves both the UI and the API from the same process. If it does not exist, the backend runs in API-only mode.
+The backend can serve the built frontend directly. If `bimba3d_frontend/dist` exists, `uvicorn` serves both the UI and the API from the same process. If it does not exist, the backend runs in API-only mode.
 
 ## Prerequisites
 - Python 3.12+
@@ -46,7 +46,7 @@ If `colmap` is not on `PATH`, set `COLMAP_EXE` to the full executable or `.bat` 
 ### 1. Clone and enter the repository
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/geomatupen/bimba3d-re.git
 cd bimba3d-re
 ```
 
@@ -187,6 +187,13 @@ python -m uvicorn bimba3d_backend.app.main:app --reload --port 8005
 ```
 
 Open `http://localhost:8005`.
+API docs are available at `http://localhost:8005/docs`.
+
+On Windows, you can also start the backend with:
+
+```powershell
+.\start_backend.bat
+```
 
 ### Frontend development mode
 The frontend dev client detects Vite ports `5173` and `5174` and calls the backend at port `8005`.
@@ -247,7 +254,7 @@ Open `http://localhost:5173`.
 - On Windows, `COLMAP.bat` is preferred over `colmap.exe` when the executable has runtime issues.
 
 ### Worker mode
-- Project processing still supports `worker_mode` values `local` and `docker`.
+- Project processing accepts `worker_mode` values `local` and `docker`.
 - If a request omits `worker_mode`, the backend resolves it from the `WORKER_MODE` environment variable and otherwise defaults to `local`.
 - This is a request/runtime detail, not part of the normal frontend startup flow.
 
