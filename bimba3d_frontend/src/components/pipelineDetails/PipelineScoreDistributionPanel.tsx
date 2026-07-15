@@ -305,6 +305,8 @@ const FINAL_RESULT_METRICS = [
   { key: "final_lpips", label: "LPIPS", color: "#f97316", unit: "", improvementLabel: "baseline - model", higherIsBetter: false },
 ] as const;
 
+const BASELINE_CHANGE_LABEL = "No improvement";
+
 function metricPoints(rows: ScoreRow[], metricKey: (typeof METRICS)[number]["key"]): PlotPoint[] {
   return rows
     .map<PlotPoint | null>((row) => {
@@ -390,7 +392,9 @@ function FinalMetricBeeswarm({
   const scaleY = (value: number) => plot.top + plotHeight - ((value - minY) / (maxY - minY || 1)) * plotHeight;
   const centerX = plot.left + plotWidth / 2;
   const jitter = (index: number) => (((index * 37) % 29) - 14) * 2.7;
-  const yTicks = [minY, (minY + maxY) / 2, maxY];
+  const yTicks = Array.from(new Set([minY, 0, (minY + maxY) / 2, maxY]))
+    .sort((a, b) => a - b)
+    .filter((value, index, arr) => index === 0 || Math.abs(value - arr[index - 1]) > 1e-9);
   const zeroY = scaleY(0);
   const meanY = scaleY(mean);
   const medianY = scaleY(median);
@@ -439,7 +443,7 @@ function FinalMetricBeeswarm({
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: metric.color }} />Project</span>
         <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full border-2 border-slate-900 bg-white" />Mean</span>
         <span className="flex items-center gap-1.5"><span className="h-0 w-5 border-t-2 border-slate-600" />Median</span>
-        <span className="flex items-center gap-1.5"><span className="h-0 w-5 border-t-2 border-dashed border-orange-500" />No improvement</span>
+        <span className="flex items-center gap-1.5"><span className="h-0 w-5 border-t-2 border-dashed border-orange-500" />{BASELINE_CHANGE_LABEL}</span>
       </div>
     </div>
   );
@@ -498,6 +502,7 @@ function WinLossSummary({ rows }: { rows: ScoreRow[] }) {
         })}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600">
+        <span className="flex items-center gap-1.5"><span className="h-0 w-5 border-t-2 border-dashed border-orange-500" />{BASELINE_CHANGE_LABEL}</span>
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-slate-300" />Not improved or equal</span>
         <span>PSNR/SSIM: higher is better; LPIPS: lower is better.</span>
       </div>
