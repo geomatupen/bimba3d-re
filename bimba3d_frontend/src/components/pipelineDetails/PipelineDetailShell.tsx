@@ -44,8 +44,9 @@ export default function PipelineDetailShell({
 }: PipelineDetailShellProps) {
   const navigate = useNavigate();
   const goBack = () => {
-    if (window.history.length > 1) {
-      navigate(-1);
+    const parent = [...breadcrumbs].reverse().find((item) => item.to);
+    if (parent?.to) {
+      navigate(parent.to);
       return;
     }
     navigate("/all-pipelines");

@@ -1,6 +1,6 @@
 ﻿import { Fragment, useEffect, useMemo, useState } from "react";
 import { ExternalLink } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import type { PipelineDetail } from "./types";
 
 interface PipelineProjectsRunsPanelProps {
@@ -36,8 +36,10 @@ const statusClass = (status?: string) => {
 
 export default function PipelineProjectsRunsPanel({ pipeline }: PipelineProjectsRunsPanelProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const projects = Array.isArray(pipeline.config?.projects) ? pipeline.config.projects : [];
   const runs = Array.isArray(pipeline.runs) ? pipeline.runs : [];
+  const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);
 
   const projectOptions = useMemo<ProjectOption[]>(
     () =>
@@ -172,7 +174,7 @@ export default function PipelineProjectsRunsPanel({ pipeline }: PipelineProjects
                       </button>
                       {project.id && (
                         <button
-                          onClick={() => navigate(`/projects/${project.id}?from=workflow-projects`)}
+                          onClick={() => navigate(`/projects/${project.id}?from=workflow-projects&returnToPipeline=${encodeURIComponent(pipeline.id)}&returnTo=${returnTo}`)}
                           className="shrink-0 rounded border border-indigo-300 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700 hover:bg-indigo-50"
                           title="Open project"
                         >
@@ -300,4 +302,3 @@ export default function PipelineProjectsRunsPanel({ pipeline }: PipelineProjects
     </section>
   );
 }
-

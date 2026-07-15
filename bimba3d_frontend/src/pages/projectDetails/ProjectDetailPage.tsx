@@ -24,6 +24,7 @@ interface ProjectStatus {
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
   const returnToPipeline = searchParams.get("returnToPipeline");
   const source = searchParams.get("from");
   const [activeTab, setActiveTab] = useState<TabType>("images");
@@ -76,6 +77,7 @@ export default function ProjectDetailPage() {
       <ProjectPageHeader
         projectId={id}
         projectStatus={projectStatus}
+        returnTo={returnTo}
         returnToPipeline={returnToPipeline}
         source={source}
       />

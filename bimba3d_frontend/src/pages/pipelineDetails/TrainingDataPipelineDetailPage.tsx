@@ -1,6 +1,6 @@
 ﻿import { useState } from "react";
 import { Pencil } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import PipelineConfigPanel from "../../components/pipelineDetails/PipelineConfigPanel";
 import PipelineDetailShell from "../../components/pipelineDetails/PipelineDetailShell";
 import PipelineDetailTabs from "../../components/pipelineDetails/PipelineDetailTabs";
@@ -36,12 +36,14 @@ export default function TrainingDataPipelineDetailPage({
   pipeline,
   refreshing = false,
 }: TrainingDataPipelineDetailPageProps) {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState("overview");
+  const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);
   const headerActions = (
     <div className="flex flex-wrap items-center gap-2">
       <PipelineActionControls onComplete={onRefresh} pipeline={pipeline} />
       <Link
-        to={`/workflow/pipeline-builder?edit=${encodeURIComponent(pipeline.id)}`}
+        to={`/workflow/pipeline-builder?edit=${encodeURIComponent(pipeline.id)}&returnTo=${returnTo}`}
         className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
         title="Edit this pipeline configuration"
       >

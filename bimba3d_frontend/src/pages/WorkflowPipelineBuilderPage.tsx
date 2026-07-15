@@ -64,7 +64,17 @@ export default function WorkflowPipelineBuilderPage() {
  const navigate = useNavigate();
  const [searchParams] = useSearchParams();
  const editPipelineId = searchParams.get("edit");
+ const returnTo = searchParams.get("returnTo");
  const requestedPipelineType = searchParams.get("type");
+ const builderBackTarget =
+ returnTo ||
+ (editPipelineId
+ ? `/workflow/pipelines/${editPipelineId}`
+ : requestedPipelineType === "test"
+ ? "/testing-pipeline"
+ : requestedPipelineType === "offline_data"
+ ? "/offline-data-preparation"
+ : "/workflow");
  const lockedPipelineType: "offline_data" | "test" | null =
  requestedPipelineType === "test" ? "test" : requestedPipelineType === "offline_data" ? "offline_data" : null;
  const [isEditMode, setIsEditMode] = useState(false);
@@ -281,7 +291,7 @@ export default function WorkflowPipelineBuilderPage() {
  .catch((error) => {
  console.error("Failed to load pipeline:", error);
  showToast(errorMessage(error, "Failed to load pipeline"), "error");
- navigate("/");
+ navigate(builderBackTarget);
  })
  .finally(() => {
  setLoadingPipeline(false);
@@ -522,13 +532,13 @@ export default function WorkflowPipelineBuilderPage() {
  const responseMessage = typeof res.data?.message === "string" ? res.data.message : "Configuration updated.";
  showToast(`Pipeline "${pipelineName}" updated successfully! ${responseMessage}`, "success");
  setTimeout(() => {
- navigate(`/workflow/pipelines/${editPipelineId}`);
+ navigate(builderBackTarget || `/workflow/pipelines/${editPipelineId}`);
  }, 1500);
  } else {
  await axios.post(`${API_BASE}/api/workflow/pipelines`, config);
  showToast(`Pipeline "${pipelineName}" created successfully!`, "success");
  setTimeout(() => {
- navigate("/");
+ navigate(builderBackTarget);
  }, 1500);
  }
 
@@ -559,7 +569,7 @@ export default function WorkflowPipelineBuilderPage() {
  <PipelineBuilderHeader
  isEditMode={isEditMode}
  pipelineType={pipelineType}
- onBack={() => navigate("/")}
+ onBack={() => navigate(builderBackTarget)}
  />
 
  {isEditMode && <PipelineEditWarning />}

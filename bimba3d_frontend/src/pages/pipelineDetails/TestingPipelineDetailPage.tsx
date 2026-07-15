@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Download, Pencil } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { api } from "../../api/client";
 import PipelineConfigPanel from "../../components/pipelineDetails/PipelineConfigPanel";
 import PipelineDetailShell from "../../components/pipelineDetails/PipelineDetailShell";
@@ -74,7 +74,9 @@ export default function TestingPipelineDetailPage({
   pipeline,
   refreshing = false,
 }: TestingPipelineDetailPageProps) {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState("overview");
+  const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);
   const configuredModelIds = useMemo(
     () => Array.isArray(pipeline.config?.source_model_ids)
       ? pipeline.config.source_model_ids.filter(Boolean)
@@ -168,7 +170,7 @@ export default function TestingPipelineDetailPage({
       <div className="flex flex-wrap items-center gap-2">
         <PipelineActionControls onComplete={onRefresh} pipeline={pipeline} />
         <Link
-          to={`/workflow/pipeline-builder?edit=${encodeURIComponent(pipeline.id)}`}
+          to={`/workflow/pipeline-builder?edit=${encodeURIComponent(pipeline.id)}&returnTo=${returnTo}`}
           className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
           title="Edit this pipeline configuration"
         >

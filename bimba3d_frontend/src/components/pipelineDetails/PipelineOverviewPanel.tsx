@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../../api/client";
 import type { PipelineDetail } from "./types";
 
@@ -160,6 +160,7 @@ const runStatusClass = (status?: string | null) => {
 
 export default function PipelineOverviewPanel({ pipeline, variant }: PipelineOverviewPanelProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentProjectStatus, setCurrentProjectStatus] = useState<any>(null);
   const [baselineRowMetrics, setBaselineRowMetrics] = useState<any>(null);
   const projects = Array.isArray(pipeline.config?.projects) ? pipeline.config.projects : [];
@@ -219,6 +220,7 @@ export default function PipelineOverviewPanel({ pipeline, variant }: PipelineOve
       selected: numberFromObject(selectedMultipliers, "densify_grad_threshold_mult", "opacity_threshold_mult"),
     },
   ];
+  const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);
   const hasActiveSelection = activeMultiplierRows.some((row) => row.selected !== null);
   const elapsedSeconds = (() => {
     if (!pipeline.started_at) return null;
@@ -540,7 +542,7 @@ export default function PipelineOverviewPanel({ pipeline, variant }: PipelineOve
             </div>
             {currentProjectId && (
               <button
-                onClick={() => navigate(`/projects/${currentProjectId}?from=workflow-projects`)}
+                onClick={() => navigate(`/projects/${currentProjectId}?from=workflow-projects&returnToPipeline=${encodeURIComponent(pipeline.id)}&returnTo=${returnTo}`)}
                 className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700"
               >
                 Go to Project
@@ -765,4 +767,3 @@ export default function PipelineOverviewPanel({ pipeline, variant }: PipelineOve
     </div>
   );
 }
-

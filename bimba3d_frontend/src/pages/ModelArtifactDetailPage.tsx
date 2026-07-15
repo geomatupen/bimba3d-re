@@ -65,7 +65,7 @@ export default function ModelArtifactDetailPage() {
         <div className="mx-auto max-w-7xl px-6 py-6">
           <div className="flex items-start gap-4">
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => navigate("/model-training")}
               className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm font-medium text-white backdrop-blur-sm transition hover:bg-white/20"
             >
               <ArrowLeft className="h-4 w-4" />

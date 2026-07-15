@@ -10,14 +10,17 @@ interface ProjectStatus {
 interface ProjectPageHeaderProps {
   projectId: string;
   projectStatus: ProjectStatus | null;
+  returnTo?: string | null;
   returnToPipeline?: string | null;
   source?: string | null;
 }
 
-export default function ProjectPageHeader({ projectId, projectStatus, returnToPipeline, source }: ProjectPageHeaderProps) {
+export default function ProjectPageHeader({ projectId, projectStatus, returnTo, returnToPipeline, source }: ProjectPageHeaderProps) {
   const navigate = useNavigate();
   const workflowSource = source === "workflow" || source === "workflow-projects";
-  const backTarget = returnToPipeline
+  const backTarget = returnTo
+    ? returnTo
+    : returnToPipeline
     ? `/workflow/pipelines/${returnToPipeline}`
     : workflowSource
       ? "/workflow"
@@ -25,7 +28,7 @@ export default function ProjectPageHeader({ projectId, projectStatus, returnToPi
   const breadcrumbItems = returnToPipeline
     ? [
         { label: "Research Workflow", to: "/workflow" },
-        { label: "Pipeline", to: `/workflow/pipelines/${returnToPipeline}` },
+        { label: "Pipeline", to: returnTo || `/workflow/pipelines/${returnToPipeline}` },
         { label: projectStatus?.name || `Project ${projectId.slice(0, 8)}` },
       ]
     : workflowSource
