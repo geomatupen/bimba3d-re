@@ -1,6 +1,7 @@
-import { Hash, Maximize2, Shuffle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Hash, Shuffle } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client";
+import SvgChartExportButton from "../common/SvgChartExportButton";
 import type { PipelineDetail } from "./types";
 
 interface PipelineLogSpaceValuesPanelProps {
@@ -43,6 +44,14 @@ const formatTick = (value: number): string => {
   if (Math.abs(value) >= 1) return value.toFixed(2);
   return value.toFixed(3);
 };
+
+function FullscreenChartIcon() {
+  return (
+    <span aria-hidden="true" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 16, lineHeight: "16px" }}>
+      ⛶
+    </span>
+  );
+}
 
 const logSpaceTicks = ([min, max]: [number, number]): number[] => {
   const safeMin = Math.max(min, 1e-12);
@@ -185,6 +194,9 @@ function CandidateScoreChart({
   onFullscreen?: () => void;
   selectedGroupMultiplier?: number | null;
 }) {
+  const [svgElement, setSvgElement] = useState<SVGSVGElement | null>(null);
+  const captureSvg = useCallback((node: SVGSVGElement | null) => setSvgElement(node), []);
+
   const points = checks
     .map((entry, index) => ({
       index,
@@ -229,6 +241,7 @@ function CandidateScoreChart({
   const isPointSelected = (point: { index: number; selected: boolean }) =>
     point.selected || point.index === selectedIndex;
   const selectedPoint = points.find((point) => isPointSelected(point));
+  const exportName = `candidate_score_${GROUP_LABELS[group] || group}`;
 
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -237,17 +250,20 @@ function CandidateScoreChart({
           <div className="text-sm font-semibold text-slate-950">{GROUP_LABELS[group] || group}</div>
           <div className="font-mono text-[10px] text-slate-500">predicted score by candidate</div>
         </div>
-        {onFullscreen && (
-          <button
-            type="button"
-            onClick={onFullscreen}
-            title="Open chart fullscreen"
-            aria-label={`Open ${GROUP_LABELS[group] || group} candidate score chart fullscreen`}
-            className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-          >
-            <Maximize2 className="h-4 w-4" aria-hidden="true" />
-          </button>
-        )}
+        <div className="flex shrink-0 flex-nowrap items-center gap-1.5">
+          {onFullscreen && (
+            <button
+              type="button"
+              onClick={onFullscreen}
+              title="Open chart fullscreen"
+              aria-label={`Open ${GROUP_LABELS[group] || group} candidate score chart fullscreen`}
+              className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-300 bg-slate-50 text-slate-900 shadow-sm hover:bg-white"
+            >
+              <FullscreenChartIcon />
+            </button>
+          )}
+          <SvgChartExportButton filename={exportName} svgElement={svgElement} />
+        </div>
       </div>
       {selectedPoint && (
         <div className="mb-2 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] text-emerald-900">
@@ -258,7 +274,7 @@ function CandidateScoreChart({
           <span className="font-mono">{formatTick(selectedPoint.multiplier)}</span>
         </div>
       )}
-      <svg viewBox={`0 0 ${width} ${height}`} className={`${fullscreen ? "h-[calc(100vh-13rem)] min-h-[28rem]" : "h-56"} w-full rounded border border-slate-200 bg-white`}>
+      <svg ref={captureSvg} viewBox={`0 0 ${width} ${height}`} className={`${fullscreen ? "h-[calc(100vh-13rem)] min-h-[28rem]" : "h-56"} w-full rounded border border-slate-200 bg-white`}>
         <rect x={plot.left} y={plot.top} width={plotWidth} height={plotHeight} fill="#f8fafc" />
         {xTicks.map((tick, index) => {
           const x = scaleX(tick);
@@ -393,6 +409,9 @@ function ScheduleDistributionChart({
   selectedIndices?: Set<number>;
   values: number[];
 }) {
+  const [svgElement, setSvgElement] = useState<SVGSVGElement | null>(null);
+  const captureSvg = useCallback((node: SVGSVGElement | null) => setSvgElement(node), []);
+
   if (values.length === 0) {
     return <div className="rounded border border-dashed border-slate-300 p-3 text-xs text-slate-500">No schedule values available.</div>;
   }
@@ -428,6 +447,7 @@ function ScheduleDistributionChart({
     return acc;
   }, []);
   const labelStride = Math.max(1, Math.ceil(pointGroups.length / 10));
+  const exportName = `log_space_schedule_${GROUP_LABELS[group] || group}`;
 
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -436,21 +456,22 @@ function ScheduleDistributionChart({
           <div className="text-sm font-semibold text-slate-950">{GROUP_LABELS[group] || group}</div>
           <div className="font-mono text-[10px] text-slate-500">{group}</div>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex shrink-0 flex-nowrap items-center gap-1.5">
           {onFullscreen && (
             <button
               type="button"
               onClick={onFullscreen}
               title="Open chart fullscreen"
               aria-label={`Open ${GROUP_LABELS[group] || group} schedule chart fullscreen`}
-              className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-300 bg-slate-50 text-slate-900 shadow-sm hover:bg-white"
             >
-              <Maximize2 className="h-4 w-4" aria-hidden="true" />
+              <FullscreenChartIcon />
             </button>
           )}
+          <SvgChartExportButton filename={exportName} svgElement={svgElement} />
         </div>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className={`${fullscreen ? "h-[calc(100vh-13rem)] min-h-[28rem]" : "h-56"} w-full rounded border border-slate-200 bg-white`}>
+      <svg ref={captureSvg} viewBox={`0 0 ${width} ${height}`} className={`${fullscreen ? "h-[calc(100vh-13rem)] min-h-[28rem]" : "h-56"} w-full rounded border border-slate-200 bg-white`}>
         <rect x={plot.left} y={plot.top} width={plotWidth} height={plotHeight} fill="#f8fafc" />
         {xTicks.map((tick, index) => {
           const x = scaleX(tick);

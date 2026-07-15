@@ -271,13 +271,25 @@ def _candidate_checks_by_group(
     selected_logs: dict[str, float],
 ) -> dict[str, list[dict[str, Any]]]:
     checks: dict[str, list[dict[str, Any]]] = {}
+    score_by_combo = {tuple(float(value) for value in combo): float(scores[index]) for index, combo in enumerate(combos)}
+    selected_combo_logs: list[float] = []
+    for group in COMPACT_MODEL_GROUP_KEYS:
+        selected_log = float(selected_logs[group])
+        candidates = candidates_by_group[group]
+        if len(candidates):
+            selected_combo_logs.append(float(candidates[int(np.argmin(np.abs(candidates - selected_log)))]))
+        else:
+            selected_combo_logs.append(selected_log)
+
     for group_index, group in enumerate(COMPACT_MODEL_GROUP_KEYS):
         rows: list[dict[str, Any]] = []
-        selected_log = float(selected_logs[group])
-        selected_index = int(np.argmin(np.abs(candidates_by_group[group] - selected_log))) if len(candidates_by_group[group]) else -1
+        selected_index = int(np.argmin(np.abs(candidates_by_group[group] - selected_combo_logs[group_index]))) if len(candidates_by_group[group]) else -1
         for candidate_index, candidate_log in enumerate(candidates_by_group[group]):
-            matching_scores = [scores[index] for index, combo in enumerate(combos) if abs(float(combo[group_index]) - float(candidate_log)) < 1e-12]
-            score = float(max(matching_scores)) if matching_scores else 0.0
+            # Compact models choose one joint combination. For a per-group chart,
+            # vary only this group and keep the other selected group values fixed.
+            combo = list(selected_combo_logs)
+            combo[group_index] = float(candidate_log)
+            score = float(score_by_combo[tuple(combo)])
             rows.append(
                 {
                     "candidate_log_multiplier": float(candidate_log),

@@ -1,5 +1,6 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client";
+import SvgChartExportButton from "../common/SvgChartExportButton";
 interface PipelineScoreDistributionPanelProps {
   pipelineId: string;
   refreshKey?: string | number | null;
@@ -74,12 +75,9 @@ const modelKey = (row: ScoreRow): string => String(row.model_id || row.test_mode
 
 function FullscreenIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M8 3H3v5" />
-      <path d="M16 3h5v5" />
-      <path d="M21 16v5h-5" />
-      <path d="M3 16v5h5" />
-    </svg>
+    <span className={className} aria-hidden="true" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 16, lineHeight: "16px" }}>
+      ⛶
+    </span>
   );
 }
 
@@ -164,7 +162,24 @@ const paddedRange = (min: number, max: number): [number, number] => {
   return [min - pad, max + pad];
 };
 
-function MiniScatter({ bounds, fullscreen, points }: { bounds?: [number, number]; fullscreen?: boolean; points: PlotPoint[] }) {
+function MiniScatter({
+  bounds,
+  fullscreen,
+  onFullscreen,
+  points,
+  subtitle,
+  title,
+}: {
+  bounds?: [number, number];
+  fullscreen?: boolean;
+  onFullscreen?: () => void;
+  points: PlotPoint[];
+  subtitle?: string;
+  title?: string;
+}) {
+  const [svgElement, setSvgElement] = useState<SVGSVGElement | null>(null);
+  const captureSvg = useCallback((node: SVGSVGElement | null) => setSvgElement(node), []);
+
   if (points.length === 0) {
     return <div className="rounded border border-dashed border-slate-300 p-3 text-xs text-slate-500">No score points available.</div>;
   }
@@ -193,10 +208,33 @@ function MiniScatter({ bounds, fullscreen, points }: { bounds?: [number, number]
   const scaleY = (value: number) => plot.top + plotHeight - ((value - minY) / (maxY - minY || 1)) * plotHeight;
   // Zero line is always shown as the "equal to baseline" reference.
   const zeroY = scaleY(0);
+  const exportName = `relative_score_${points[0]?.project || "chart"}`;
 
   return (
     <div>
-      <svg viewBox={`0 0 ${width} ${height}`} className={`${fullscreen ? "h-[calc(100vh-13rem)] min-h-[28rem]" : "h-56"} w-full rounded border border-slate-200 bg-white`}>
+      {(title || subtitle || onFullscreen) && (
+        <div className="mb-2 flex items-start justify-between gap-2">
+          <div>
+            {title && <div className="text-sm font-semibold text-slate-950">{title}</div>}
+            {subtitle && <div className="font-mono text-[10px] text-slate-500">{subtitle}</div>}
+          </div>
+          <div className="flex shrink-0 flex-nowrap items-center gap-1.5">
+            {onFullscreen && (
+              <button
+                type="button"
+                onClick={onFullscreen}
+                title="Open chart fullscreen"
+                aria-label={`Open ${title || "score"} chart fullscreen`}
+                className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-300 bg-slate-50 text-slate-900 shadow-sm hover:bg-white"
+              >
+                <FullscreenIcon />
+              </button>
+            )}
+            <SvgChartExportButton filename={exportName} svgElement={svgElement} />
+          </div>
+        </div>
+      )}
+      <svg ref={captureSvg} viewBox={`0 0 ${width} ${height}`} className={`${fullscreen ? "h-[calc(100vh-13rem)] min-h-[28rem]" : "h-56"} w-full rounded border border-slate-200 bg-white`}>
         <rect x={plot.left} y={plot.top} width={plotWidth} height={plotHeight} fill="#f8fafc" />
         {yTicks.map((tick) => {
           const y = scaleY(tick);
@@ -369,6 +407,9 @@ function FinalMetricBeeswarm({
   metric: (typeof FINAL_RESULT_METRICS)[number];
   points: MetricImprovementPoint[];
 }) {
+  const [svgElement, setSvgElement] = useState<SVGSVGElement | null>(null);
+  const captureSvg = useCallback((node: SVGSVGElement | null) => setSvgElement(node), []);
+
   if (points.length === 0) {
     return (
       <div className="rounded border border-dashed border-slate-300 p-3 text-xs text-slate-500">
@@ -398,16 +439,22 @@ function FinalMetricBeeswarm({
   const zeroY = scaleY(0);
   const meanY = scaleY(mean);
   const medianY = scaleY(median);
+  const exportName = `final_metric_improvement_${metric.label.toLowerCase()}`;
 
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <div className="mb-2">
-        <div className="text-sm font-semibold text-slate-950">{metric.label} improvement over baseline</div>
-        <div className="text-[11px] text-slate-500">
-          {metric.improvementLabel}; above 0 is better{metric.unit ? ` (${metric.unit})` : ""}
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <div>
+          <div className="text-sm font-semibold text-slate-950">{metric.label} improvement over baseline</div>
+          <div className="text-[11px] text-slate-500">
+            {metric.improvementLabel}; above 0 is better{metric.unit ? ` (${metric.unit})` : ""}
+          </div>
+        </div>
+        <div className="shrink-0">
+          <SvgChartExportButton filename={exportName} svgElement={svgElement} />
         </div>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-60 w-full rounded border border-slate-200 bg-white">
+      <svg ref={captureSvg} viewBox={`0 0 ${width} ${height}`} className="h-60 w-full rounded border border-slate-200 bg-white">
         <rect x={plot.left} y={plot.top} width={plotWidth} height={plotHeight} fill="#f8fafc" />
         {yTicks.map((tick) => {
           const y = scaleY(tick);
@@ -450,6 +497,8 @@ function FinalMetricBeeswarm({
 }
 
 function WinLossSummary({ rows }: { rows: ScoreRow[] }) {
+  const [svgElement, setSvgElement] = useState<SVGSVGElement | null>(null);
+  const captureSvg = useCallback((node: SVGSVGElement | null) => setSvgElement(node), []);
   const summary = FINAL_RESULT_METRICS.map((metric) => {
     const points = finalMetricImprovementPoints(rows, metric);
     const wins = points.filter((point) => point.improvement > 0).length;
@@ -466,43 +515,58 @@ function WinLossSummary({ rows }: { rows: ScoreRow[] }) {
     );
   }
 
+  const width = 720;
+  const height = 172;
+  const plot = { left: 76, right: 24, top: 18, bottom: 22 };
+  const rowHeight = 34;
+  const barHeight = 22;
+  const plotWidth = width - plot.left - plot.right;
+  const scaleX = (value: number) => (value / totalMax) * plotWidth;
+
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <div className="mb-3">
-        <div className="text-sm font-semibold text-slate-950">Win/loss summary over baseline</div>
-        <div className="text-[11px] text-slate-500">A win means the selected model improved that metric for a project.</div>
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-slate-950">Win/loss summary over baseline</div>
+          <div className="text-[11px] text-slate-500">A win means the selected model improved that metric for a project.</div>
+        </div>
+        <div className="shrink-0">
+          <SvgChartExportButton filename="final_metric_win_loss_summary" svgElement={svgElement} />
+        </div>
       </div>
-      <div className="space-y-2">
-        {summary.map(({ metric, wins, losses, total }) => {
+      <svg ref={captureSvg} viewBox={`0 0 ${width} ${height}`} className="h-44 w-full rounded border border-slate-200 bg-white">
+        <rect x={plot.left} y={plot.top} width={plotWidth} height={height - plot.top - plot.bottom} fill="#f8fafc" />
+        {summary.map(({ metric, wins, losses, total }, index) => {
           const winPct = total > 0 ? (wins / total) * 100 : 0;
           const lossPct = total > 0 ? (losses / total) * 100 : 0;
+          const y = plot.top + index * rowHeight + 6;
+          const totalWidth = scaleX(total);
+          const winWidth = (winPct / 100) * totalWidth;
+          const lossWidth = (lossPct / 100) * totalWidth;
           return (
-            <div key={metric.key} className="grid grid-cols-[4.5rem_1fr] items-center gap-3">
-              <div className="text-sm font-semibold text-slate-800">{metric.label}</div>
-              <div className="h-9 overflow-hidden rounded border border-slate-200 bg-slate-200">
-                <div className="flex h-full" style={{ width: `${(total / totalMax) * 100}%` }}>
-                  <div
-                    className="flex items-center justify-center text-[11px] font-semibold text-white"
-                    style={{ width: `${winPct}%`, backgroundColor: metric.color }}
-                    title={`${wins}/${total} improved`}
-                  >
-                    {wins}/{total} improved
-                  </div>
-                  <div
-                    className="flex items-center justify-center bg-slate-200 text-[11px] font-medium text-slate-600"
-                    style={{ width: `${lossPct}%` }}
-                    title={`${losses}/${total} not improved or equal`}
-                  >
-                    {losses > 0 ? `${losses}/${total} not improved` : ""}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <g key={metric.key}>
+              <text x={plot.left - 12} y={y + 15} textAnchor="end" className="fill-slate-700 text-[13px] font-semibold">
+                {metric.label}
+              </text>
+              <rect x={plot.left} y={y} width={Math.max(totalWidth, 1)} height={barHeight} fill="#e2e8f0" stroke="#cbd5e1" />
+              <rect x={plot.left} y={y} width={winWidth} height={barHeight} fill={metric.color} />
+              <rect x={plot.left + winWidth} y={y} width={lossWidth} height={barHeight} fill="#e2e8f0" />
+              <text x={plot.left + Math.max(winWidth / 2, 36)} y={y + 15} textAnchor="middle" className="fill-white text-[11px] font-semibold">
+                {wins}/{total} improved
+              </text>
+              {losses > 0 && (
+                <text x={plot.left + winWidth + Math.max(lossWidth / 2, 44)} y={y + 15} textAnchor="middle" className="fill-slate-600 text-[11px] font-medium">
+                  {losses}/{total} not improved
+                </text>
+              )}
+            </g>
           );
         })}
-      </div>
+        <text x={plot.left + plotWidth / 2} y={height - 6} textAnchor="middle" className="fill-slate-500 text-[10px]">
+          Bar length follows number of paired projects for the selected model.
+        </text>
+      </svg>
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600">
-        <span className="flex items-center gap-1.5"><span className="h-0 w-5 border-t-2 border-dashed border-orange-500" />{BASELINE_CHANGE_LABEL}</span>
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-slate-300" />Not improved or equal</span>
         <span>PSNR/SSIM: higher is better; LPIPS: lower is better.</span>
       </div>
@@ -521,6 +585,9 @@ function MetricStripChart({
   onFullscreen?: () => void;
   points: PlotPoint[];
 }) {
+  const [svgElement, setSvgElement] = useState<SVGSVGElement | null>(null);
+  const captureSvg = useCallback((node: SVGSVGElement | null) => setSvgElement(node), []);
+
   if (points.length === 0) {
     return <div className="rounded border border-dashed border-slate-300 p-3 text-xs text-slate-500">No {metric.label} values available.</div>;
   }
@@ -547,6 +614,7 @@ function MetricStripChart({
   };
   const runCounters = new Map<string, number>();
   const rotateLabels = projects.length > 4;
+  const exportName = `final_metric_values_${metric.label.toLowerCase()}`;
 
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -555,20 +623,24 @@ function MetricStripChart({
           <div className="text-sm font-semibold text-slate-950">{metric.label}</div>
           <div className="text-[11px] text-slate-500">{metric.direction}</div>
         </div>
-        {onFullscreen && (
-          <button
-            type="button"
-            onClick={onFullscreen}
-            title="Open chart fullscreen"
-            aria-label={`Open ${metric.label} chart fullscreen`}
-            className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-          >
-            <FullscreenIcon />
-          </button>
-        )}
+        <div className="flex shrink-0 flex-nowrap items-center gap-1.5">
+          {onFullscreen && (
+            <button
+              type="button"
+              onClick={onFullscreen}
+              title="Open chart fullscreen"
+              aria-label={`Open ${metric.label} chart fullscreen`}
+              className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-300 bg-slate-50 text-slate-900 shadow-sm hover:bg-white"
+            >
+              <FullscreenIcon />
+            </button>
+          )}
+          <SvgChartExportButton filename={exportName} svgElement={svgElement} />
+        </div>
       </div>
       <div className="overflow-x-auto pb-1">
       <svg
+        ref={captureSvg}
         viewBox={`0 0 ${width} ${height}`}
         style={{ minWidth: `${width}px`, width: "100%" }}
         className="h-auto max-w-none rounded border border-slate-200 bg-white"
@@ -849,22 +921,13 @@ export default function PipelineScoreDistributionPanel({
           <div className="grid gap-3 lg:grid-cols-3">
             {GROUPS.map((group) => (
               <div key={group.key} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <div className="mb-2 flex items-start justify-between gap-2">
-                  <div>
-                    <div className="text-sm font-semibold text-slate-950">{group.label}</div>
-                    <div className="font-mono text-[10px] text-slate-500">{group.key}</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setScoreFullscreenGroupKey(group.key)}
-                    title="Open chart fullscreen"
-                    aria-label={`Open ${group.label} score chart fullscreen`}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                  >
-                    <FullscreenIcon />
-                  </button>
-                </div>
-                <MiniScatter bounds={groupBounds[group.key]} points={pointsForGroup(filteredRows, group.key)} />
+                <MiniScatter
+                  bounds={groupBounds[group.key]}
+                  onFullscreen={() => setScoreFullscreenGroupKey(group.key)}
+                  points={pointsForGroup(filteredRows, group.key)}
+                  subtitle={group.key}
+                  title={group.label}
+                />
               </div>
             ))}
           </div>
@@ -895,7 +958,7 @@ export default function PipelineScoreDistributionPanel({
                   onClick={() => setMetricsFullscreen(true)}
                   title="Open all metric charts fullscreen"
                   aria-label="Open all metric charts fullscreen"
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 bg-slate-50 text-slate-900 shadow-sm hover:bg-white"
                 >
                   <FullscreenIcon className="h-5 w-5" />
                 </button>
@@ -990,6 +1053,8 @@ export default function PipelineScoreDistributionPanel({
                 bounds={groupBounds[fullscreenScoreGroup.key]}
                 fullscreen
                 points={pointsForGroup(filteredRows, fullscreenScoreGroup.key)}
+                subtitle={fullscreenScoreGroup.key}
+                title={fullscreenScoreGroup.label}
               />
             </div>
           </div>

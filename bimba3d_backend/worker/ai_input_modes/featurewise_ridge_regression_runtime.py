@@ -576,6 +576,7 @@ def _select_group_action_from_score_model(
     best_mult = float(math.exp(best_log))
     best_mult = clamp_float(best_mult, lo_mult, hi_mult)
     best_log = float(math.log(best_mult))
+    selected_index = int(np.argmin(np.abs(candidates - best_log))) if len(candidates) else -1
 
     theta_norm = float(np.linalg.norm(theta))
     state = {
@@ -596,7 +597,7 @@ def _select_group_action_from_score_model(
                 "candidate_multiplier": float(math.exp(float(a_log))),
                 "predicted_score": float(all_scores[i]),
                 "predicted_score_mean": float(all_mean_scores[i]),
-                "selected": bool(abs(float(a_log) - best_log) < 1e-12),
+                "selected": i == selected_index,
             }
             for i, a_log in enumerate(candidates)
         ],

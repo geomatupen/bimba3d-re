@@ -777,6 +777,11 @@ def predict_featurewise_neural_multipliers(
         group_logs = list(candidate_logs_lists.get(group_key) or [])
         group_scores = list(score_lists.get(group_key) or [])
         selected_log = float(group_log_multipliers.get(group_key, 0.0))
+        selected_index = (
+            int(np.argmin(np.abs(np.array(group_logs, dtype=np.float64) - selected_log)))
+            if group_logs
+            else -1
+        )
         checks: list[dict[str, Any]] = []
         for idx, cand_log in enumerate(group_logs):
             score = float(group_scores[idx]) if idx < len(group_scores) else 0.0
@@ -785,7 +790,7 @@ def predict_featurewise_neural_multipliers(
                     "candidate_log_multiplier": float(cand_log),
                     "candidate_multiplier": float(np.exp(float(cand_log))),
                     "predicted_score": score,
-                    "selected": bool(abs(float(cand_log) - selected_log) < 1e-12),
+                    "selected": idx == selected_index,
                 }
             )
         candidate_score_checks[group_key] = checks
