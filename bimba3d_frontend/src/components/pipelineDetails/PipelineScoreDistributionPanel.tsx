@@ -44,6 +44,14 @@ interface PlotPoint {
   y: number;
 }
 
+interface MetricImprovementPoint {
+  baseline: number;
+  improvement: number;
+  project: string;
+  run: string;
+  value: number;
+}
+
 const GROUPS = [
   { key: "geometry_lr_mult", label: "Geometry", minKey: "geometry_log_multiplier_min", maxKey: "geometry_log_multiplier_max", defaultBounds: [0.2, 5] },
   { key: "appearance_lr_mult", label: "Appearance", minKey: "appearance_log_multiplier_min", maxKey: "appearance_log_multiplier_max", defaultBounds: [0.2, 5] },
@@ -291,6 +299,12 @@ const METRICS = [
   { key: "final_lpips", label: "LPIPS", direction: "lower is better" },
 ] as const;
 
+const FINAL_RESULT_METRICS = [
+  { key: "final_psnr", label: "PSNR", color: "#2563eb", unit: "dB", improvementLabel: "model - baseline", higherIsBetter: true },
+  { key: "final_ssim", label: "SSIM", color: "#16a34a", unit: "", improvementLabel: "model - baseline", higherIsBetter: true },
+  { key: "final_lpips", label: "LPIPS", color: "#f97316", unit: "", improvementLabel: "baseline - model", higherIsBetter: false },
+] as const;
+
 function metricPoints(rows: ScoreRow[], metricKey: (typeof METRICS)[number]["key"]): PlotPoint[] {
   return rows
     .map<PlotPoint | null>((row) => {
@@ -306,6 +320,189 @@ function metricPoints(rows: ScoreRow[], metricKey: (typeof METRICS)[number]["key
       };
     })
     .filter((item): item is PlotPoint => item !== null);
+}
+
+function finalMetricImprovementPoints(
+  rows: ScoreRow[],
+  metric: (typeof FINAL_RESULT_METRICS)[number],
+): MetricImprovementPoint[] {
+  const baselineByProject = new Map<string, ScoreRow>();
+  const resultByProject = new Map<string, ScoreRow>();
+
+  rows.forEach((row) => {
+    const project = projectKey(row);
+    if (!project) return;
+    if (row.is_baseline_row) {
+      baselineByProject.set(project, row);
+    } else {
+      // Testing pipelines should have one result row per project/model. If a row is
+      // refreshed later, the last loaded row is treated as the current result.
+      resultByProject.set(project, row);
+    }
+  });
+
+  return Array.from(resultByProject.entries())
+    .map<MetricImprovementPoint | null>(([project, row]) => {
+      const baselineRow = baselineByProject.get(project);
+      const baseline = numeric(baselineRow?.[metric.key]);
+      const value = numeric(row[metric.key]);
+      if (baseline === null || value === null) return null;
+      const improvement = metric.higherIsBetter ? value - baseline : baseline - value;
+      return {
+        baseline,
+        improvement,
+        project,
+        run: row.run_id || "",
+        value,
+      };
+    })
+    .filter((item): item is MetricImprovementPoint => item !== null)
+    .sort((a, b) => a.project.localeCompare(b.project));
+}
+
+function FinalMetricBeeswarm({
+  metric,
+  points,
+}: {
+  metric: (typeof FINAL_RESULT_METRICS)[number];
+  points: MetricImprovementPoint[];
+}) {
+  if (points.length === 0) {
+    return (
+      <div className="rounded border border-dashed border-slate-300 p-3 text-xs text-slate-500">
+        No paired baseline/test {metric.label} values available.
+      </div>
+    );
+  }
+
+  const values = points.map((point) => point.improvement);
+  const [minY, maxY] = paddedRange(Math.min(0, ...values), Math.max(0, ...values));
+  const mean = values.reduce((sum, value) => sum + value, 0) / Math.max(values.length, 1);
+  const sorted = [...values].sort((a, b) => a - b);
+  const median = sorted.length % 2
+    ? sorted[Math.floor(sorted.length / 2)]
+    : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
+  const width = 360;
+  const height = 245;
+  const plot = { left: 54, right: 16, top: 18, bottom: 38 };
+  const plotWidth = width - plot.left - plot.right;
+  const plotHeight = height - plot.top - plot.bottom;
+  const scaleY = (value: number) => plot.top + plotHeight - ((value - minY) / (maxY - minY || 1)) * plotHeight;
+  const centerX = plot.left + plotWidth / 2;
+  const jitter = (index: number) => (((index * 37) % 29) - 14) * 2.7;
+  const yTicks = [minY, (minY + maxY) / 2, maxY];
+  const zeroY = scaleY(0);
+  const meanY = scaleY(mean);
+  const medianY = scaleY(median);
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <div className="mb-2">
+        <div className="text-sm font-semibold text-slate-950">{metric.label} improvement over baseline</div>
+        <div className="text-[11px] text-slate-500">
+          {metric.improvementLabel}; above 0 is better{metric.unit ? ` (${metric.unit})` : ""}
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-60 w-full rounded border border-slate-200 bg-white">
+        <rect x={plot.left} y={plot.top} width={plotWidth} height={plotHeight} fill="#f8fafc" />
+        {yTicks.map((tick) => {
+          const y = scaleY(tick);
+          return (
+            <g key={`${metric.key}-tick-${tick}`}>
+              <line x1={plot.left} x2={plot.left + plotWidth} y1={y} y2={y} stroke="#e2e8f0" />
+              <text x={plot.left - 8} y={y + 3} textAnchor="end" className="fill-slate-500 text-[10px]">
+                {formatTick(tick)}
+              </text>
+            </g>
+          );
+        })}
+        <line x1={plot.left} x2={plot.left + plotWidth} y1={zeroY} y2={zeroY} stroke="#f97316" strokeDasharray="4 3" strokeWidth="1.5" />
+        <line x1={centerX - 62} x2={centerX + 62} y1={medianY} y2={medianY} stroke="#64748b" strokeWidth="1.35" />
+        <circle cx={centerX} cy={meanY} r="6" fill="#ffffff" stroke="#334155" strokeWidth="1.35" />
+        {points.map((point, index) => {
+          const x = centerX + jitter(index);
+          const y = scaleY(point.improvement);
+          return (
+            <circle key={`${metric.key}-${point.project}-${point.run}-${index}`} cx={x} cy={y} r="4" fill={metric.color} opacity="0.82" stroke="#ffffff" strokeWidth="0.8">
+              <title>{`${point.project}\n${point.run}\nBaseline ${metric.label}: ${point.baseline.toFixed(6)}\nTest ${metric.label}: ${point.value.toFixed(6)}\nImprovement: ${point.improvement.toFixed(6)}`}</title>
+            </circle>
+          );
+        })}
+        <text x={plot.left + plotWidth / 2} y={height - 13} textAnchor="middle" className="fill-slate-500 text-[10px]">
+          Each dot = one test project
+        </text>
+        <text x="14" y={plot.top + plotHeight / 2} textAnchor="middle" transform={`rotate(-90 14 ${plot.top + plotHeight / 2})`} className="fill-slate-700 text-[10px] font-medium">
+          Improvement
+        </text>
+      </svg>
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600">
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: metric.color }} />Project</span>
+        <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full border-2 border-slate-900 bg-white" />Mean</span>
+        <span className="flex items-center gap-1.5"><span className="h-0 w-5 border-t-2 border-slate-600" />Median</span>
+        <span className="flex items-center gap-1.5"><span className="h-0 w-5 border-t-2 border-dashed border-orange-500" />No improvement</span>
+      </div>
+    </div>
+  );
+}
+
+function WinLossSummary({ rows }: { rows: ScoreRow[] }) {
+  const summary = FINAL_RESULT_METRICS.map((metric) => {
+    const points = finalMetricImprovementPoints(rows, metric);
+    const wins = points.filter((point) => point.improvement > 0).length;
+    const losses = points.length - wins;
+    return { metric, points, wins, losses, total: points.length };
+  });
+  const totalMax = Math.max(1, ...summary.map((item) => item.total));
+
+  if (summary.every((item) => item.total === 0)) {
+    return (
+      <div className="rounded border border-dashed border-slate-300 p-3 text-xs text-slate-500">
+        No paired baseline/test metric values available for win/loss summary.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <div className="mb-3">
+        <div className="text-sm font-semibold text-slate-950">Win/loss summary over baseline</div>
+        <div className="text-[11px] text-slate-500">A win means the selected model improved that metric for a project.</div>
+      </div>
+      <div className="space-y-2">
+        {summary.map(({ metric, wins, losses, total }) => {
+          const winPct = total > 0 ? (wins / total) * 100 : 0;
+          const lossPct = total > 0 ? (losses / total) * 100 : 0;
+          return (
+            <div key={metric.key} className="grid grid-cols-[4.5rem_1fr] items-center gap-3">
+              <div className="text-sm font-semibold text-slate-800">{metric.label}</div>
+              <div className="h-9 overflow-hidden rounded border border-slate-200 bg-slate-200">
+                <div className="flex h-full" style={{ width: `${(total / totalMax) * 100}%` }}>
+                  <div
+                    className="flex items-center justify-center text-[11px] font-semibold text-white"
+                    style={{ width: `${winPct}%`, backgroundColor: metric.color }}
+                    title={`${wins}/${total} improved`}
+                  >
+                    {wins}/{total} improved
+                  </div>
+                  <div
+                    className="flex items-center justify-center bg-slate-200 text-[11px] font-medium text-slate-600"
+                    style={{ width: `${lossPct}%` }}
+                    title={`${losses}/${total} not improved or equal`}
+                  >
+                    {losses > 0 ? `${losses}/${total} not improved` : ""}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600">
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-slate-300" />Not improved or equal</span>
+        <span>PSNR/SSIM: higher is better; LPIPS: lower is better.</span>
+      </div>
+    </div>
+  );
 }
 
 function MetricStripChart({
@@ -521,6 +718,14 @@ export default function PipelineScoreDistributionPanel({
       }),
     [displayRows, selectedProject],
   );
+  const finalMetricRows = useMemo(
+    () =>
+      displayRows.filter((row) => {
+        if (selectedProject === "all") return true;
+        return (row.project_name || row.project_id) === selectedProject;
+      }),
+    [displayRows, selectedProject],
+  );
   const metricRows = useMemo(
     () =>
       displayRows.filter((row) => {
@@ -613,6 +818,29 @@ export default function PipelineScoreDistributionPanel({
         <div className="rounded border border-slate-200 p-3 text-sm text-slate-500">Loading score rows...</div>
       ) : (
         <div className="space-y-5">
+          <div className="rounded-lg border border-blue-100 bg-blue-50/40 p-3">
+            <div className="mb-3">
+              <h3 className="text-base font-semibold text-slate-950">Final Metric Improvements</h3>
+              <p className="text-sm text-slate-600">
+                PSNR, SSIM, and LPIPS improvements for the selected model. Baseline and test rows are paired by project.
+              </p>
+            </div>
+            {!selectedModelId ? (
+              <div className="rounded border border-dashed border-blue-200 bg-white p-3 text-sm text-slate-600">
+                Select one model in the Models Used filter above to show final metric improvements without mixing model families.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid gap-3 lg:grid-cols-3">
+                  {FINAL_RESULT_METRICS.map((metric) => (
+                    <FinalMetricBeeswarm key={metric.key} metric={metric} points={finalMetricImprovementPoints(finalMetricRows, metric)} />
+                  ))}
+                </div>
+                <WinLossSummary rows={finalMetricRows} />
+              </div>
+            )}
+          </div>
+
           <div className="grid gap-3 lg:grid-cols-3">
             {GROUPS.map((group) => (
               <div key={group.key} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -804,7 +1032,3 @@ export default function PipelineScoreDistributionPanel({
     </section>
   );
 }
-
-
-
-

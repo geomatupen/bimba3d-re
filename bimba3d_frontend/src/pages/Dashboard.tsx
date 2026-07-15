@@ -407,7 +407,7 @@ export default function Dashboard({ view = "home" }: DashboardProps) {
                   <div>
                     <h2 className="text-xl font-bold text-slate-950">Comparison</h2>
                     <p className="mt-2 max-w-md text-sm leading-6 text-slate-600">
-                      Compare reconstruction runs, model-guided tests, metrics, visual outputs, and report-ready results.
+                      Compare reconstruction runs, model-guided tests, metrics, visual outputs, and results.
                     </p>
                   </div>
                 </div>

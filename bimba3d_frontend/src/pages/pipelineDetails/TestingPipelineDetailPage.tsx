@@ -83,7 +83,17 @@ export default function TestingPipelineDetailPage({
         : [],
     [pipeline.config?.source_model_id, pipeline.config?.source_model_ids],
   );
-  const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
+  const activeModelId = useMemo(() => {
+    const raw =
+      pipeline.active_run?.test_model_id ||
+      pipeline.current_test_model_id ||
+      pipeline.config?.source_model_id ||
+      configuredModelIds[0] ||
+      null;
+    const value = raw ? String(raw) : null;
+    return value && configuredModelIds.includes(value) ? value : configuredModelIds[0] || null;
+  }, [configuredModelIds, pipeline.active_run?.test_model_id, pipeline.config?.source_model_id, pipeline.current_test_model_id]);
+  const [selectedModelId, setSelectedModelId] = useState<string | null>(() => activeModelId);
   const [exporting, setExporting] = useState(false);
   const [exportMessage, setExportMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const latestPreviewKey = String(pipeline.latest_prediction_preview_key || "").trim();
@@ -124,8 +134,8 @@ export default function TestingPipelineDetailPage({
       setSelectedModelId(null);
       return;
     }
-    setSelectedModelId((current) => current && configuredModelIds.includes(current) ? current : null);
-  }, [configuredModelIds]);
+    setSelectedModelId((current) => current && configuredModelIds.includes(current) ? current : activeModelId);
+  }, [activeModelId, configuredModelIds]);
 
   const exportCurrentTest = async () => {
     if (exporting) return;
