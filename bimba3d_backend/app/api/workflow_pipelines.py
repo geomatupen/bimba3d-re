@@ -352,6 +352,16 @@ async def retry_failed_workflow_pipeline(
         raise _invalid_action(pipeline_id, exc) from exc
 
 
+@router.delete("/{pipeline_id}/runs/{run_id}")
+def delete_workflow_pipeline_run(pipeline_id: str, run_id: str) -> dict[str, Any]:
+    try:
+        return workflow_pipeline_service.delete_pipeline_run(pipeline_id, run_id)
+    except FileNotFoundError as exc:
+        raise _not_found(pipeline_id, exc) from exc
+    except ValueError as exc:
+        raise _invalid_action(pipeline_id, exc) from exc
+
+
 def _not_found(pipeline_id: str, exc: FileNotFoundError) -> HTTPException:
     return HTTPException(
         status_code=404,

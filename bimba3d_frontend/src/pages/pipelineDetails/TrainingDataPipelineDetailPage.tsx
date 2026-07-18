@@ -75,7 +75,7 @@ export default function TrainingDataPipelineDetailPage({
           <PipelineScoreDistributionPanel pipelineId={pipeline.id} title="Relative Score Distribution" />
         </div>
       )}
-      {activeTab === "projects" && <PipelineProjectsRunsPanel pipeline={pipeline} />}
+      {activeTab === "projects" && <PipelineProjectsRunsPanel pipeline={pipeline} onRunDeleted={onRefresh} />}
       {activeTab === "learning" && (
         <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-4">

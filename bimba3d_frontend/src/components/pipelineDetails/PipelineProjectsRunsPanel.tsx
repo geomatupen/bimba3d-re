@@ -1,10 +1,12 @@
 ﻿import { Fragment, useEffect, useMemo, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Trash2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { api } from "../../api/client";
 import type { PipelineDetail } from "./types";
 
 interface PipelineProjectsRunsPanelProps {
   pipeline: PipelineDetail;
+  onRunDeleted?: () => void;
 }
 
 interface ProjectOption {
@@ -34,7 +36,7 @@ const statusClass = (status?: string) => {
   return "bg-slate-100 text-slate-700";
 };
 
-export default function PipelineProjectsRunsPanel({ pipeline }: PipelineProjectsRunsPanelProps) {
+export default function PipelineProjectsRunsPanel({ pipeline, onRunDeleted }: PipelineProjectsRunsPanelProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const projects = Array.isArray(pipeline.config?.projects) ? pipeline.config.projects : [];
@@ -54,10 +56,25 @@ export default function PipelineProjectsRunsPanel({ pipeline }: PipelineProjects
 
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"project" | "time">("project");
+  const [openRunMenuId, setOpenRunMenuId] = useState<string | null>(null);
+  const [pendingDeleteRun, setPendingDeleteRun] = useState<any | null>(null);
+  const [deletingRunId, setDeletingRunId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     setSelectedProjects(projectOptions.map((project) => project.key));
   }, [projectOptions]);
+
+  useEffect(() => {
+    const closeMenu = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest("[data-run-menu-root]")) {
+        setOpenRunMenuId(null);
+      }
+    };
+    document.addEventListener("mousedown", closeMenu);
+    return () => document.removeEventListener("mousedown", closeMenu);
+  }, []);
 
   const selectedSet = useMemo(() => new Set(selectedProjects), [selectedProjects]);
   const selectedRunProjectKeys = useMemo(() => {
@@ -108,6 +125,28 @@ export default function PipelineProjectsRunsPanel({ pipeline }: PipelineProjects
     setSelectedProjects((current) =>
       current.includes(key) ? current.filter((item) => item !== key) : [...current, key],
     );
+  };
+
+  const confirmDeleteRun = async () => {
+    const runId = String(pendingDeleteRun?.run_id || "").trim();
+    if (!runId || deletingRunId) return;
+
+    setDeleteError(null);
+    setDeletingRunId(runId);
+    try {
+      await api.delete(`/api/workflow/pipelines/${encodeURIComponent(pipeline.id)}/runs/${encodeURIComponent(runId)}`);
+      setPendingDeleteRun(null);
+      onRunDeleted?.();
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      setDeleteError(
+        typeof detail === "string"
+          ? detail
+          : detail?.message || detail?.details || error?.message || "Failed to delete run.",
+      );
+    } finally {
+      setDeletingRunId(null);
+    }
   };
 
   return (
@@ -229,6 +268,7 @@ export default function PipelineProjectsRunsPanel({ pipeline }: PipelineProjects
                     <th className="border-b border-slate-200 px-1.5 py-1 text-left font-semibold text-slate-700">Multipliers</th>
                     <th className="border-b border-slate-200 px-1.5 py-1 text-left font-semibold text-slate-700">Notes</th>
                     <th className="border-b border-slate-200 px-1.5 py-1 text-left font-semibold text-slate-700">Completed</th>
+                    <th className="border-b border-slate-200 px-1.5 py-1 text-right font-semibold text-slate-700">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -249,12 +289,15 @@ export default function PipelineProjectsRunsPanel({ pipeline }: PipelineProjects
                     const previousRun = filteredRuns[index - 1];
                     const previousProjectName = previousRun?.project_name || previousRun?.project || "-";
                     const showProjectGroup = sortBy === "project" && projectName !== previousProjectName;
+                    const runId = String(run.run_id || "");
+                    const runMenuKey = runId || String(run.id || index);
+                    const canDeleteRun = Boolean(runId) && !isBaseline && String(run.status || "").toLowerCase() !== "running";
 
                     return (
                       <Fragment key={`${run.run_id || run.id || index}-row-group`}>
                       {showProjectGroup && (
                         <tr key={`${projectName}-group-${index}`}>
-                          <td colSpan={10} className="border-b border-slate-200 bg-slate-100 px-1.5 py-1 text-[11px] font-bold text-slate-700" title={projectName}>
+                          <td colSpan={11} className="border-b border-slate-200 bg-slate-100 px-1.5 py-1 text-[11px] font-bold text-slate-700" title={projectName}>
                             {projectName}
                           </td>
                         </tr>
@@ -289,6 +332,47 @@ export default function PipelineProjectsRunsPanel({ pipeline }: PipelineProjects
                           {notes || "-"}
                         </td>
                         <td className="border-b border-slate-100 px-1.5 py-1 text-slate-600">{formatDate(run.completed_at || run.timestamp)}</td>
+                        <td className="border-b border-slate-100 px-1.5 py-1 text-right">
+                          <div className="relative inline-flex" data-run-menu-root>
+                            <button
+                              type="button"
+                              onClick={() => setOpenRunMenuId((current) => (current === runMenuKey ? null : runMenuKey))}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
+                              title="Run actions"
+                              aria-label="Run actions"
+                            >
+                              <span className="flex h-4 w-1 flex-col items-center justify-center gap-0.5" aria-hidden="true">
+                                <span className="h-1 w-1 rounded-full bg-slate-700" />
+                                <span className="h-1 w-1 rounded-full bg-slate-700" />
+                                <span className="h-1 w-1 rounded-full bg-slate-700" />
+                              </span>
+                            </button>
+                            {openRunMenuId === runMenuKey && (
+                              <div className="absolute right-0 top-8 z-30 w-36 rounded-md border border-slate-200 bg-white py-1 text-left shadow-lg">
+                                <button
+                                  type="button"
+                                  disabled={!canDeleteRun || deletingRunId === runId}
+                                  onClick={() => {
+                                    setDeleteError(null);
+                                    setPendingDeleteRun(run);
+                                    setOpenRunMenuId(null);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-2.5 py-1.5 text-[11px] font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-white"
+                                  title={
+                                    isBaseline
+                                      ? "Baseline runs cannot be deleted here"
+                                      : !canDeleteRun
+                                        ? "This run cannot be deleted while it is running"
+                                        : "Delete this run"
+                                  }
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  Delete run
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                       </Fragment>
                     );
@@ -299,6 +383,53 @@ export default function PipelineProjectsRunsPanel({ pipeline }: PipelineProjects
           </div>
         </div>
       </div>
+      {pendingDeleteRun && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-xl">
+            <div className="border-b border-slate-200 px-4 py-3">
+              <h3 className="text-sm font-semibold text-slate-950">Delete run?</h3>
+              <p className="mt-1 text-xs text-slate-600">
+                This removes the selected run from the pipeline and deletes its run folder.
+              </p>
+            </div>
+            <div className="space-y-2 px-4 py-3 text-xs text-slate-700">
+              <div>
+                <span className="font-semibold text-slate-900">Project:</span>{" "}
+                {pendingDeleteRun.project_name || pendingDeleteRun.project || "-"}
+              </div>
+              <div>
+                <span className="font-semibold text-slate-900">Run:</span>{" "}
+                {pendingDeleteRun.run_name || pendingDeleteRun.run_id || "-"}
+              </div>
+              {deleteError && (
+                <div className="rounded border border-red-200 bg-red-50 px-2 py-1.5 text-red-700">
+                  {deleteError}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingDeleteRun(null);
+                  setDeleteError(null);
+                }}
+                className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmDeleteRun()}
+                disabled={Boolean(deletingRunId)}
+                className="rounded bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:cursor-wait disabled:bg-red-300"
+              >
+                {deletingRunId ? "Deleting..." : "Delete run"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

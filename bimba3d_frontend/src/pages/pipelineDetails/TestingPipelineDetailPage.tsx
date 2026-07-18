@@ -240,7 +240,7 @@ export default function TestingPipelineDetailPage({
           <PipelineScoreDistributionPanel pipelineId={pipeline.id} refreshKey={pipeline.updated_at} selectedModelId={selectedModelId} title="Observed Test Score Distribution" />
         </div>
       )}
-      {activeTab === "projects" && <PipelineProjectsRunsPanel pipeline={pipeline} />}
+      {activeTab === "projects" && <PipelineProjectsRunsPanel pipeline={pipeline} onRunDeleted={onRefresh} />}
       {activeTab === "models" && <TestingModelsPanel pipeline={pipeline} />}
       {activeTab === "predictions" && <TestingPredictionsPanel pipeline={pipeline} selectedModelId={selectedModelId} />}
       {activeTab === "results" && <TestingResultsPanel pipeline={pipeline} />}

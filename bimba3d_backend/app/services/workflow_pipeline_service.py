@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import shutil
 import time
 import uuid
 from datetime import datetime, timezone
@@ -604,6 +605,75 @@ async def export_current_test(pipeline_id: str):
     return await workflow_test_export.export_current_test(pipeline_id)
 
 
+def delete_pipeline_run(pipeline_id: str, run_id: str) -> dict[str, Any]:
+    pipeline = _require_pipeline(pipeline_id)
+    if str(pipeline.get("status") or "").lower() == "running":
+        raise ValueError("Stop the pipeline before deleting a run.")
+
+    run_id = str(run_id or "").strip()
+    if not run_id:
+        raise ValueError("Run ID is required.")
+
+    runs = [run for run in pipeline.get("runs", []) if isinstance(run, dict)]
+    target = next((run for run in runs if str(run.get("run_id") or "") == run_id), None)
+    if target is None:
+        raise FileNotFoundError("Run not found in this pipeline.")
+
+    active_run = pipeline.get("active_run") if isinstance(pipeline.get("active_run"), dict) else {}
+    if str(active_run.get("run_id") or "") == run_id:
+        raise ValueError("Cannot delete the active pipeline run.")
+
+    try:
+        target_phase = int(target.get("phase") or 0)
+    except (TypeError, ValueError):
+        target_phase = 0
+    is_baseline = target_phase == 1 or str(target.get("run_name") or "").lower().find("baseline") >= 0
+    if is_baseline:
+        raise ValueError("Baseline runs cannot be deleted from the pipeline runs table.")
+
+    config = pipeline.get("config", {}) if isinstance(pipeline.get("config"), dict) else {}
+    pipeline_folder_value = str(config.get("pipeline_folder") or "").strip()
+    if not pipeline_folder_value:
+        raise FileNotFoundError("Pipeline folder not found.")
+    pipeline_folder = Path(pipeline_folder_value).resolve()
+    if not pipeline_folder.exists():
+        raise FileNotFoundError("Pipeline folder not found.")
+
+    run_dir = _pipeline_run_dir(pipeline_folder, target)
+    if run_dir is None:
+        raise FileNotFoundError("Run folder not found.")
+
+    try:
+        run_dir.relative_to(pipeline_folder)
+    except ValueError as exc:
+        raise ValueError("Resolved run folder is outside the pipeline folder.") from exc
+
+    shutil.rmtree(run_dir)
+
+    remaining_runs = [run for run in runs if str(run.get("run_id") or "") != run_id]
+    updates: dict[str, Any] = {
+        "runs": remaining_runs,
+        "total_runs": len(remaining_runs),
+    }
+
+    updated = training_pipeline_storage.update_pipeline(pipeline_id, updates)
+    if not updated:
+        raise FileNotFoundError("Pipeline not found after run deletion.")
+    updated = training_pipeline_storage.refresh_pipeline_counters(pipeline_id) or updated
+
+    _repair_project_status_after_run_delete(pipeline_folder, target, remaining_runs)
+
+    logger.info("Deleted pipeline run %s from %s", run_id, pipeline_id)
+    return {
+        "success": True,
+        "message": "Run deleted.",
+        "pipeline_id": pipeline_id,
+        "run_id": run_id,
+        "deleted_run_dir": str(run_dir),
+        "pipeline": normalise_pipeline_detail(updated),
+    }
+
+
 def normalise_pipeline_summary(pipeline: dict[str, Any]) -> dict[str, Any]:
     config = pipeline.get("config", {}) if isinstance(pipeline.get("config"), dict) else {}
     pipeline_type = str(config.get("pipeline_type") or pipeline.get("pipeline_type") or "offline_data").strip().lower()
@@ -1063,6 +1133,66 @@ def _is_project_folder(project_dir: Path, pipeline_folder: Path) -> bool:
     if (project_dir / "pipeline.json").exists() and project_dir == pipeline_folder:
         return False
     return True
+
+
+def _pipeline_run_dir(pipeline_folder: Path, run: dict[str, Any]) -> Path | None:
+    run_id = str(run.get("run_id") or "").strip()
+    project_name = str(run.get("project_name") or run.get("project") or "").strip()
+    if not run_id:
+        return None
+
+    candidate_dirs: list[Path] = []
+    if project_name:
+        candidate_dirs.append(pipeline_folder / project_name.replace(" ", "_") / "runs" / run_id)
+        candidate_dirs.append(pipeline_folder / project_name / "runs" / run_id)
+
+    for candidate in candidate_dirs:
+        if candidate.exists() and candidate.is_dir():
+            return candidate.resolve()
+
+    matches = [path.resolve() for path in pipeline_folder.glob(f"*/runs/{run_id}") if path.is_dir()]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _repair_project_status_after_run_delete(
+    pipeline_folder: Path,
+    deleted_run: dict[str, Any],
+    remaining_runs: list[dict[str, Any]],
+) -> None:
+    project_name = str(deleted_run.get("project_name") or deleted_run.get("project") or "").strip()
+    deleted_run_id = str(deleted_run.get("run_id") or "").strip()
+    if not project_name or not deleted_run_id:
+        return
+
+    status_path = pipeline_folder / project_name.replace(" ", "_") / "status.json"
+    if not status_path.exists():
+        return
+
+    try:
+        status = json.loads(status_path.read_text(encoding="utf-8-sig"))
+    except Exception:
+        return
+    if not isinstance(status, dict) or str(status.get("current_run_id") or "") != deleted_run_id:
+        return
+
+    candidates = [
+        run
+        for run in remaining_runs
+        if str(run.get("project_name") or run.get("project") or "").strip() == project_name
+        and str(run.get("run_id") or "").strip()
+    ]
+    if not candidates:
+        status["current_run_id"] = None
+        if isinstance(status.get("live_metrics"), dict):
+            status["live_metrics"]["run_id"] = None
+    else:
+        latest = max(candidates, key=lambda run: str(run.get("completed_at") or run.get("timestamp") or ""))
+        latest_run_id = str(latest.get("run_id") or "")
+        status["current_run_id"] = latest_run_id
+        if isinstance(status.get("live_metrics"), dict):
+            status["live_metrics"]["run_id"] = latest_run_id
+    status["updated_after_run_delete_at"] = _utc_now()
+    status_path.write_text(json.dumps(status, indent=2) + "\n", encoding="utf-8")
 
 
 def _iter_processing_logs(project_dir: Path):
