@@ -381,7 +381,7 @@ def _compute_metrics(
         }
         group_mses.append(mse)
 
-    out["avg_val_mse"] = float(np.mean(group_mses)) if group_mses else float("inf")
+    out["lambda_search_mse"] = float(np.mean(group_mses)) if group_mses else float("inf")
     return out
 
 

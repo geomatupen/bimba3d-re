@@ -175,7 +175,7 @@ def compute_compact_ridge_metrics(
             residuals.append(pred - target)
             targets.append(target)
     if not residuals:
-        return {"mse": float("inf"), "rmse": float("inf"), "mae": float("inf"), "r_squared": 0.0, "samples": 0, "avg_val_mse": float("inf")}
+        return {"mse": float("inf"), "rmse": float("inf"), "mae": float("inf"), "r_squared": 0.0, "samples": 0, "lambda_search_mse": float("inf")}
     arr = np.array(residuals, dtype=np.float64)
     target_arr = np.array(targets, dtype=np.float64)
     mse = float(np.mean(arr * arr))
@@ -187,7 +187,7 @@ def compute_compact_ridge_metrics(
         "mae": float(np.mean(np.abs(arr))),
         "r_squared": 1.0 - (ss_res / ss_tot) if ss_tot > 1e-10 else 0.0,
         "samples": len(residuals),
-        "avg_val_mse": mse,
+        "lambda_search_mse": mse,
     }
 
 

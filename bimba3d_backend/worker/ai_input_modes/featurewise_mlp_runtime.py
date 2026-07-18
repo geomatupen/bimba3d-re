@@ -23,15 +23,15 @@ Prediction:
 from __future__ import annotations
 
 import json
-import numpy as np
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
+
+import numpy as np
 
 try:
     import torch
     import torch.nn as nn
     import torch.optim as optim
-    from torch.utils.data import DataLoader, TensorDataset
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
@@ -61,6 +61,7 @@ DEFAULT_EPOCHS = 200
 DEFAULT_PATIENCE = 20  # early stopping patience
 # Fallback prediction grid size. Explicit candidate_log_multipliers_by_group from testing overrides this.
 DEFAULT_CANDIDATE_POINTS = 30
+DEFAULT_SEED = 42
 
 
 def _get_input_dim(mode: str) -> int:
@@ -313,10 +314,14 @@ def train_neural_model(
     if len(training_data) < 5:
         return {"error": f"Need at least 5 training samples (got {len(training_data)} after filtering)", "trained": False}
 
+    torch.manual_seed(DEFAULT_SEED)
+    np.random.seed(DEFAULT_SEED)
+
     # Build training tensors
     X_list = []
     Y_list = []
     W_list = []
+    project_names: list[str] = []
 
     use_mirroring = (topk_per_project == 0)  # Only mirror negatives in "all runs" mode
 
@@ -324,6 +329,9 @@ def train_neural_model(
         features = entry.get("features", {})
         score = float(entry.get("relative_score", 0.0))
         yhat = entry.get("yhat_scores", {})
+        project_name = entry.get("project_name")
+        if not isinstance(project_name, str) or not project_name.strip():
+            continue
 
         # Build context vector
         if mode == "exif_compact_featurewise" or mode == "exif_compact":
@@ -361,6 +369,12 @@ def train_neural_model(
         X_list.append(x.astype(np.float32))
         Y_list.append(target)
         W_list.append(weight)
+        project_names.append(project_name.strip())
+
+    if not Y_list:
+        return {"error": "No valid MLP training rows with project names available", "trained": False}
+    if len(set(project_names)) < 2:
+        return {"error": "MLP project-level validation needs at least 2 projects", "trained": False}
 
     X = torch.tensor(np.array(X_list), dtype=torch.float32)
     Y = torch.tensor(np.array(Y_list), dtype=torch.float32)
@@ -371,12 +385,9 @@ def train_neural_model(
 
     input_dim = X.shape[1]
 
-    # Split into train/val (80/20)
+    # Split by project so validation rows come from projects unseen during fitting.
     n = len(X)
-    perm = torch.randperm(n)
-    split = max(1, int(0.8 * n))
-    train_idx = perm[:split]
-    val_idx = perm[split:]
+    train_idx, val_idx, train_projects, val_projects = _project_level_split_indices(project_names)
 
     X_train, Y_train, W_train = X[train_idx], Y[train_idx], W[train_idx]
     X_val, Y_val, W_val = X[val_idx], Y[val_idx], W[val_idx]
@@ -406,11 +417,8 @@ def train_neural_model(
         # Validate
         model.eval()
         with torch.no_grad():
-            val_pred = model(X_val) if len(X_val) > 0 else torch.zeros(0, 3)
-            if len(X_val) > 0:
-                val_loss = (W_val.unsqueeze(1) * (val_pred - Y_val) ** 2).mean().item()
-            else:
-                val_loss = float(loss.item())
+            val_pred = model(X_val)
+            val_loss = (W_val.unsqueeze(1) * (val_pred - Y_val) ** 2).mean().item()
         val_losses.append(val_loss)
 
         # Early stopping
@@ -451,8 +459,13 @@ def train_neural_model(
         "hidden2": hidden2,
         "dropout": dropout,
         "training_samples": n,
-        "train_split": split,
-        "val_split": n - split,
+        "validation_split_level": "project",
+        "train_split": int(len(train_idx)),
+        "val_split": int(len(val_idx)),
+        "train_project_count": len(train_projects),
+        "val_project_count": len(val_projects),
+        "train_projects": train_projects,
+        "val_projects": val_projects,
         "epochs_trained": len(train_losses),
         "best_val_loss": best_val_loss,
         "final_train_loss": train_losses[-1] if train_losses else None,
@@ -590,17 +603,22 @@ def train_featurewise_neural_model(
     if len(training_data) < 5:
         return {"error": f"Need at least 5 training samples (got {len(training_data)})", "trained": False}
 
+    torch.manual_seed(DEFAULT_SEED)
+    np.random.seed(DEFAULT_SEED)
+
     score_key = "relative_quality_score"
     bounds = normalise_group_bounds(group_bounds)
 
     # Build per-group score-design tensors.
     X_geo_list, X_app_list, X_den_list = [], [], []
     Y_list = []
+    project_names: list[str] = []
 
     for entry in training_data:
         features = entry.get("features", {})
         score_raw = entry.get(score_key)
-        if not isinstance(score_raw, (int, float)):
+        project_name = entry.get("project_name")
+        if not isinstance(score_raw, (int, float)) or not isinstance(project_name, str) or not project_name.strip():
             continue
         score = float(score_raw)
 
@@ -614,9 +632,12 @@ def train_featurewise_neural_model(
         X_app_list.append(_build_featurewise_score_tensor(features, "appearance_lr_mult", app_log))
         X_den_list.append(_build_featurewise_score_tensor(features, "densification_mult", den_log))
         Y_list.append(np.array([score, score, score], dtype=np.float32))
+        project_names.append(project_name.strip())
 
     if not Y_list:
         return {"error": "No valid score-training rows available", "trained": False}
+    if len(set(project_names)) < 2:
+        return {"error": "Featurewise MLP project-level validation needs at least 2 projects", "trained": False}
 
     X_geo = torch.tensor(np.array(X_geo_list), dtype=torch.float32)
     X_app = torch.tensor(np.array(X_app_list), dtype=torch.float32)
@@ -624,9 +645,7 @@ def train_featurewise_neural_model(
     Y = torch.tensor(np.array(Y_list), dtype=torch.float32)
 
     n = len(Y)
-    perm = torch.randperm(n)
-    split = max(1, int(0.8 * n))
-    train_idx, val_idx = perm[:split], perm[split:]
+    train_idx, val_idx, train_projects, val_projects = _project_level_split_indices(project_names)
 
     model = FeaturewiseMLP(
         geo_dim=X_geo.shape[1], app_dim=X_app.shape[1], den_dim=X_den.shape[1],
@@ -651,11 +670,8 @@ def train_featurewise_neural_model(
 
         model.eval()
         with torch.no_grad():
-            if len(val_idx) > 0:
-                val_pred = model(X_geo[val_idx], X_app[val_idx], X_den[val_idx])
-                val_loss = ((val_pred - Y[val_idx]) ** 2).mean().item()
-            else:
-                val_loss = float(loss.item())
+            val_pred = model(X_geo[val_idx], X_app[val_idx], X_den[val_idx])
+            val_loss = ((val_pred - Y[val_idx]) ** 2).mean().item()
         val_losses.append(val_loss)
 
         if val_loss < best_val_loss - 1e-5:
@@ -692,6 +708,14 @@ def train_featurewise_neural_model(
         "max_epochs": epochs,
         "early_stopping_patience": patience,
         "candidate_points": DEFAULT_CANDIDATE_POINTS,
+        "seed": DEFAULT_SEED,
+        "validation_split_level": "project",
+        "train_split": int(len(train_idx)),
+        "val_split": int(len(val_idx)),
+        "train_project_count": len(train_projects),
+        "val_project_count": len(val_projects),
+        "train_projects": train_projects,
+        "val_projects": val_projects,
         "log_multiplier_bounds": {key: [float(bounds[key][0]), float(bounds[key][1])] for key in GROUP_KEYS},
     }, model_save_path)
 
@@ -704,6 +728,13 @@ def train_featurewise_neural_model(
         "hidden": hidden,
         "dropout": dropout,
         "training_samples": n,
+        "validation_split_level": "project",
+        "train_split": int(len(train_idx)),
+        "val_split": int(len(val_idx)),
+        "train_project_count": len(train_projects),
+        "val_project_count": len(val_projects),
+        "train_projects": train_projects,
+        "val_projects": val_projects,
         "epochs_trained": len(train_losses),
         "max_epochs": epochs,
         "best_epoch": best_epoch,
@@ -715,6 +746,7 @@ def train_featurewise_neural_model(
         "weight_decay": weight_decay,
         "total_parameters": sum(p.numel() for p in model.parameters()),
         "candidate_points": DEFAULT_CANDIDATE_POINTS,
+        "seed": DEFAULT_SEED,
         "log_multiplier_bounds": {key: [float(bounds[key][0]), float(bounds[key][1])] for key in GROUP_KEYS},
     }
     metadata_path = model_dir / f"{mode_name}_{_ts}_metadata.json"
@@ -730,6 +762,31 @@ def train_featurewise_neural_model(
         "final_train_loss": train_losses[-1] if train_losses else None,
         **metadata,
     }
+
+
+def _project_level_split_indices(project_names: list[str]) -> tuple["torch.Tensor", "torch.Tensor", list[str], list[str]]:
+    """Split rows by project so validation measures unseen-project behaviour."""
+    unique_projects = sorted(set(project_names))
+    if len(unique_projects) < 2:
+        raise ValueError("Project-level validation needs at least 2 projects")
+
+    project_perm = torch.randperm(len(unique_projects))
+    split = max(1, int(0.8 * len(unique_projects)))
+    if split >= len(unique_projects):
+        split = len(unique_projects) - 1
+
+    train_projects = [unique_projects[int(i)] for i in project_perm[:split]]
+    val_projects = [unique_projects[int(i)] for i in project_perm[split:]]
+    train_set = set(train_projects)
+    val_set = set(val_projects)
+    train_idx = [idx for idx, name in enumerate(project_names) if name in train_set]
+    val_idx = [idx for idx, name in enumerate(project_names) if name in val_set]
+    return (
+        torch.tensor(train_idx, dtype=torch.long),
+        torch.tensor(val_idx, dtype=torch.long),
+        sorted(train_projects),
+        sorted(val_projects),
+    )
 
 
 def predict_featurewise_neural_multipliers(

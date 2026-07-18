@@ -79,11 +79,19 @@ def train_compact_featurewise_mlp_model(
     bounds = normalise_compact_group_bounds(group_bounds)
     X_list: list[np.ndarray] = []
     Y_list: list[float] = []
+    project_names: list[str] = []
     for entry in training_data:
         features = entry.get("features")
         score = entry.get("relative_quality_score")
         selected = entry.get("selected_multipliers")
-        if not isinstance(features, dict) or not isinstance(selected, dict) or not isinstance(score, (int, float)):
+        project_name = entry.get("project_name")
+        if (
+            not isinstance(features, dict)
+            or not isinstance(selected, dict)
+            or not isinstance(score, (int, float))
+            or not isinstance(project_name, str)
+            or not project_name.strip()
+        ):
             continue
         action_logs = compact_action_logs_from_multipliers(selected, bounds=bounds)
         if action_logs is None:
@@ -91,16 +99,17 @@ def train_compact_featurewise_mlp_model(
         x = build_compact_vector(features)
         X_list.append(build_compact_score_design_vector(x, action_logs).astype(np.float32))
         Y_list.append(float(score))
+        project_names.append(project_name.strip())
 
     if not Y_list:
         return {"trained": False, "error": "No valid compact MLP score-training rows available"}
+    if len(set(project_names)) < 2:
+        return {"trained": False, "error": "Compact MLP project-level validation needs at least 2 projects"}
 
     X = torch.tensor(np.array(X_list), dtype=torch.float32)
     Y = torch.tensor(np.array(Y_list), dtype=torch.float32)
     n = len(Y)
-    perm = torch.randperm(n)
-    split = max(1, int(0.8 * n))
-    train_idx, val_idx = perm[:split], perm[split:]
+    train_idx, val_idx, train_projects, val_projects = _project_level_split_indices(project_names)
 
     model = CompactFeaturewiseMLP(input_dim=X.shape[1], hidden=DEFAULT_HIDDEN, dropout=DEFAULT_DROPOUT)
     optimizer = optim.Adam(model.parameters(), lr=DEFAULT_LR, weight_decay=DEFAULT_WEIGHT_DECAY)
@@ -122,10 +131,7 @@ def train_compact_featurewise_mlp_model(
 
         model.eval()
         with torch.no_grad():
-            if len(val_idx) > 0:
-                val_loss = ((model(X[val_idx]) - Y[val_idx]) ** 2).mean().item()
-            else:
-                val_loss = float(loss.item())
+            val_loss = ((model(X[val_idx]) - Y[val_idx]) ** 2).mean().item()
         val_losses.append(float(val_loss))
 
         if val_loss < best_val_loss - 1e-5:
@@ -159,6 +165,13 @@ def train_compact_featurewise_mlp_model(
         "candidate_points": DEFAULT_CANDIDATE_POINTS,
         "seed": DEFAULT_SEED,
         "training_samples": int(n),
+        "validation_split_level": "project",
+        "train_split": int(len(train_idx)),
+        "val_split": int(len(val_idx)),
+        "train_project_count": len(train_projects),
+        "val_project_count": len(val_projects),
+        "train_projects": train_projects,
+        "val_projects": val_projects,
         "log_multiplier_bounds": {key: [float(bounds[key][0]), float(bounds[key][1])] for key in COMPACT_MODEL_GROUP_KEYS},
     }
     torch.save(checkpoint, model_path)
@@ -170,6 +183,13 @@ def train_compact_featurewise_mlp_model(
         "hidden": DEFAULT_HIDDEN,
         "dropout": DEFAULT_DROPOUT,
         "training_samples": int(n),
+        "validation_split_level": "project",
+        "train_split": int(len(train_idx)),
+        "val_split": int(len(val_idx)),
+        "train_project_count": len(train_projects),
+        "val_project_count": len(val_projects),
+        "train_projects": train_projects,
+        "val_projects": val_projects,
         "epochs_trained": len(train_losses),
         "max_epochs": DEFAULT_EPOCHS,
         "best_epoch": best_epoch,
@@ -193,6 +213,31 @@ def train_compact_featurewise_mlp_model(
         "metadata_path": str(metadata_path),
         **metadata,
     }
+
+
+def _project_level_split_indices(project_names: list[str]) -> tuple["torch.Tensor", "torch.Tensor", list[str], list[str]]:
+    """Split rows by project so validation measures unseen-project behaviour."""
+    unique_projects = sorted(set(project_names))
+    if len(unique_projects) < 2:
+        raise ValueError("Project-level validation needs at least 2 projects")
+
+    project_perm = torch.randperm(len(unique_projects))
+    split = max(1, int(0.8 * len(unique_projects)))
+    if split >= len(unique_projects):
+        split = len(unique_projects) - 1
+
+    train_projects = [unique_projects[int(i)] for i in project_perm[:split]]
+    val_projects = [unique_projects[int(i)] for i in project_perm[split:]]
+    train_set = set(train_projects)
+    val_set = set(val_projects)
+    train_idx = [idx for idx, name in enumerate(project_names) if name in train_set]
+    val_idx = [idx for idx, name in enumerate(project_names) if name in val_set]
+    return (
+        torch.tensor(train_idx, dtype=torch.long),
+        torch.tensor(val_idx, dtype=torch.long),
+        sorted(train_projects),
+        sorted(val_projects),
+    )
 
 
 def predict_compact_featurewise_mlp_multipliers(

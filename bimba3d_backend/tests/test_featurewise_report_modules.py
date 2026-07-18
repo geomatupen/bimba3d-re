@@ -27,7 +27,7 @@ def test_featurewise_ridge_wrapper_trains_candidate():
 
     assert model["model_family"] == "featurewise_ridge_regression"
     assert model["runs"] == 2
-    assert "avg_val_mse" in metrics
+    assert "lambda_search_mse" in metrics
     assert sorted(theta_norms) == sorted(GROUP_KEYS)
 
 
@@ -57,4 +57,3 @@ def _row(project_name: str, multiplier: float, score: float) -> dict:
         },
         "relative_quality_score": score,
     }
-

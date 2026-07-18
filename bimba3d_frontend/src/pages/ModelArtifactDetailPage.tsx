@@ -146,7 +146,7 @@ export default function ModelArtifactDetailPage() {
                 <div className="mt-4 grid gap-3 md:grid-cols-3">
                   <SummaryItem label="Selected Lambda" value={formatNumber(metricValue(rawModel, "lambda_selected") ?? metricValue(rawModel, "selected_lambda"), 6)} />
                   <SummaryItem label="Lambda Candidates" value={formatNumber(rawModel?.config?.lambda_search_count ?? rawModel?.metrics?.lambda_search?.length, 0)} />
-                  <SummaryItem label="Validation MSE" value={formatNumber(rawModel?.metrics?.train_fit_metrics?.avg_val_mse, 8)} />
+                  <SummaryItem label="Lambda-Search MSE" value={formatNumber(rawModel?.metrics?.train_fit_metrics?.lambda_search_mse, 8)} />
                 </div>
               )}
 
@@ -172,6 +172,9 @@ export default function ModelArtifactDetailPage() {
                   <SummaryItem label="Final Train Loss" value={formatNumber(metricValue(rawModel, "final_train_loss"), 8)} />
                   <SummaryItem label="Final Val Loss" value={formatNumber(metricValue(rawModel, "final_val_loss"), 8)} />
                   <SummaryItem label="Parameters" value={formatNumber(metricValue(rawModel, "total_parameters"), 0)} />
+                  <SummaryItem label="Validation Split" value={metricValue(rawModel, "validation_split_level") || "-"} />
+                  <SummaryItem label="Train Projects" value={formatNumber(metricValue(rawModel, "train_project_count"), 0)} />
+                  <SummaryItem label="Validation Projects" value={formatNumber(metricValue(rawModel, "val_project_count"), 0)} />
                 </div>
               )}
             </section>

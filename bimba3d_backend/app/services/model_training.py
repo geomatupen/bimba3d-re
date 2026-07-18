@@ -123,11 +123,11 @@ def _train_ridge(
             candidate_points=candidate_points,
             group_bounds=multiplier_bounds,
         )
-        avg_mse = float(metrics.get("avg_val_mse", float("inf")))
-        lambda_report.append({"lambda_ridge": float(candidate_lambda), "avg_val_mse": avg_mse})
-        training_log.append(_training_log(f"Lambda {candidate_lambda:g}: average validation MSE {avg_mse:.6f}."))
+        lambda_search_mse = float(metrics["lambda_search_mse"])
+        lambda_report.append({"lambda_ridge": float(candidate_lambda), "lambda_search_mse": lambda_search_mse})
+        training_log.append(_training_log(f"Lambda {candidate_lambda:g}: lambda-search MSE {lambda_search_mse:.6f}."))
 
-        if best_metrics is None or avg_mse < float(best_metrics.get("avg_val_mse", float("inf"))):
+        if best_metrics is None or lambda_search_mse < float(best_metrics["lambda_search_mse"]):
             best_model = model
             best_metrics = metrics
             best_lambda = float(candidate_lambda)
@@ -135,7 +135,7 @@ def _train_ridge(
 
     if best_model is None or best_metrics is None or best_lambda is None or best_theta_norms is None:
         raise RuntimeError("Failed to train Featurewise Ridge Regression.")
-    training_log.append(_training_log(f"Selected lambda {best_lambda:g} with lowest validation MSE.", "success"))
+    training_log.append(_training_log(f"Selected lambda {best_lambda:g} with lowest lambda-search MSE.", "success"))
 
     artifact_path = model_dir / "featurewise_ridge_model.json"
     metadata_path = model_dir / "featurewise_ridge_metadata.json"
@@ -246,10 +246,10 @@ def _train_compact_ridge(
             candidate_points=candidate_points,
             group_bounds=multiplier_bounds,
         )
-        avg_mse = float(metrics.get("avg_val_mse", metrics.get("mse", float("inf"))))
-        lambda_report.append({"lambda_ridge": float(candidate_lambda), "avg_val_mse": avg_mse})
-        training_log.append(_training_log(f"Lambda {candidate_lambda:g}: average validation MSE {avg_mse:.6f}."))
-        if best_metrics is None or avg_mse < float(best_metrics.get("avg_val_mse", best_metrics.get("mse", float("inf")))):
+        lambda_search_mse = float(metrics["lambda_search_mse"])
+        lambda_report.append({"lambda_ridge": float(candidate_lambda), "lambda_search_mse": lambda_search_mse})
+        training_log.append(_training_log(f"Lambda {candidate_lambda:g}: lambda-search MSE {lambda_search_mse:.6f}."))
+        if best_metrics is None or lambda_search_mse < float(best_metrics["lambda_search_mse"]):
             best_model = model
             best_metrics = metrics
             best_lambda = float(candidate_lambda)
@@ -257,7 +257,7 @@ def _train_compact_ridge(
 
     if best_model is None or best_metrics is None or best_lambda is None or best_theta_norm is None:
         raise RuntimeError("Failed to train Compact Featurewise Ridge Regression.")
-    training_log.append(_training_log(f"Selected lambda {best_lambda:g} with lowest validation MSE.", "success"))
+    training_log.append(_training_log(f"Selected lambda {best_lambda:g} with lowest lambda-search MSE.", "success"))
 
     artifact_path = model_dir / "compact_featurewise_ridge_model.json"
     metadata_path = model_dir / "compact_featurewise_ridge_metadata.json"
@@ -338,7 +338,7 @@ def _train_compact_mlp(
             _training_log(f"Validated one model evaluation step: {model_evaluation_step}."),
             _training_log(f"Loaded multiplier bounds from {multiplier_bounds_source}."),
             _training_log(f"Prepared {len(training_data)} compact MLP score row{'' if len(training_data) == 1 else 's'}."),
-            _training_log("Started compact MLP optimizer with train/validation split and early stopping."),
+            _training_log("Started compact MLP optimizer with project-level train/validation split and early stopping."),
         ]
     )
 
@@ -377,6 +377,11 @@ def _train_compact_mlp(
             "hidden": result.get("hidden"),
             "dropout": result.get("dropout"),
             "seed": result.get("seed"),
+            "validation_split_level": result.get("validation_split_level"),
+            "train_split": result.get("train_split"),
+            "val_split": result.get("val_split"),
+            "train_project_count": result.get("train_project_count"),
+            "val_project_count": result.get("val_project_count"),
             "training_log": training_log + [_training_log("Saved compact MLP checkpoint and metadata.")],
         },
         config={
@@ -388,6 +393,13 @@ def _train_compact_mlp(
             "max_epochs": result.get("max_epochs"),
             "early_stopping_patience": result.get("early_stopping_patience"),
             "seed": result.get("seed"),
+            "validation_split_level": result.get("validation_split_level"),
+            "train_split": result.get("train_split"),
+            "val_split": result.get("val_split"),
+            "train_project_count": result.get("train_project_count"),
+            "val_project_count": result.get("val_project_count"),
+            "train_projects": result.get("train_projects"),
+            "val_projects": result.get("val_projects"),
             "model_evaluation_step": model_evaluation_step,
             "score_reference_step": model_evaluation_step,
             "log_multiplier_bounds": multiplier_bounds,
@@ -418,7 +430,7 @@ def _train_mlp(
             _training_log(f"Validated one model evaluation step: {model_evaluation_step}."),
             _training_log(f"Loaded multiplier bounds from {multiplier_bounds_source}."),
             _training_log(f"Prepared {len(training_data)} featurewise MLP score row{'' if len(training_data) == 1 else 's'}."),
-            _training_log("Started featurewise MLP optimizer with train/validation split and early stopping."),
+            _training_log("Started featurewise MLP optimizer with project-level train/validation split and early stopping."),
         ]
     )
 
@@ -456,6 +468,12 @@ def _train_mlp(
             "weight_decay": result.get("weight_decay"),
             "hidden": result.get("hidden"),
             "dropout": result.get("dropout"),
+            "seed": result.get("seed"),
+            "validation_split_level": result.get("validation_split_level"),
+            "train_split": result.get("train_split"),
+            "val_split": result.get("val_split"),
+            "train_project_count": result.get("train_project_count"),
+            "val_project_count": result.get("val_project_count"),
             "training_log": training_log + [_training_log("Saved featurewise MLP checkpoint and metadata.")],
         },
         config={
@@ -466,6 +484,14 @@ def _train_mlp(
             "weight_decay": result.get("weight_decay"),
             "max_epochs": result.get("max_epochs"),
             "early_stopping_patience": result.get("early_stopping_patience"),
+            "seed": result.get("seed"),
+            "validation_split_level": result.get("validation_split_level"),
+            "train_split": result.get("train_split"),
+            "val_split": result.get("val_split"),
+            "train_project_count": result.get("train_project_count"),
+            "val_project_count": result.get("val_project_count"),
+            "train_projects": result.get("train_projects"),
+            "val_projects": result.get("val_projects"),
             "model_evaluation_step": model_evaluation_step,
             "score_reference_step": model_evaluation_step,
             "log_multiplier_bounds": multiplier_bounds,
@@ -584,10 +610,23 @@ def _training_log(message: str, level: str = "info") -> dict[str, str]:
 def _mlp_training_result_logs(result: dict[str, Any], *, compact: bool) -> list[dict[str, str]]:
     logs: list[dict[str, str]] = []
     samples = int(result.get("training_samples") or 0)
-    split = max(1, int(0.8 * samples)) if samples else 0
-    val_count = max(0, samples - split)
+    split = int(result.get("train_split") or 0)
+    val_count = int(result.get("val_split") or 0)
+    split_level = str(result["validation_split_level"])
     if samples:
-        logs.append(_training_log(f"Split data into {split} training row{'' if split == 1 else 's'} and {val_count} validation row{'' if val_count == 1 else 's'}."))
+        if split_level == "project":
+            train_project_count = int(result.get("train_project_count") or 0)
+            val_project_count = int(result.get("val_project_count") or 0)
+            logs.append(
+                _training_log(
+                    f"Split data by project into {split} training row{'' if split == 1 else 's'} "
+                    f"from {train_project_count} project{'' if train_project_count == 1 else 's'} and "
+                    f"{val_count} validation row{'' if val_count == 1 else 's'} "
+                    f"from {val_project_count} project{'' if val_project_count == 1 else 's'}."
+                )
+            )
+        else:
+            logs.append(_training_log(f"Split data into {split} training row{'' if split == 1 else 's'} and {val_count} validation row{'' if val_count == 1 else 's'}."))
 
     if compact:
         input_dim = result.get("input_dim")
