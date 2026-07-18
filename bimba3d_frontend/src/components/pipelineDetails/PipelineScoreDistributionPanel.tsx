@@ -409,7 +409,7 @@ function FinalMetricBeeswarm({
 }) {
   const [svgElement, setSvgElement] = useState<SVGSVGElement | null>(null);
   const captureSvg = useCallback((node: SVGSVGElement | null) => setSvgElement(node), []);
-  const [viewMode, setViewMode] = useState<"beeswarm" | "project_index">("beeswarm");
+  const [viewMode, setViewMode] = useState<"beeswarm" | "project_index">("project_index");
   const [showLabels, setShowLabels] = useState(true);
 
   if (points.length === 0) {
