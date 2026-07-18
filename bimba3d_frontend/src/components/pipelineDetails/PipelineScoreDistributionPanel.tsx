@@ -650,12 +650,13 @@ function WinLossSummary({ rows }: { rows: ScoreRow[] }) {
   }
 
   const width = 720;
-  const height = 172;
-  const plot = { left: 76, right: 24, top: 18, bottom: 22 };
+  const height = 184;
+  const plot = { left: 76, right: 24, top: 18, bottom: 36 };
   const rowHeight = 34;
   const barHeight = 22;
   const plotWidth = width - plot.left - plot.right;
   const scaleX = (value: number) => (value / totalMax) * plotWidth;
+  const countTicks = Array.from({ length: totalMax + 1 }, (_, index) => index);
 
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -668,8 +669,19 @@ function WinLossSummary({ rows }: { rows: ScoreRow[] }) {
           <SvgChartExportButton filename="final_metric_win_loss_summary" svgElement={svgElement} />
         </div>
       </div>
-      <svg ref={captureSvg} viewBox={`0 0 ${width} ${height}`} className="h-44 w-full rounded border border-slate-200 bg-white">
+      <svg ref={captureSvg} viewBox={`0 0 ${width} ${height}`} className="h-48 w-full rounded border border-slate-200 bg-white">
         <rect x={plot.left} y={plot.top} width={plotWidth} height={height - plot.top - plot.bottom} fill="#f8fafc" />
+        {countTicks.map((tick) => {
+          const x = plot.left + scaleX(tick);
+          return (
+            <g key={`win-loss-count-${tick}`}>
+              <line x1={x} x2={x} y1={plot.top} y2={height - plot.bottom} stroke="#e2e8f0" />
+              <text x={x} y={height - 16} textAnchor="middle" className="fill-slate-500 text-[10px]">
+                {tick}
+              </text>
+            </g>
+          );
+        })}
         {summary.map(({ metric, wins, losses, total }, index) => {
           const winPct = total > 0 ? (wins / total) * 100 : 0;
           const lossPct = total > 0 ? (losses / total) * 100 : 0;
@@ -683,21 +695,17 @@ function WinLossSummary({ rows }: { rows: ScoreRow[] }) {
                 {metric.label}
               </text>
               <rect x={plot.left} y={y} width={Math.max(totalWidth, 1)} height={barHeight} fill="#e2e8f0" stroke="#cbd5e1" />
-              <rect x={plot.left} y={y} width={winWidth} height={barHeight} fill={metric.color} />
+              <rect x={plot.left} y={y} width={winWidth} height={barHeight} fill={metric.color} opacity="0.78" stroke="#ffffff" strokeWidth="0.8" />
               <rect x={plot.left + winWidth} y={y} width={lossWidth} height={barHeight} fill="#e2e8f0" />
               <text x={plot.left + Math.max(winWidth / 2, 36)} y={y + 15} textAnchor="middle" className="fill-white text-[11px] font-semibold">
                 {wins}/{total} improved
               </text>
-              {losses > 0 && (
-                <text x={plot.left + winWidth + Math.max(lossWidth / 2, 44)} y={y + 15} textAnchor="middle" className="fill-slate-600 text-[11px] font-medium">
-                  {losses}/{total} not improved
-                </text>
-              )}
+              <title>{`${metric.label}\nImproved: ${wins}/${total}\nNot improved or equal: ${losses}/${total}`}</title>
             </g>
           );
         })}
-        <text x={plot.left + plotWidth / 2} y={height - 6} textAnchor="middle" className="fill-slate-500 text-[10px]">
-          Bar length follows number of paired projects for the selected model.
+        <text x={plot.left + plotWidth / 2} y={height - 4} textAnchor="middle" className="fill-slate-500 text-[10px]">
+          Project count
         </text>
       </svg>
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600">
