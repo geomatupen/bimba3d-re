@@ -409,6 +409,8 @@ function FinalMetricBeeswarm({
 }) {
   const [svgElement, setSvgElement] = useState<SVGSVGElement | null>(null);
   const captureSvg = useCallback((node: SVGSVGElement | null) => setSvgElement(node), []);
+  const [viewMode, setViewMode] = useState<"beeswarm" | "project_index">("beeswarm");
+  const [showLabels, setShowLabels] = useState(true);
 
   if (points.length === 0) {
     return (
@@ -432,7 +434,40 @@ function FinalMetricBeeswarm({
   const plotHeight = height - plot.top - plot.bottom;
   const scaleY = (value: number) => plot.top + plotHeight - ((value - minY) / (maxY - minY || 1)) * plotHeight;
   const centerX = plot.left + plotWidth / 2;
-  const jitter = (index: number) => (((index * 37) % 29) - 14) * 2.7;
+  const scaleProjectX = (index: number) => {
+    if (points.length <= 1) return centerX;
+    return plot.left + (index / (points.length - 1)) * plotWidth;
+  };
+  const projectBand = plotWidth / Math.max(points.length, 1);
+  const barWidth = Math.max(5, Math.min(14, projectBand * 0.54));
+  const spreadPoints = (items: MetricImprovementPoint[]) => {
+    const placed: Array<{ x: number; y: number }> = [];
+    const laneOffsets = [0, -24, 24, -48, 48, -72, 72, -96, 96, -120, 120];
+    return items.map((point) => {
+      const y = scaleY(point.improvement);
+      const usedLanes = new Set<number>();
+      placed.forEach((placedPoint) => {
+        if (Math.abs(placedPoint.y - y) < 18) {
+          const lane = laneOffsets.findIndex((offset) => Math.abs(centerX + offset - placedPoint.x) < 1);
+          if (lane >= 0) usedLanes.add(lane);
+        }
+      });
+      const lane = laneOffsets.findIndex((_, index) => !usedLanes.has(index));
+      const offset = laneOffsets[lane >= 0 ? lane : (placed.length % laneOffsets.length)];
+      const x = Math.max(plot.left + 12, Math.min(plot.left + plotWidth - 12, centerX + offset));
+      placed.push({ x, y });
+      return { x, y };
+    });
+  };
+  const labelOffset = (index: number) => {
+    const offsets = [
+      { x: 6, y: -4, anchor: "start" as const },
+      { x: -6, y: -4, anchor: "end" as const },
+      { x: 6, y: 9, anchor: "start" as const },
+      { x: -6, y: 9, anchor: "end" as const },
+    ];
+    return offsets[index % offsets.length];
+  };
   const yTicks = Array.from(new Set([minY, 0, (minY + maxY) / 2, maxY]))
     .sort((a, b) => a - b)
     .filter((value, index, arr) => index === 0 || Math.abs(value - arr[index - 1]) > 1e-9);
@@ -440,18 +475,51 @@ function FinalMetricBeeswarm({
   const meanY = scaleY(mean);
   const medianY = scaleY(median);
   const exportName = `final_metric_improvement_${metric.label.toLowerCase()}`;
+  const pointPositions = spreadPoints(points);
+  const chartPoints = viewMode === "project_index"
+    ? points.map((point, index) => ({ x: scaleProjectX(index), y: scaleY(point.improvement) }))
+    : pointPositions;
 
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
       <div className="mb-2 flex items-start justify-between gap-2">
-        <div>
+        <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold text-slate-950">{metric.label} improvement over baseline</div>
           <div className="text-[11px] text-slate-500">
             {metric.improvementLabel}; above 0 is better{metric.unit ? ` (${metric.unit})` : ""}
           </div>
         </div>
-        <div className="shrink-0">
-          <SvgChartExportButton filename={exportName} svgElement={svgElement} />
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <div className="flex flex-nowrap items-center gap-1">
+            <SvgChartExportButton filename={exportName} svgElement={svgElement} />
+            <div className="inline-flex h-6 overflow-hidden rounded border border-slate-200 bg-white font-normal text-slate-500">
+              <button
+                type="button"
+                onClick={() => setViewMode("beeswarm")}
+                className={`px-1.5 leading-none ${viewMode === "beeswarm" ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50"}`}
+                style={{ fontSize: 10, lineHeight: "12px" }}
+              >
+                Dots
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("project_index")}
+                className={`border-l border-slate-200 px-1.5 leading-none ${viewMode === "project_index" ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50"}`}
+                style={{ fontSize: 10, lineHeight: "12px" }}
+              >
+                Bars
+              </button>
+            </div>
+          </div>
+          <label className="inline-flex h-5 items-center gap-1 rounded border border-slate-200 bg-white px-1.5 font-normal text-slate-500" style={{ fontSize: 10, lineHeight: "12px" }} title="Show or hide chart labels">
+            <input
+              type="checkbox"
+              checked={showLabels}
+              onChange={(event) => setShowLabels(event.target.checked)}
+              className="h-2.5 w-2.5 accent-blue-600"
+            />
+            Labels
+          </label>
         </div>
       </div>
       <svg ref={captureSvg} viewBox={`0 0 ${width} ${height}`} className="h-60 w-full rounded border border-slate-200 bg-white">
@@ -470,17 +538,83 @@ function FinalMetricBeeswarm({
         <line x1={plot.left} x2={plot.left + plotWidth} y1={zeroY} y2={zeroY} stroke="#f97316" strokeDasharray="4 3" strokeWidth="1.5" />
         <line x1={centerX - 62} x2={centerX + 62} y1={medianY} y2={medianY} stroke="#64748b" strokeWidth="1.35" />
         <circle cx={centerX} cy={meanY} r="6" fill="#ffffff" stroke="#334155" strokeWidth="1.35" />
-        {points.map((point, index) => {
-          const x = centerX + jitter(index);
-          const y = scaleY(point.improvement);
+        {viewMode === "project_index" && points.map((point, index) => {
+          const x = scaleProjectX(index);
+          const showTick = points.length <= 12 || index % Math.ceil(points.length / 12) === 0 || index === points.length - 1;
           return (
-            <circle key={`${metric.key}-${point.project}-${point.run}-${index}`} cx={x} cy={y} r="4" fill={metric.color} opacity="0.82" stroke="#ffffff" strokeWidth="0.8">
-              <title>{`${point.project}\n${point.run}\nBaseline ${metric.label}: ${point.baseline.toFixed(6)}\nTest ${metric.label}: ${point.value.toFixed(6)}\nImprovement: ${point.improvement.toFixed(6)}`}</title>
-            </circle>
+            <g key={`${metric.key}-project-index-${index}`}>
+              <line x1={x} x2={x} y1={plot.top} y2={plot.top + plotHeight} stroke="#e2e8f0" />
+              {showTick && (
+                <text x={x} y={plot.top + plotHeight + 14} textAnchor="middle" className="fill-slate-500 text-[9px]">
+                  {index + 1}
+                </text>
+              )}
+              <title>{`Project ${index + 1}: ${point.project}`}</title>
+            </g>
           );
         })}
-        <text x={plot.left + plotWidth / 2} y={height - 13} textAnchor="middle" className="fill-slate-500 text-[10px]">
-          Each dot = one test project
+        {viewMode === "project_index" && points.map((point, index) => {
+          const x = scaleProjectX(index);
+          const y = scaleY(point.improvement);
+          const y0 = scaleY(0);
+          const barY = Math.min(y, y0);
+          const barHeight = Math.max(Math.abs(y0 - y), 1);
+          return (
+            <g key={`${metric.key}-bar-${point.project}-${index}`}>
+              <rect
+                x={x - barWidth / 2}
+                y={barY}
+                width={barWidth}
+                height={barHeight}
+                fill={metric.color}
+                opacity="0.78"
+                stroke="#ffffff"
+                strokeWidth="0.8"
+              >
+                <title>{`Project ${index + 1}: ${point.project}\n${point.run}\nBaseline ${metric.label}: ${point.baseline.toFixed(6)}\nTest ${metric.label}: ${point.value.toFixed(6)}\nImprovement: ${point.improvement.toFixed(6)}`}</title>
+              </rect>
+              {showLabels && (
+                <text
+                  x={x}
+                  y={point.improvement >= 0 ? barY - 3 : barY + barHeight + 9}
+                  textAnchor="middle"
+                  className="pointer-events-none fill-slate-500 text-[8px] font-bold"
+                  stroke="#ffffff"
+                  strokeWidth="2.6"
+                  paintOrder="stroke"
+                >
+                  {formatTick(point.improvement)}
+                </text>
+              )}
+            </g>
+          );
+        })}
+        {viewMode === "beeswarm" && points.map((point, index) => {
+          const { x, y } = chartPoints[index];
+          const label = labelOffset(index);
+          return (
+            <g key={`${metric.key}-${point.project}-${point.run}-${index}`}>
+              <circle cx={x} cy={y} r="4.5" fill={metric.color} opacity="0.84" stroke="#ffffff" strokeWidth="0.8">
+                <title>{`Project ${index + 1}: ${point.project}\n${point.run}\nBaseline ${metric.label}: ${point.baseline.toFixed(6)}\nTest ${metric.label}: ${point.value.toFixed(6)}\nImprovement: ${point.improvement.toFixed(6)}`}</title>
+              </circle>
+              {showLabels && (
+                <text
+                  x={x + label.x}
+                  y={y + label.y}
+                  textAnchor={label.anchor}
+                  className="pointer-events-none fill-slate-500 text-[8px] font-bold"
+                  stroke="#ffffff"
+                  strokeWidth="2.6"
+                  paintOrder="stroke"
+                >
+                  {index + 1}
+                </text>
+              )}
+            </g>
+          );
+        })}
+        <text x={plot.left + plotWidth / 2} y={height - 7} textAnchor="middle" className="fill-slate-500 text-[10px]">
+          {viewMode === "project_index" ? "X-axis = project index in sorted project order" : "Dot number = project index in sorted project order"}
         </text>
         <text x="14" y={plot.top + plotHeight / 2} textAnchor="middle" transform={`rotate(-90 14 ${plot.top + plotHeight / 2})`} className="fill-slate-700 text-[10px] font-medium">
           Improvement

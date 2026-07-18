@@ -128,17 +128,17 @@ export default function SvgChartExportButton({ filename, label = "Export", svgEl
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-300 bg-slate-50 text-slate-900 shadow-sm hover:bg-white"
-        style={{ fontSize: 16, lineHeight: "16px" }}
+        className="inline-flex h-6 w-6 items-center justify-center rounded border border-slate-300 bg-slate-50 text-slate-900 shadow-sm hover:bg-white"
+        style={{ fontSize: 14, lineHeight: "14px" }}
         title={label}
         aria-label={label}
         aria-expanded={open}
       >
-        <span aria-hidden="true" style={{ fontSize: 15, transform: "translateY(-1px)" }}>⇩</span>
+        <span aria-hidden="true" style={{ fontSize: 13, transform: "translateY(-1px)" }}>⇩</span>
       </button>
       {open && (
         <div
-          className="absolute right-0 top-8 z-30 min-w-14 overflow-hidden rounded border border-slate-200 bg-white py-0.5 font-medium text-slate-700 shadow-lg"
+          className="absolute right-0 top-7 z-30 min-w-14 overflow-hidden rounded border border-slate-200 bg-white py-0.5 font-medium text-slate-700 shadow-lg"
           style={{ fontSize: 10, lineHeight: "14px" }}
         >
           <button
