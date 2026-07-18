@@ -22,16 +22,6 @@ interface TrainingLogEntry {
 
 const MODEL_MODE_OPTIONS: Array<{ value: ModelMode; label: string; description: string }> = [
   {
-    value: "featurewise_ridge_regression",
-    label: "Featurewise Ridge Regression",
-    description: "Legacy group-wise Ridge models for geometry, appearance, and densification.",
-  },
-  {
-    value: "featurewise_mlp",
-    label: "Featurewise MLP",
-    description: "Legacy group-wise MLP heads for multiplier groups.",
-  },
-  {
     value: "compact_featurewise_ridge_regression",
     label: "Compact Featurewise Ridge Regression",
     description: "One shared Ridge model for all multiplier groups.",
@@ -40,6 +30,16 @@ const MODEL_MODE_OPTIONS: Array<{ value: ModelMode; label: string; description: 
     value: "compact_featurewise_mlp",
     label: "Compact Featurewise MLP",
     description: "One shared MLP model for all multiplier groups.",
+  },
+  {
+    value: "featurewise_ridge_regression",
+    label: "Featurewise Ridge Regression",
+    description: "Legacy group-wise Ridge models for geometry, appearance, and densification.",
+  },
+  {
+    value: "featurewise_mlp",
+    label: "Featurewise MLP",
+    description: "Legacy group-wise MLP heads for multiplier groups.",
   },
 ];
 
@@ -117,7 +117,7 @@ export default function ModelTrainingPage() {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [selectedTrainingDataId, setSelectedTrainingDataId] = useState("");
   const [uploadTrainingDataId, setUploadTrainingDataId] = useState("");
-  const [modelMode, setModelMode] = useState<ModelMode>("featurewise_ridge_regression");
+  const [modelMode, setModelMode] = useState<ModelMode>("compact_featurewise_ridge_regression");
   const [uploadModelMode, setUploadModelMode] = useState<UploadModelMode>("compact_featurewise_ridge_regression");
   const [modelName, setModelName] = useState("");
   const [uploadModelName, setUploadModelName] = useState("");
@@ -248,7 +248,7 @@ export default function ModelTrainingPage() {
   );
 
   const openCreateModal = () => {
-    const mode: ModelMode = "featurewise_ridge_regression";
+    const mode: ModelMode = "compact_featurewise_ridge_regression";
     setModelMode(mode);
     setModelName(defaultModelName(mode));
     setAutoSelectLambda(true);
