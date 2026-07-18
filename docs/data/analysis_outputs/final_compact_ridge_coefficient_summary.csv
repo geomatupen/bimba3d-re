@@ -1,0 +1,48 @@
+rank_abs,design_index,term_type,descriptor,multiplier_group,term,coefficient,abs_coefficient
+1,16,action_squared,,densification_mult,action_squared:densification_mult,0.3448834137758714,0.3448834137758714
+2,26,interaction,vegetation_cover_percentage,geometry_lr_mult,interaction:vegetation_cover_percentage x geometry_lr_mult,-0.06819711978507627,0.06819711978507627
+3,25,interaction,vegetation_complexity_score,geometry_lr_mult,interaction:vegetation_complexity_score x geometry_lr_mult,0.06547089806619652,0.06547089806619652
+4,11,action,,geometry_lr_mult,action:geometry_lr_mult,0.042715231531860486,0.042715231531860486
+5,42,interaction,texture_density,densification_mult,interaction:texture_density x densification_mult,-0.03725312838287403,0.03725312838287403
+6,14,action_squared,,geometry_lr_mult,action_squared:geometry_lr_mult,-0.03723651078116201,0.03723651078116201
+7,15,action_squared,,appearance_lr_mult,action_squared:appearance_lr_mult,-0.03695936817544731,0.03695936817544731
+8,6,context,texture_density,,context:texture_density,-0.028992885741109784,0.028992885741109784
+9,43,interaction,blur_motion_risk,densification_mult,interaction:blur_motion_risk x densification_mult,-0.025070201477873224,0.025070201477873224
+10,7,context,blur_motion_risk,,context:blur_motion_risk,-0.02029546565553776,0.02029546565553776
+11,12,action,,appearance_lr_mult,action:appearance_lr_mult,0.020155533114085838,0.020155533114085838
+12,13,action,,densification_mult,action:densification_mult,-0.01869440394089399,0.01869440394089399
+13,32,interaction,texture_density,appearance_lr_mult,interaction:texture_density x appearance_lr_mult,0.018566750790163344,0.018566750790163344
+14,23,interaction,blur_motion_risk,geometry_lr_mult,interaction:blur_motion_risk x geometry_lr_mult,0.017563175595856927,0.017563175595856927
+15,46,interaction,vegetation_cover_percentage,densification_mult,interaction:vegetation_cover_percentage x densification_mult,0.016739329962690473,0.016739329962690473
+16,44,interaction,terrain_roughness_proxy,densification_mult,interaction:terrain_roughness_proxy x densification_mult,0.016259599651851992,0.016259599651851992
+17,39,interaction,coverage_spread,densification_mult,interaction:coverage_spread x densification_mult,0.014858184613372285,0.014858184613372285
+18,35,interaction,vegetation_complexity_score,appearance_lr_mult,interaction:vegetation_complexity_score x appearance_lr_mult,-0.01420642094595047,0.01420642094595047
+19,45,interaction,vegetation_complexity_score,densification_mult,interaction:vegetation_complexity_score x densification_mult,-0.013846588460717114,0.013846588460717114
+20,22,interaction,texture_density,geometry_lr_mult,interaction:texture_density x geometry_lr_mult,0.013765258864658075,0.013765258864658075
+21,3,context,coverage_spread,,context:coverage_spread,-0.01310243933909662,0.01310243933909662
+22,33,interaction,blur_motion_risk,appearance_lr_mult,interaction:blur_motion_risk x appearance_lr_mult,0.013071829706580823,0.013071829706580823
+23,36,interaction,vegetation_cover_percentage,appearance_lr_mult,interaction:vegetation_cover_percentage x appearance_lr_mult,0.012584987317828063,0.012584987317828063
+24,37,interaction,gsd_median,densification_mult,interaction:gsd_median x densification_mult,0.011253852584897235,0.011253852584897235
+25,34,interaction,terrain_roughness_proxy,appearance_lr_mult,interaction:terrain_roughness_proxy x appearance_lr_mult,-0.010985579600071769,0.010985579600071769
+26,0,context,intercept,,context:intercept,-0.0107015536138184,0.0107015536138184
+27,24,interaction,terrain_roughness_proxy,geometry_lr_mult,interaction:terrain_roughness_proxy x geometry_lr_mult,-0.00886986343487204,0.00886986343487204
+28,29,interaction,coverage_spread,appearance_lr_mult,interaction:coverage_spread x appearance_lr_mult,-0.00811797867842005,0.00811797867842005
+29,19,interaction,coverage_spread,geometry_lr_mult,interaction:coverage_spread x geometry_lr_mult,-0.008084319524145196,0.008084319524145196
+30,1,context,gsd_median,,context:gsd_median,0.004997306944967294,0.004997306944967294
+31,17,interaction,gsd_median,geometry_lr_mult,interaction:gsd_median x geometry_lr_mult,0.0038679487548742204,0.0038679487548742204
+32,18,interaction,overlap_proxy,geometry_lr_mult,interaction:overlap_proxy x geometry_lr_mult,-0.003827374161911675,0.003827374161911675
+33,41,interaction,heading_consistency,densification_mult,interaction:heading_consistency x densification_mult,-0.0035533353436956994,0.0035533353436956994
+34,38,interaction,overlap_proxy,densification_mult,interaction:overlap_proxy x densification_mult,-0.003389990172486398,0.003389990172486398
+35,9,context,vegetation_complexity_score,,context:vegetation_complexity_score,0.003012342846143055,0.003012342846143055
+36,27,interaction,gsd_median,appearance_lr_mult,interaction:gsd_median x appearance_lr_mult,-0.0022536007489766707,0.0022536007489766707
+37,21,interaction,heading_consistency,geometry_lr_mult,interaction:heading_consistency x geometry_lr_mult,-0.001529670373860777,0.001529670373860777
+38,2,context,overlap_proxy,,context:overlap_proxy,0.0011087534168434555,0.0011087534168434555
+39,10,context,vegetation_cover_percentage,,context:vegetation_cover_percentage,-0.0010363261200148398,0.0010363261200148398
+40,28,interaction,overlap_proxy,appearance_lr_mult,interaction:overlap_proxy x appearance_lr_mult,0.0010126703592394303,0.0010126703592394303
+41,8,context,terrain_roughness_proxy,,context:terrain_roughness_proxy,0.0009858778360155936,0.0009858778360155936
+42,5,context,heading_consistency,,context:heading_consistency,0.0009136026272309557,0.0009136026272309557
+43,31,interaction,heading_consistency,appearance_lr_mult,interaction:heading_consistency x appearance_lr_mult,0.00014258970114693176,0.00014258970114693176
+44,4,context,camera_angle_bucket,,context:camera_angle_bucket,0.0,0.0
+45,20,interaction,camera_angle_bucket,geometry_lr_mult,interaction:camera_angle_bucket x geometry_lr_mult,0.0,0.0
+46,30,interaction,camera_angle_bucket,appearance_lr_mult,interaction:camera_angle_bucket x appearance_lr_mult,0.0,0.0
+47,40,interaction,camera_angle_bucket,densification_mult,interaction:camera_angle_bucket x densification_mult,0.0,0.0

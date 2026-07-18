@@ -1,0 +1,90 @@
+{
+  "model_id": "model_compact-ridge_20260712_131550_final_offline_data_june_27-training-data-compact-ridge",
+  "model_name": "Final_offline_data_June_27 Training Data - Compact Ridge",
+  "model_family": "compact_featurewise_ridge_regression",
+  "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
+  "source_pipeline_id": "pipeline_55776ebd244e",
+  "artifact_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_compact-ridge_20260712_131550_final_offline_data_june_27-training-data-compact-ridge\\compact_featurewise_ridge_model.json",
+  "metadata_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_compact-ridge_20260712_131550_final_offline_data_june_27-training-data-compact-ridge\\compact_featurewise_ridge_metadata.json",
+  "training_report_path": null,
+  "trained_at": "2026-07-12T13:15:53.103278Z",
+  "training_samples": 653,
+  "model_evaluation_step": 5000,
+  "metrics": {
+    "lambda_selected": 0.1,
+    "selected_lambda": 0.1,
+    "train_fit_metrics": {
+      "mse": 0.00261099533074423,
+      "rmse": 0.05109789947487303,
+      "mae": 0.03157451250794493,
+      "r_squared": 0.7279431890770457,
+      "samples": 653,
+      "avg_val_mse": 0.00261099533074423
+    },
+    "theta_norm": 0.3737086592877393,
+    "lambda_search": [
+      {
+        "lambda_ridge": 0.1,
+        "avg_val_mse": 0.00261099533074423
+      },
+      {
+        "lambda_ridge": 0.5,
+        "avg_val_mse": 0.002640115769737275
+      },
+      {
+        "lambda_ridge": 1.0,
+        "avg_val_mse": 0.002670613556641484
+      },
+      {
+        "lambda_ridge": 2.0,
+        "avg_val_mse": 0.002707159940693178
+      },
+      {
+        "lambda_ridge": 5.0,
+        "avg_val_mse": 0.002751081447621042
+      },
+      {
+        "lambda_ridge": 10.0,
+        "avg_val_mse": 0.0027782481764701073
+      },
+      {
+        "lambda_ridge": 20.0,
+        "avg_val_mse": 0.0028044808563324887
+      }
+    ],
+    "candidate_points": 21
+  },
+  "config": {
+    "candidate_points": 21,
+    "lambda_selected": 0.1,
+    "lambda_candidates": [
+      0.1,
+      0.5,
+      1.0,
+      2.0,
+      5.0,
+      10.0,
+      20.0
+    ],
+    "lambda_search_count": 7,
+    "model_evaluation_step": 5000,
+    "score_reference_step": 5000,
+    "log_multiplier_bounds": {
+      "geometry_lr": [
+        0.2,
+        5.0
+      ],
+      "appearance_lr": [
+        0.2,
+        5.0
+      ],
+      "scale_lr": [
+        0.7,
+        1.43
+      ]
+    },
+    "log_multiplier_bounds_source": "source_offline_data_pipeline",
+    "include_phases": null,
+    "include_run_ids": null
+  }
+}
