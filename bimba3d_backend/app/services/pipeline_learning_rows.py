@@ -36,16 +36,10 @@ def collect_pipeline_learning_rows(pipeline_id: str, *, include_hard_cap: bool =
     if not pipeline_folder.exists():
         raise FileNotFoundError("Pipeline folder not found")
 
-    completed_statuses = {"success", "completed", "done", "ok", "partial_completed"}
-    if include_hard_cap:
-        completed_statuses.add("hard_cap_reached")
-    known_run_ids = {
-        str(run.get("run_id"))
-        for run in pipeline.get("runs", [])
-        if isinstance(run, dict)
-        and run.get("run_id")
-        and str(run.get("status") or "").lower() in completed_statuses
-    }
+    known_run_ids = _learning_run_ids_from_pipeline_runs(
+        pipeline.get("runs", []),
+        include_hard_cap=include_hard_cap,
+    )
 
     rows = _collect_rows_from_folder(pipeline_folder, known_run_ids=known_run_ids or None)
     rows = _dedupe_rows(rows)
@@ -223,6 +217,89 @@ def _dedupe_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         seen.add(key)
         deduped.append(row)
     return deduped
+
+
+def _learning_run_ids_from_pipeline_runs(runs: Any, *, include_hard_cap: bool) -> set[str]:
+    """Return run ids that should contribute rows to the final Training Data table.
+
+    The pipeline keeps retry attempts as raw history. For supervised Training
+    Data, however, one project/phase/run slot should only become one row. A
+    later successful retry replaces earlier failed or hard-cap attempts for the
+    same slot. If no retry succeeded and hard-cap rows are requested, the latest
+    hard-cap attempt is kept as one penalty-row candidate.
+    """
+    completed_statuses = {"success", "completed", "done", "ok", "partial_completed"}
+    completed_slots: set[tuple[Any, int, int, str | None]] = set()
+    completed_run_ids: set[str] = set()
+    hard_cap_by_slot: dict[tuple[Any, int, int, str | None], dict[str, Any]] = {}
+
+    for run in runs if isinstance(runs, list) else []:
+        if not isinstance(run, dict):
+            continue
+        run_id = str(run.get("run_id") or "").strip()
+        if not run_id:
+            continue
+
+        slot_key = _pipeline_run_slot_key(run)
+        status = str(run.get("status") or "").lower()
+        is_hard_cap = _is_hard_cap_pipeline_run(run)
+
+        if status in completed_statuses and not is_hard_cap:
+            completed_slots.add(slot_key)
+            completed_run_ids.add(run_id)
+            continue
+
+        if include_hard_cap and is_hard_cap:
+            previous = hard_cap_by_slot.get(slot_key)
+            if previous is None or _pipeline_run_order_key(run) >= _pipeline_run_order_key(previous):
+                hard_cap_by_slot[slot_key] = run
+
+    selected = set(completed_run_ids)
+    if include_hard_cap:
+        for slot_key, run in hard_cap_by_slot.items():
+            if slot_key in completed_slots:
+                continue
+            run_id = str(run.get("run_id") or "").strip()
+            if run_id:
+                selected.add(run_id)
+    return selected
+
+
+def _pipeline_run_slot_key(run: dict[str, Any]) -> tuple[Any, int, int, str | None]:
+    project = run.get("project_name") or run.get("project") or run.get("project_id")
+    phase = _safe_int(run.get("phase"))
+    phase_run = _safe_int(run.get("run") or run.get("phase_run"))
+    model_id = run.get("test_model_id") or run.get("source_model_id")
+    return project, phase, phase_run, str(model_id) if model_id else None
+
+
+def _is_hard_cap_pipeline_run(run: dict[str, Any]) -> bool:
+    status = str(run.get("status") or "").lower()
+    if status == "hard_cap_reached":
+        return True
+    if run.get("gaussian_cap_reached") is True:
+        return True
+    reason = str(run.get("reason") or run.get("partial_reason") or "").lower()
+    if reason == "gaussian_hard_cap_reached":
+        return True
+    text = " ".join(str(run.get(key) or "") for key in ("error", "message", "remarks")).lower()
+    return "gaussian" in text and "hard cap" in text
+
+
+def _pipeline_run_order_key(run: dict[str, Any]) -> tuple[str, str, str, str]:
+    return (
+        str(run.get("completed_at") or ""),
+        str(run.get("updated_at") or ""),
+        str(run.get("created_at") or ""),
+        str(run.get("run_id") or ""),
+    )
+
+
+def _safe_int(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _is_project_folder(project_dir: Path, pipeline_folder: Path) -> bool:

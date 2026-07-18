@@ -103,3 +103,70 @@ def test_collect_pipeline_learning_rows_reports_missing_pipeline(monkeypatch):
     else:
         raise AssertionError("Expected FileNotFoundError")
 
+
+def test_learning_run_ids_keep_one_hard_cap_attempt_per_slot():
+    runs = [
+        {
+            "project_name": "Project One",
+            "run_id": "project_one_phase2_run1_old",
+            "phase": 2,
+            "run": 1,
+            "status": "hard_cap_reached",
+            "reason": "gaussian_hard_cap_reached",
+            "completed_at": "2026-07-01T10:00:00Z",
+        },
+        {
+            "project_name": "Project One",
+            "run_id": "project_one_phase2_run1_new",
+            "phase": 2,
+            "run": 1,
+            "status": "hard_cap_reached",
+            "reason": "gaussian_hard_cap_reached",
+            "completed_at": "2026-07-01T11:00:00Z",
+        },
+        {
+            "project_name": "Project Two",
+            "run_id": "project_two_phase2_run1_hardcap",
+            "phase": 2,
+            "run": 1,
+            "status": "hard_cap_reached",
+            "reason": "gaussian_hard_cap_reached",
+            "completed_at": "2026-07-01T10:00:00Z",
+        },
+        {
+            "project_name": "Project Two",
+            "run_id": "project_two_phase2_run1_success",
+            "phase": 2,
+            "run": 1,
+            "status": "success",
+            "completed_at": "2026-07-01T12:00:00Z",
+        },
+        {
+            "project_name": "Project Three",
+            "run_id": "project_three_phase2_run1_success",
+            "phase": 2,
+            "run": 1,
+            "status": "success",
+            "completed_at": "2026-07-01T12:00:00Z",
+        },
+    ]
+
+    without_hard_cap = pipeline_learning_rows._learning_run_ids_from_pipeline_runs(
+        runs,
+        include_hard_cap=False,
+    )
+    with_hard_cap = pipeline_learning_rows._learning_run_ids_from_pipeline_runs(
+        runs,
+        include_hard_cap=True,
+    )
+
+    assert without_hard_cap == {
+        "project_two_phase2_run1_success",
+        "project_three_phase2_run1_success",
+    }
+    assert with_hard_cap == {
+        "project_one_phase2_run1_new",
+        "project_two_phase2_run1_success",
+        "project_three_phase2_run1_success",
+    }
+
