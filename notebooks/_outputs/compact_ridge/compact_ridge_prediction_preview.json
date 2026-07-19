@@ -20,7 +20,7 @@
         "texture_density": 0.2613515416095509,
         "blur_motion_risk": 0.7932685473243677
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 2.568863553020199,
@@ -671,7 +671,7 @@
         "texture_density": 0.14727824707660925,
         "blur_motion_risk": 0.8873940329465122
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.8413084804082716,
@@ -1322,7 +1322,7 @@
         "texture_density": 0.17529613902298258,
         "blur_motion_risk": 0.8626719687638664
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.8413084804082716,
@@ -1973,7 +1973,7 @@
         "texture_density": 0.1512423292011859,
         "blur_motion_risk": 0.8793577598651754
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.4747448818080637,
@@ -2624,7 +2624,7 @@
         "texture_density": 0.10988898374952748,
         "blur_motion_risk": 0.91858784211084
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.1811559494565778,
@@ -3275,7 +3275,7 @@
         "texture_density": 0.18516351457841063,
         "blur_motion_risk": 0.8579808217613244
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.8413084804082716,
@@ -3926,7 +3926,7 @@
         "texture_density": 0.20057450632735305,
         "blur_motion_risk": 0.8427131765235634
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 2.057459908097427,
@@ -4577,7 +4577,7 @@
         "texture_density": 0.1467141468171156,
         "blur_motion_risk": 0.8834390741402975
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.6478653638303955,
@@ -5228,7 +5228,7 @@
         "texture_density": 0.17608264166186338,
         "blur_motion_risk": 0.8654995755276131
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.4747448818080637,
@@ -5879,7 +5879,7 @@
         "texture_density": 0.15800827058956138,
         "blur_motion_risk": 0.8818446959161919
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.6478653638303955,
@@ -6530,7 +6530,7 @@
         "texture_density": 0.20557395653296934,
         "blur_motion_risk": 0.8333839645787384
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 2.057459908097427,
@@ -7181,7 +7181,7 @@
         "texture_density": 0.17691828442488206,
         "blur_motion_risk": 0.8634608218843098
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.8413084804082716,
@@ -7832,7 +7832,7 @@
         "texture_density": 0.10151178539973936,
         "blur_motion_risk": 0.9296179220387917
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.4747448818080637,
@@ -8483,7 +8483,7 @@
         "texture_density": 0.20484961923303557,
         "blur_motion_risk": 0.8405605671110068
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.8413084804082716,
@@ -9134,7 +9134,7 @@
         "texture_density": 0.1430764572495658,
         "blur_motion_risk": 0.8785100177848917
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.8413084804082716,
@@ -9785,7 +9785,7 @@
         "texture_density": 0.15458596552408974,
         "blur_motion_risk": 0.8833012284431868
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.4747448818080637,
@@ -10436,7 +10436,7 @@
         "texture_density": 0.1638061517041784,
         "blur_motion_risk": 0.8699524261477657
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.319811990807112,
@@ -11087,7 +11087,7 @@
         "texture_density": 0.1409276572567572,
         "blur_motion_risk": 0.892794981160312
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.8413084804082716,
@@ -11738,7 +11738,7 @@
         "texture_density": 0.10552655054929627,
         "blur_motion_risk": 0.9151955789644466
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.8413084804082716,
@@ -12389,7 +12389,7 @@
         "texture_density": 0.11376993407804847,
         "blur_motion_risk": 0.9096383339145564
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.6478653638303955,
@@ -13040,7 +13040,7 @@
         "texture_density": 0.3079152872969522,
         "blur_motion_risk": 0.7505910908807971
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 2.298985378316219,
@@ -13691,7 +13691,7 @@
         "texture_density": 0.2619699944043824,
         "blur_motion_risk": 0.7936195846660182
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 2.057459908097427,
@@ -14342,7 +14342,7 @@
         "texture_density": 0.25731827019223885,
         "blur_motion_risk": 0.8035160935296113
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 2.057459908097427,
@@ -14993,7 +14993,7 @@
         "texture_density": 0.2381498826244461,
         "blur_motion_risk": 0.810560017978825
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.8413084804082716,
@@ -15644,7 +15644,7 @@
         "texture_density": 0.2085096489659677,
         "blur_motion_risk": 0.8405494551721422
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 2.057459908097427,
@@ -16295,7 +16295,7 @@
         "texture_density": 0.15532279013345263,
         "blur_motion_risk": 0.8749660310710656
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.8413084804082716,
@@ -16946,7 +16946,7 @@
         "texture_density": 0.16158579134464626,
         "blur_motion_risk": 0.8665964296026334
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.6478653638303955,
@@ -17597,7 +17597,7 @@
         "texture_density": 0.10469689211381633,
         "blur_motion_risk": 0.9150175525292876
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 2.057459908097427,
@@ -18248,7 +18248,7 @@
         "texture_density": 0.1433094257703098,
         "blur_motion_risk": 0.8763610533102129
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.4747448818080637,
@@ -18899,7 +18899,7 @@
         "texture_density": 0.06797606241961299,
         "blur_motion_risk": 0.9515593846909582
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.4747448818080637,
@@ -19550,7 +19550,7 @@
         "texture_density": 0.0944240611371711,
         "blur_motion_risk": 0.9366221262266624
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.6478653638303955,
@@ -20201,7 +20201,7 @@
         "texture_density": 0.21272978309527119,
         "blur_motion_risk": 0.8429091902245551
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 2.057459908097427,
@@ -20852,7 +20852,7 @@
         "texture_density": 0.10996378529189393,
         "blur_motion_risk": 0.9148323871770931
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.4747448818080637,
@@ -21503,7 +21503,7 @@
         "texture_density": 0.09122409923780513,
         "blur_motion_risk": 0.9329513485772558
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.4747448818080637,
@@ -22154,7 +22154,7 @@
         "texture_density": 0.14520156129117873,
         "blur_motion_risk": 0.8885507031701583
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.6478653638303955,
@@ -22805,7 +22805,7 @@
         "texture_density": 0.19700670935040182,
         "blur_motion_risk": 0.8628529963096372
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 2.298985378316219,
@@ -23456,7 +23456,7 @@
         "texture_density": 0.22806101380311117,
         "blur_motion_risk": 0.8214642911515373
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.8413084804082716,
@@ -24107,7 +24107,7 @@
         "texture_density": 0.1667343524643901,
         "blur_motion_risk": 0.8563008068948611
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.8413084804082716,
@@ -24758,7 +24758,7 @@
         "texture_density": 0.22271921954859358,
         "blur_motion_risk": 0.8093834537027675
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 2.298985378316219,
@@ -25409,7 +25409,7 @@
         "texture_density": 0.12173812480547952,
         "blur_motion_risk": 0.9145414310168505
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.6478653638303955,
@@ -26060,7 +26060,7 @@
         "texture_density": 0.14894671908924528,
         "blur_motion_risk": 0.8911065786957342
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.8413084804082716,
@@ -26711,7 +26711,7 @@
         "texture_density": 0.12528914968932553,
         "blur_motion_risk": 0.9068719781085125
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.6478653638303955,
@@ -27362,7 +27362,7 @@
         "texture_density": 0.1556576179601681,
         "blur_motion_risk": 0.8826110574885916
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.8413084804082716,
@@ -28013,7 +28013,7 @@
         "texture_density": 0.06097331734111827,
         "blur_motion_risk": 0.9516626075252799
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.8413084804082716,
@@ -28664,7 +28664,7 @@
         "texture_density": 0.16277535725874176,
         "blur_motion_risk": 0.87608066283251
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 2.057459908097427,
@@ -29315,7 +29315,7 @@
         "texture_density": 0.05823043023355856,
         "blur_motion_risk": 0.9474774559469179
       },
-      "source_path": "D:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
+      "source_path": "d:\\bimba3d-re\\notebooks\\data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
       "selected_preset": "compact_featurewise_ridge_regression",
       "yhat_scores": {
         "position_lr_init_mult": 1.6478653638303955,
