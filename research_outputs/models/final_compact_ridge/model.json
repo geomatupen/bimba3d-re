@@ -19,37 +19,37 @@
       "mae": 0.03157451250794493,
       "r_squared": 0.7279431890770457,
       "samples": 653,
-      "avg_val_mse": 0.00261099533074423
+      "lambda_search_mse": 0.00261099533074423
     },
     "theta_norm": 0.3737086592877393,
     "lambda_search": [
       {
         "lambda_ridge": 0.1,
-        "avg_val_mse": 0.00261099533074423
+        "lambda_search_mse": 0.00261099533074423
       },
       {
         "lambda_ridge": 0.5,
-        "avg_val_mse": 0.002640115769737275
+        "lambda_search_mse": 0.002640115769737275
       },
       {
         "lambda_ridge": 1.0,
-        "avg_val_mse": 0.002670613556641484
+        "lambda_search_mse": 0.002670613556641484
       },
       {
         "lambda_ridge": 2.0,
-        "avg_val_mse": 0.002707159940693178
+        "lambda_search_mse": 0.002707159940693178
       },
       {
         "lambda_ridge": 5.0,
-        "avg_val_mse": 0.002751081447621042
+        "lambda_search_mse": 0.002751081447621042
       },
       {
         "lambda_ridge": 10.0,
-        "avg_val_mse": 0.0027782481764701073
+        "lambda_search_mse": 0.0027782481764701073
       },
       {
         "lambda_ridge": 20.0,
-        "avg_val_mse": 0.0028044808563324887
+        "lambda_search_mse": 0.0028044808563324887
       }
     ],
     "candidate_points": 21

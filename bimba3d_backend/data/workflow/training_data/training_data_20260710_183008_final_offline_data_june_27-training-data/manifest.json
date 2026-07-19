@@ -3,7 +3,7 @@
   "name": "Final_offline_data_June_27 Training Data",
   "status": "ready",
   "source_pipeline_id": "pipeline_55776ebd244e",
-  "dataset_version": "67298de964764ff181a022dc44398f77",
+  "dataset_version": "46a2e9780a294eb6ae6ff74206af9d61",
   "feature_schema": "mode3_exif_flight_scene_v1",
   "multiplier_schema": "geometry_appearance_densification_v1",
   "row_count": 653,
@@ -11,7 +11,7 @@
   "rows_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\training_data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
   "manifest_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\training_data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\manifest.json",
   "created_at": "2026-07-10T18:30:08.722024Z",
-  "last_built_at": "2026-07-18T19:38:29.210072Z",
+  "last_built_at": "2026-07-19T07:19:43.647294Z",
   "errors": [],
   "build_options": {
     "include_hard_cap_penalty_rows": false

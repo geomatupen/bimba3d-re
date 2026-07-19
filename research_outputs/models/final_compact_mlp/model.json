@@ -1,0 +1,171 @@
+{
+  "model_id": "model_compact-mlp_20260718_194410_compact_mlp_july18_final_offline_data_june_27-training-data-compact-featurewise-mlp",
+  "model_name": "Compact_MLP_July18_Final_offline_data_June_27 Training Data - Compact Featurewise MLP",
+  "model_family": "compact_featurewise_mlp",
+  "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
+  "source_pipeline_id": "pipeline_55776ebd244e",
+  "artifact_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_compact-mlp_20260718_194410_compact_mlp_july18_final_offline_data_june_27-training-data-compact-featurewise-mlp\\compact_featurewise_mlp\\compact_featurewise_20260718_214414.pt",
+  "metadata_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_compact-mlp_20260718_194410_compact_mlp_july18_final_offline_data_june_27-training-data-compact-featurewise-mlp\\compact_featurewise_mlp\\compact_featurewise_20260718_214414_metadata.json",
+  "training_report_path": null,
+  "trained_at": "2026-07-18T19:44:14.616958Z",
+  "training_samples": 653,
+  "model_evaluation_step": 5000,
+  "metrics": {
+    "best_val_loss": 0.0033306835684925318,
+    "final_train_loss": 0.0027783894911408424,
+    "final_val_loss": 0.0033401167020201683,
+    "epochs_trained": 622,
+    "max_epochs": 1000,
+    "best_epoch": 572,
+    "early_stopping_patience": 50,
+    "total_parameters": 913,
+    "learning_rate": 0.001,
+    "weight_decay": 0.001,
+    "hidden": 16,
+    "dropout": 0.2,
+    "seed": 42,
+    "validation_split_level": "project",
+    "train_split": 514,
+    "val_split": 139,
+    "train_project_count": 36,
+    "val_project_count": 10,
+    "training_log": [
+      {
+        "level": "info",
+        "message": "Loaded 653 rows from Training Data."
+      },
+      {
+        "level": "info",
+        "message": "Using 653 non-baseline rows after phase/run filters."
+      },
+      {
+        "level": "info",
+        "message": "Prepared model artifact folder: model_compact-mlp_20260718_194410_compact_mlp_july18_final_offline_data_june_27-training-data-compact-featurewise-mlp."
+      },
+      {
+        "level": "info",
+        "message": "Validated one model evaluation step: 5000."
+      },
+      {
+        "level": "info",
+        "message": "Loaded multiplier bounds from source_pipeline.fixed_log_space_bounds_snapshot."
+      },
+      {
+        "level": "info",
+        "message": "Prepared 653 compact MLP score rows."
+      },
+      {
+        "level": "info",
+        "message": "Started compact MLP optimizer with project-level train/validation split and early stopping."
+      },
+      {
+        "level": "info",
+        "message": "Split data by project into 514 training rows from 36 projects and 139 validation rows from 10 projects."
+      },
+      {
+        "level": "info",
+        "message": "Built compact MLP network: input_dim=47, hidden=16."
+      },
+      {
+        "level": "success",
+        "message": "Finished 622/1000 epochs; best epoch 572; best validation loss 0.003331."
+      },
+      {
+        "level": "info",
+        "message": "Final train loss 0.002778; final validation loss 0.003340."
+      },
+      {
+        "level": "info",
+        "message": "Optimizer config: lr=0.001, weight_decay=0.001, dropout=0.2, parameters=913."
+      },
+      {
+        "level": "info",
+        "message": "Saved compact MLP checkpoint and metadata."
+      }
+    ]
+  },
+  "config": {
+    "candidate_points": 30,
+    "hidden": 16,
+    "dropout": 0.2,
+    "learning_rate": 0.001,
+    "weight_decay": 0.001,
+    "max_epochs": 1000,
+    "early_stopping_patience": 50,
+    "seed": 42,
+    "validation_split_level": "project",
+    "train_split": 514,
+    "val_split": 139,
+    "train_project_count": 36,
+    "val_project_count": 10,
+    "train_projects": [
+      "1-Montreal-City-Hall",
+      "11-St-George-Church",
+      "13-Murugan-Temple",
+      "14-Hindu-Mandir",
+      "16-Mosque",
+      "17-Shaughnessy-Mansion",
+      "2-Resurrection-Chapel",
+      "3-Maison_Louis-Hippolyte_Lafontaine",
+      "5-Gurdwara-Lasalle",
+      "6-Westmount-City-Hall",
+      "BILOVEC",
+      "Blume_drone_data_capture_may2021",
+      "Chapel_of_the_Holy_Trinity",
+      "Chatteau",
+      "DJI_202402171440_004_KTM20-oblique-split_group_1",
+      "DJI_202402171440_004_KTM20-oblique-split_group_2",
+      "DJI_202402171501_005_KTM20-oblique",
+      "DJI_202402171525_008_KTM20-oblique",
+      "Denver_Red_Rocks_Amphitheatre_Split_group_2",
+      "Gaurisankar",
+      "Jindrichuv_Hradec_St_JakubUAS",
+      "Lithuania_Trakai_Island_Castle_Split_group_1",
+      "Lithuania_Trakai_Island_Castle_Split_group_2",
+      "Mavic2DET_Prejmer",
+      "NAKLO",
+      "Narayani_Bridge",
+      "Otaslavice",
+      "Pix4Dmatic_example_100_images",
+      "Pix4d_Demo_Office_Building",
+      "Pix4d_eagle",
+      "Telc_sv_Jakub_March_19",
+      "Tiburon_Angel_Islands_State_Park_Split_group_1",
+      "Tiburon_Angel_Islands_State_Park_Split_group_2",
+      "Tiburon_Angel_Islands_State_Park_Split_group_4",
+      "podoli",
+      "spranek"
+    ],
+    "val_projects": [
+      "10_Holy_Ghost_Ukrainian_Church",
+      "15-Congregation-Shaar-Hashomayim",
+      "7-Clock-Tower",
+      "8-Saint-Joseph-Oratory",
+      "9-Loyola-Chapel",
+      "Concord_Buchanan_Airport_FAA_Tower",
+      "DJI_202402171413_003_KTM20-oblique",
+      "Denver_Red_Rocks_Amphitheatre_Split_group_1",
+      "Pistachio-trees-by-velez",
+      "huzova"
+    ],
+    "model_evaluation_step": 5000,
+    "score_reference_step": 5000,
+    "log_multiplier_bounds": {
+      "geometry_lr": [
+        0.2,
+        5.0
+      ],
+      "appearance_lr": [
+        0.2,
+        5.0
+      ],
+      "scale_lr": [
+        0.7,
+        1.43
+      ]
+    },
+    "log_multiplier_bounds_source": "source_pipeline.fixed_log_space_bounds_snapshot",
+    "include_phases": null,
+    "include_run_ids": null
+  }
+}
