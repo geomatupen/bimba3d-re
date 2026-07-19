@@ -39,6 +39,12 @@ interface TrainingDataRowsTableRow {
  best_lpips_step?: number | null;
  final_lpips?: number | null;
  final_lpips_step?: number | null;
+ baseline_final_psnr?: number | null;
+ baseline_final_ssim?: number | null;
+ baseline_final_lpips?: number | null;
+ delta_psnr?: number | null;
+ delta_ssim?: number | null;
+ delta_lpips?: number | null;
  time_seconds?: number | null;
  time_diff_seconds?: number | null;
  run_best_l?: number | null;
@@ -101,12 +107,24 @@ function lossAtReference(value: number | null | undefined, step: number | null |
  return metricAtStep(value, step, 6);
 }
 
+function finalMetricDelta(value: number | null | undefined) {
+ return scoreCell(value, 4);
+}
+
 function formatSeconds(value: number | null | undefined) {
  if (typeof value !== "number") return <span className="text-slate-400">-</span>;
  return <span>{value.toFixed(1)}s</span>;
 }
 
-export default function TrainingDataRowsTable({ pipelineId, selectedModelId }: { pipelineId: string; selectedModelId?: string | null }) {
+export default function TrainingDataRowsTable({
+ pipelineId,
+ selectedModelId,
+ showFinalMetricDeltas = false,
+}: {
+ pipelineId: string;
+ selectedModelId?: string | null;
+ showFinalMetricDeltas?: boolean;
+}) {
  const [rows, setRows] = useState<TrainingDataRowsTableRow[]>([]);
  const [loading, setLoading] = useState(false);
  const [message, setMessage] = useState<string | null>(null);
@@ -151,6 +169,12 @@ export default function TrainingDataRowsTable({ pipelineId, selectedModelId }: {
  : rows;
  const visibleModelIds = Array.from(
  new Set(displayRows.map(rowModelKey).filter((modelId) => modelId.trim().length > 0)),
+ );
+ const hasFinalMetricDeltas = showFinalMetricDeltas || displayRows.some(
+ (row) =>
+ typeof row.delta_psnr === "number" ||
+ typeof row.delta_ssim === "number" ||
+ typeof row.delta_lpips === "number",
  );
 
  if (rows.length === 0) {
@@ -201,7 +225,7 @@ export default function TrainingDataRowsTable({ pipelineId, selectedModelId }: {
  </div>
  </div>
  <div className="overflow-auto max-h-[600px] bg-white border border-gray-200 rounded-lg">
- <table className="min-w-[3000px] w-full text-[11px] leading-tight">
+ <table className={`${hasFinalMetricDeltas ? "min-w-[3300px]" : "min-w-[3000px]"} w-full text-[11px] leading-tight`}>
  <thead className="bg-slate-100 text-slate-700">
  <tr>
  <TH>Project</TH>
@@ -221,6 +245,13 @@ export default function TrainingDataRowsTable({ pipelineId, selectedModelId }: {
             <TH>Final SSIM (higher is better)</TH>
  <TH>Best LPIPS</TH>
             <TH>Final LPIPS (lower is better)</TH>
+ {hasFinalMetricDeltas && (
+ <>
+ <TH>Δ PSNR</TH>
+ <TH>Δ SSIM</TH>
+ <TH>Δ LPIPS</TH>
+ </>
+ )}
  <TH>Run Best (l,q,t,s)</TH>
  <TH>Run End (l,q,t,s)</TH>
  <TH>S Best</TH>
@@ -328,6 +359,19 @@ export default function TrainingDataRowsTable({ pipelineId, selectedModelId }: {
  <td className="px-1.5 py-1 align-top text-slate-700">
  {metricAtStep(row.final_lpips, row.final_lpips_step, 4)}
  </td>
+ {hasFinalMetricDeltas && (
+ <>
+ <td className="px-1.5 py-1 align-top" title={`Baseline final PSNR: ${typeof row.baseline_final_psnr === "number" ? row.baseline_final_psnr.toFixed(4) : "-"}`}>
+ {finalMetricDelta(row.delta_psnr)}
+ </td>
+ <td className="px-1.5 py-1 align-top" title={`Baseline final SSIM: ${typeof row.baseline_final_ssim === "number" ? row.baseline_final_ssim.toFixed(4) : "-"}`}>
+ {finalMetricDelta(row.delta_ssim)}
+ </td>
+ <td className="px-1.5 py-1 align-top" title={`Baseline final LPIPS: ${typeof row.baseline_final_lpips === "number" ? row.baseline_final_lpips.toFixed(4) : "-"}`}>
+ {finalMetricDelta(row.delta_lpips)}
+ </td>
+ </>
+ )}
  <td className="px-1.5 py-1 align-top text-slate-700">
  {[row.run_best_l, row.run_best_q, row.run_best_t, row.run_best_s]
  .map((v) => (typeof v === "number" ? v.toFixed(4) : "-"))

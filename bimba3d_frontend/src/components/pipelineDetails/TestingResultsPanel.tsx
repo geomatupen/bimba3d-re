@@ -25,7 +25,7 @@ export default function TestingResultsPanel({ pipeline }: TestingResultsPanelPro
           </p>
         )}
       </div>
-      <TrainingDataRowsTable pipelineId={pipeline.id} />
+      <TrainingDataRowsTable pipelineId={pipeline.id} showFinalMetricDeltas />
     </section>
   );
 }

@@ -44,7 +44,10 @@ def collect_pipeline_learning_rows(pipeline_id: str, *, include_hard_cap: bool =
     rows = _collect_rows_from_folder(pipeline_folder, known_run_ids=known_run_ids or None)
     rows = _dedupe_rows(rows)
     rows.sort(key=lambda row: (row.get("project_name", ""), row.get("run_id", "")))
-    _augment_rows_with_visual_scores(rows)
+    _augment_rows_with_visual_scores(
+        rows,
+        include_final_metric_deltas=pipeline.get("pipeline_type") == "test",
+    )
 
     return {
         "pipeline_id": pipeline_id,
@@ -817,7 +820,32 @@ def _compute_visual_score_against_baseline(run_row: dict[str, Any], baseline_row
     }
 
 
-def _augment_rows_with_visual_scores(learning_rows: list[dict[str, Any]]) -> None:
+def _apply_final_metric_deltas_against_baseline(project_rows: list[dict[str, Any]], baseline_row: dict[str, Any]) -> None:
+    baseline_psnr = _safe_float_or_none(baseline_row.get("final_psnr"))
+    baseline_ssim = _safe_float_or_none(baseline_row.get("final_ssim"))
+    baseline_lpips = _safe_float_or_none(baseline_row.get("final_lpips"))
+
+    for row in project_rows:
+        row["baseline_final_psnr"] = baseline_psnr
+        row["baseline_final_ssim"] = baseline_ssim
+        row["baseline_final_lpips"] = baseline_lpips
+
+        run_psnr = _safe_float_or_none(row.get("final_psnr"))
+        run_ssim = _safe_float_or_none(row.get("final_ssim"))
+        run_lpips = _safe_float_or_none(row.get("final_lpips"))
+
+        # These are direct final-metric differences for the test rows table.
+        # PSNR/SSIM improve upward, while LPIPS improves downward.
+        row["delta_psnr"] = run_psnr - baseline_psnr if run_psnr is not None and baseline_psnr is not None else None
+        row["delta_ssim"] = run_ssim - baseline_ssim if run_ssim is not None and baseline_ssim is not None else None
+        row["delta_lpips"] = baseline_lpips - run_lpips if run_lpips is not None and baseline_lpips is not None else None
+
+
+def _augment_rows_with_visual_scores(
+    learning_rows: list[dict[str, Any]],
+    *,
+    include_final_metric_deltas: bool = False,
+) -> None:
     try:
         relative_quality_scoring.apply_pipeline_normalized_quality(learning_rows)
     except ValueError as exc:
@@ -852,6 +880,8 @@ def _augment_rows_with_visual_scores(learning_rows: list[dict[str, Any]]) -> Non
             continue
 
         baseline_time = _safe_float_or_none(baseline_row.get("time_seconds"))
+        if include_final_metric_deltas:
+            _apply_final_metric_deltas_against_baseline(project_rows, baseline_row)
         for row in project_rows:
             if row is baseline_row or bool(row.get("is_baseline_row")):
                 continue
