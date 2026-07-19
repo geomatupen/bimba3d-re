@@ -345,6 +345,29 @@ const FINAL_RESULT_METRICS = [
 
 const BASELINE_CHANGE_LABEL = "No improvement";
 
+function compareProjectIndexOrder(a: string, b: string) {
+  if (a === b) return 0;
+  return a < b ? -1 : 1;
+}
+
+function compactProjectLabel(project: string) {
+  return project.length > 18 ? `${project.slice(0, 17)}...` : project;
+}
+
+function finalMetricProjectIndex(rows: ScoreRow[]) {
+  const baselineProjects = new Set<string>();
+  const resultProjects = new Set<string>();
+  rows.forEach((row) => {
+    const project = projectKey(row);
+    if (!project) return;
+    if (row.is_baseline_row) baselineProjects.add(project);
+    else resultProjects.add(project);
+  });
+  return Array.from(resultProjects)
+    .filter((project) => baselineProjects.has(project))
+    .sort(compareProjectIndexOrder);
+}
+
 function metricPoints(rows: ScoreRow[], metricKey: (typeof METRICS)[number]["key"]): PlotPoint[] {
   return rows
     .map<PlotPoint | null>((row) => {
@@ -397,7 +420,7 @@ function finalMetricImprovementPoints(
       };
     })
     .filter((item): item is MetricImprovementPoint => item !== null)
-    .sort((a, b) => a.project.localeCompare(b.project));
+    .sort((a, b) => compareProjectIndexOrder(a.project, b.project));
 }
 
 function FinalMetricBeeswarm({
@@ -915,7 +938,10 @@ export default function PipelineScoreDistributionPanel({
   }, [rows, selectedModelId]);
 
   const projects = useMemo(
-    () => Array.from(new Set(displayRows.map((row) => row.project_name || row.project_id).filter(Boolean) as string[])).sort(),
+    () =>
+      Array.from(new Set(displayRows.map((row) => row.project_name || row.project_id).filter(Boolean) as string[])).sort(
+        compareProjectIndexOrder,
+      ),
     [displayRows],
   );
 
@@ -945,6 +971,7 @@ export default function PipelineScoreDistributionPanel({
       }),
     [displayRows, selectedProject],
   );
+  const finalMetricProjectNames = useMemo(() => finalMetricProjectIndex(finalMetricRows), [finalMetricRows]);
   const metricRows = useMemo(
     () =>
       displayRows.filter((row) => {
@@ -1043,6 +1070,16 @@ export default function PipelineScoreDistributionPanel({
               <p className="text-sm text-slate-600">
                 PSNR, SSIM, and LPIPS improvements for the selected model. Baseline and test rows are paired by project.
               </p>
+              {selectedModelId && finalMetricProjectNames.length > 0 && (
+                <p className="mt-1 text-[10px] leading-snug text-slate-500">
+                  <span className="font-semibold text-slate-600">Project index:</span>{" "}
+                  {finalMetricProjectNames.map((project, index) => (
+                    <span key={project} className="mr-2 inline-block" title={project}>
+                      {index + 1}. {compactProjectLabel(project)}
+                    </span>
+                  ))}
+                </p>
+              )}
             </div>
             {!selectedModelId ? (
               <div className="rounded border border-dashed border-blue-200 bg-white p-3 text-sm text-slate-600">
