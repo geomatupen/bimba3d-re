@@ -3,27 +3,29 @@
   "name": "Final_offline_data_June_27 Training Data",
   "status": "ready",
   "source_pipeline_id": "pipeline_55776ebd244e",
-  "dataset_version": "aac8dd1013b14502a5270c99c6631b85",
+  "dataset_version": "2a9108cf4a06455fa0d71e3601cd7c75",
   "feature_schema": "mode3_exif_flight_scene_v1",
   "multiplier_schema": "geometry_appearance_densification_v1",
-  "row_count": 653,
+  "row_count": 690,
   "schema_valid": true,
   "rows_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\training_data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\rows.json",
   "manifest_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\training_data\\training_data_20260710_183008_final_offline_data_june_27-training-data\\manifest.json",
   "created_at": "2026-07-10T18:30:08.722024Z",
-  "last_built_at": "2026-07-20T09:07:10.424247Z",
+  "last_built_at": "2026-07-20T20:38:07.070475Z",
   "errors": [],
   "build_options": {
-    "include_hard_cap_penalty_rows": false
+    "include_hard_cap_penalty_rows": true
   },
   "build_summary": {
-    "source_rows": 699,
-    "hard_cap_candidates": 0,
-    "hard_cap_penalty_rows": 0,
-    "hard_cap_penalty": null,
-    "hard_cap_penalty_source": null,
-    "gaussian_hard_cap": null,
-    "gaussian_hard_cap_values": [],
+    "source_rows": 736,
+    "hard_cap_candidates": 37,
+    "hard_cap_penalty_rows": 37,
+    "hard_cap_penalty": -0.5373449585805301,
+    "hard_cap_penalty_source": "minimum_non_hard_cap_relative_quality_score",
+    "gaussian_hard_cap": 6000000.0,
+    "gaussian_hard_cap_values": [
+      6000000.0
+    ],
     "gaussian_hard_cap_missing_rows": 0,
     "score_key": "relative_quality_score",
     "log_multiplier_bounds": {
