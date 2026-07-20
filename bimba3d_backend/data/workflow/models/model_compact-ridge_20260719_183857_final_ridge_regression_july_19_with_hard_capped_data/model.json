@@ -1,0 +1,156 @@
+{
+  "model_id": "model_compact-ridge_20260719_183857_final_ridge_regression_july_19_with_hard_capped_data",
+  "model_name": "Final_Ridge_Regression_July_19_with_hard_capped_data",
+  "model_family": "compact_featurewise_ridge_regression",
+  "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
+  "source_pipeline_id": "pipeline_55776ebd244e",
+  "artifact_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_compact-ridge_20260719_183857_final_ridge_regression_july_19_with_hard_capped_data\\compact_featurewise_ridge_model.json",
+  "metadata_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_compact-ridge_20260719_183857_final_ridge_regression_july_19_with_hard_capped_data\\compact_featurewise_ridge_metadata.json",
+  "training_report_path": null,
+  "trained_at": "2026-07-19T18:38:58.586803Z",
+  "training_samples": 690,
+  "model_evaluation_step": 5000,
+  "metrics": {
+    "lambda_selected": 0.1,
+    "selected_lambda": 0.1,
+    "train_fit_metrics": {
+      "mse": 0.010348458718913248,
+      "rmse": 0.10172737448156838,
+      "mae": 0.0653543670258311,
+      "r_squared": 0.5001427849305367,
+      "samples": 690,
+      "lambda_search_mse": 0.010348458718913248
+    },
+    "theta_norm": 0.726453201794758,
+    "lambda_search": [
+      {
+        "lambda_ridge": 0.1,
+        "lambda_search_mse": 0.010348458718913248
+      },
+      {
+        "lambda_ridge": 0.5,
+        "lambda_search_mse": 0.010453677598653774
+      },
+      {
+        "lambda_ridge": 1.0,
+        "lambda_search_mse": 0.010562899400968264
+      },
+      {
+        "lambda_ridge": 2.0,
+        "lambda_search_mse": 0.01069764509165549
+      },
+      {
+        "lambda_ridge": 5.0,
+        "lambda_search_mse": 0.010871050675092347
+      },
+      {
+        "lambda_ridge": 10.0,
+        "lambda_search_mse": 0.01098399259586007
+      },
+      {
+        "lambda_ridge": 20.0,
+        "lambda_search_mse": 0.011084430919910156
+      }
+    ],
+    "candidate_points": 30,
+    "training_log": [
+      {
+        "level": "info",
+        "message": "Loaded 690 rows from Training Data."
+      },
+      {
+        "level": "info",
+        "message": "Using 690 non-baseline rows after phase/run filters."
+      },
+      {
+        "level": "info",
+        "message": "Prepared model artifact folder: model_compact-ridge_20260719_183857_final_ridge_regression_july_19_with_hard_capped_data."
+      },
+      {
+        "level": "info",
+        "message": "Validated one model evaluation step: 5000."
+      },
+      {
+        "level": "info",
+        "message": "Loaded multiplier bounds from source_pipeline.fixed_log_space_bounds_snapshot."
+      },
+      {
+        "level": "info",
+        "message": "Prepared 690 compact Ridge score rows."
+      },
+      {
+        "level": "info",
+        "message": "Searching 7 compact Ridge lambda candidates with 30 multiplier candidate points."
+      },
+      {
+        "level": "info",
+        "message": "Lambda 0.1: lambda-search MSE 0.010348."
+      },
+      {
+        "level": "info",
+        "message": "Lambda 0.5: lambda-search MSE 0.010454."
+      },
+      {
+        "level": "info",
+        "message": "Lambda 1: lambda-search MSE 0.010563."
+      },
+      {
+        "level": "info",
+        "message": "Lambda 2: lambda-search MSE 0.010698."
+      },
+      {
+        "level": "info",
+        "message": "Lambda 5: lambda-search MSE 0.010871."
+      },
+      {
+        "level": "info",
+        "message": "Lambda 10: lambda-search MSE 0.010984."
+      },
+      {
+        "level": "info",
+        "message": "Lambda 20: lambda-search MSE 0.011084."
+      },
+      {
+        "level": "success",
+        "message": "Selected lambda 0.1 with lowest lambda-search MSE."
+      },
+      {
+        "level": "info",
+        "message": "Saved compact Ridge model artifact and metadata."
+      }
+    ]
+  },
+  "config": {
+    "candidate_points": 30,
+    "lambda_selected": 0.1,
+    "lambda_candidates": [
+      0.1,
+      0.5,
+      1.0,
+      2.0,
+      5.0,
+      10.0,
+      20.0
+    ],
+    "lambda_search_count": 7,
+    "model_evaluation_step": 5000,
+    "score_reference_step": 5000,
+    "log_multiplier_bounds": {
+      "geometry_lr": [
+        0.2,
+        5.0
+      ],
+      "appearance_lr": [
+        0.2,
+        5.0
+      ],
+      "scale_lr": [
+        0.7,
+        1.43
+      ]
+    },
+    "log_multiplier_bounds_source": "source_pipeline.fixed_log_space_bounds_snapshot",
+    "include_phases": null,
+    "include_run_ids": null
+  }
+}

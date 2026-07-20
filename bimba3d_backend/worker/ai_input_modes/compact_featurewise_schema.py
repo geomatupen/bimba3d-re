@@ -87,7 +87,9 @@ def compact_raw_feature(features: dict[str, Any], name: str) -> float:
     if name == "overlap_proxy":
         return _feature_float(features, "overlap_proxy", 0.5)
     if name == "coverage_spread":
-        return _feature_float(features, "coverage_spread", 0.5)
+        # A zero coverage span usually means GPS coverage could not be estimated
+        # reliably, so keep the older model behavior and use the neutral default.
+        return _feature_float(features, "coverage_spread", 0.5, positive=True)
     if name == "camera_angle_bucket":
         return _feature_float(features, "camera_angle_bucket", 0.0)
     if name == "heading_consistency":

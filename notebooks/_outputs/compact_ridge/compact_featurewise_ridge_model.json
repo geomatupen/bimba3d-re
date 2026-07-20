@@ -49,7 +49,7 @@
         "std": 0.1700361854298682
       }
     },
-    "candidate_points": 30,
+    "candidate_points": 21,
     "log_multiplier_bounds": {
       "geometry_lr_mult": [
         0.2,

@@ -52,10 +52,10 @@
         "lambda_search_mse": 0.0028044808563324887
       }
     ],
-    "candidate_points": 21
+    "candidate_points": 30
   },
   "config": {
-    "candidate_points": 21,
+    "candidate_points": 30,
     "lambda_selected": 0.1,
     "lambda_candidates": [
       0.1,
