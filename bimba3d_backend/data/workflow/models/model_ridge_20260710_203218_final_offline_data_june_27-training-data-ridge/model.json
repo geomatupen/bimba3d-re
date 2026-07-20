@@ -1,6 +1,6 @@
 {
   "model_id": "model_ridge_20260710_203218_final_offline_data_june_27-training-data-ridge",
-  "model_name": "Final_offline_data_June_27 Training Data - Ridge",
+  "model_name": "Alternative_ridge_model_with_3_separate_model_predictions",
   "model_family": "featurewise_ridge_regression",
   "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
   "source_pipeline_id": "pipeline_55776ebd244e",

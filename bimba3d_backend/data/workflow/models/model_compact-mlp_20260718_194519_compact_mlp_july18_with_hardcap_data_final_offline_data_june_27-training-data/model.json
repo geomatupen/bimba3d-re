@@ -1,6 +1,6 @@
 {
   "model_id": "model_compact-mlp_20260718_194519_compact_mlp_july18_with_hardcap_data_final_offline_data_june_27-training-data",
-  "model_name": "Compact_MLP_July18_with_hardcap_data_Final_offline_data_June_27 Training Data",
+  "model_name": "Final_MLP_used_in_report_with_hard_capped_data",
   "model_family": "compact_featurewise_mlp",
   "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
   "source_pipeline_id": "pipeline_55776ebd244e",

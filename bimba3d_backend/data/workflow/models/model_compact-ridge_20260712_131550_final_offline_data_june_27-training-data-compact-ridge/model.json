@@ -1,6 +1,6 @@
 {
   "model_id": "model_compact-ridge_20260712_131550_final_offline_data_june_27-training-data-compact-ridge",
-  "model_name": "Final_offline_data_June_27 Training Data - Compact Ridge",
+  "model_name": "Final_ridge_used_in_report",
   "model_family": "compact_featurewise_ridge_regression",
   "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
   "source_pipeline_id": "pipeline_55776ebd244e",

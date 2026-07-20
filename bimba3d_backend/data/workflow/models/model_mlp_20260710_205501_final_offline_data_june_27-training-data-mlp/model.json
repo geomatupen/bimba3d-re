@@ -1,6 +1,6 @@
 {
   "model_id": "model_mlp_20260710_205501_final_offline_data_june_27-training-data-mlp",
-  "model_name": "Final_offline_data_June_27 Training Data - MLP",
+  "model_name": "Alternative_MLP_model_with_3_separate_model_predictions",
   "model_family": "featurewise_mlp",
   "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
   "source_pipeline_id": "pipeline_55776ebd244e",

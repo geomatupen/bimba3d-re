@@ -28,6 +28,11 @@ COMPACT_SCENE_DESCRIPTOR_KEYS: set[str] = {
     "blur_motion_risk",
 }
 
+COMPACT_EXIF_GPS_SAMPLE_LIMIT = 48
+COMPACT_PROCESSING_SIZE_SAMPLE_LIMIT = 24
+COMPACT_IMAGE_METRIC_SAMPLE_LIMIT = 20
+COMPACT_COLMAP_ANGLE_SAMPLE_LIMIT = 48
+
 
 def _iter_images(image_dir: Path, *, limit: int | None = None) -> list[Path]:
     exts = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"}
@@ -228,8 +233,8 @@ def _image_metrics(path: Path) -> tuple[float, float, float, float, float]:
 
 
 def build_preset(ctx: ModeContext) -> PresetResult:
-    images = _iter_images(ctx.metadata_image_dir, limit=48)
-    sample = images[: min(24, len(images))]
+    images = _iter_images(ctx.metadata_image_dir, limit=COMPACT_EXIF_GPS_SAMPLE_LIMIT)
+    sample = images
     focal_lengths: list[float] = []
     gps_points: list[tuple[float, float]] = []
     altitudes: list[float] = []
@@ -260,7 +265,7 @@ def build_preset(ctx: ModeContext) -> PresetResult:
             timestamps.append(ts)
 
     med_focal = max(2.0, min(300.0, float(median(focal_lengths)) if focal_lengths else 24.0))
-    widths, _ = _collect_processing_sizes(ctx.processing_image_dir, limit=24)
+    widths, _ = _collect_processing_sizes(ctx.processing_image_dir, limit=COMPACT_PROCESSING_SIZE_SAMPLE_LIMIT)
     img_width_med = max(640, min(8000, int(median(widths)) if widths else 4000))
 
     gps_data_available = len(gps_points) >= 3 and bool(timestamps)
@@ -287,7 +292,7 @@ def build_preset(ctx: ModeContext) -> PresetResult:
         coverage_spread = 0.0
         heading_consistency = 0.5
 
-    angle_samples = _collect_colmap_pitch_angles(ctx.colmap_dir, limit=48)
+    angle_samples = _collect_colmap_pitch_angles(ctx.colmap_dir, limit=COMPACT_COLMAP_ANGLE_SAMPLE_LIMIT)
     coarse_buckets = ["nadir" if _angle_bucket_from_pitch(angle) == "nadir" else "oblique" for angle in angle_samples]
     if not coarse_buckets:
         camera_angle_bucket = 0
@@ -299,7 +304,7 @@ def build_preset(ctx: ModeContext) -> PresetResult:
         camera_angle_bucket = 2
 
     metrics = []
-    for path in _iter_images(ctx.processing_image_dir, limit=20):
+    for path in _iter_images(ctx.processing_image_dir, limit=COMPACT_IMAGE_METRIC_SAMPLE_LIMIT):
         try:
             metrics.append(_image_metrics(path))
         except Exception:
