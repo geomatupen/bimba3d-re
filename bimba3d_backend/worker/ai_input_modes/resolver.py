@@ -219,7 +219,9 @@ def _apply_run_jitter_inline(params: dict) -> None:
         m_geom, a_geom, m_app, a_app, m_dens, a_dens,
     )
 
-CACHE_VERSION = 1
+# Bump when descriptor extraction rules change so stale project-level features
+# are recomputed instead of silently reusing older descriptor values.
+CACHE_VERSION = 3
 VALID_PRESET_OVERRIDES = {"conservative", "balanced", "geometry_fast", "appearance_fast"}
 
 

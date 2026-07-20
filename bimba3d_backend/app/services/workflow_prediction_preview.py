@@ -65,7 +65,9 @@ async def predict_multipliers(pipeline_id: str, request_payload: dict[str, Any])
         image_dir = project_dir / "images_resized"
         if not image_dir.exists():
             image_dir = project_dir / "images"
-        colmap_dir = project_dir / "outputs"
+        colmap_dir = project_dir / "outputs" / "sparse"
+        if not colmap_dir.exists():
+            colmap_dir = project_dir / "outputs"
 
         for model_id in selected_model_ids:
             results.append(

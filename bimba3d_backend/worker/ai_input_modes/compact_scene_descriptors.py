@@ -268,7 +268,7 @@ def build_preset(ctx: ModeContext) -> PresetResult:
     widths, _ = _collect_processing_sizes(ctx.processing_image_dir, limit=COMPACT_PROCESSING_SIZE_SAMPLE_LIMIT)
     img_width_med = max(640, min(8000, int(median(widths)) if widths else 4000))
 
-    gps_data_available = len(gps_points) >= 3 and bool(timestamps)
+    gps_data_available = len(gps_points) >= 3
     avg_altitude = mean(relative_altitudes) if relative_altitudes else mean(altitudes) if altitudes else 120.0
     gsd_median = calculate_gsd(avg_altitude, med_focal, infer_sensor_width(first_camera_model), img_width_med) if gps_data_available and (relative_altitudes or altitudes) else 0.0
 
