@@ -19,6 +19,7 @@ except ImportError:  # pragma: no cover - optional runtime dependency
 from .common import clamp_float
 from .compact_featurewise_schema import (
     COMPACT_MODEL_GROUP_KEYS,
+    build_compact_feature_scaler,
     build_compact_score_design_vector,
     build_compact_vector,
     compact_action_logs_from_multipliers,
@@ -77,39 +78,18 @@ def train_compact_featurewise_mlp_model(
     np.random.seed(DEFAULT_SEED)
 
     bounds = normalise_compact_group_bounds(group_bounds)
-    X_list: list[np.ndarray] = []
-    Y_list: list[float] = []
-    project_names: list[str] = []
-    for entry in training_data:
-        features = entry.get("features")
-        score = entry.get("relative_quality_score")
-        selected = entry.get("selected_multipliers")
-        project_name = entry.get("project_name")
-        if (
-            not isinstance(features, dict)
-            or not isinstance(selected, dict)
-            or not isinstance(score, (int, float))
-            or not isinstance(project_name, str)
-            or not project_name.strip()
-        ):
-            continue
-        action_logs = compact_action_logs_from_multipliers(selected, bounds=bounds)
-        if action_logs is None:
-            continue
-        x = build_compact_vector(features)
-        X_list.append(build_compact_score_design_vector(x, action_logs).astype(np.float32))
-        Y_list.append(float(score))
-        project_names.append(project_name.strip())
+    prepared = _prepare_compact_mlp_dataset(training_data=training_data, bounds=bounds)
+    if not prepared["ok"]:
+        return {"trained": False, "error": str(prepared["error"])}
 
-    if not Y_list:
-        return {"trained": False, "error": "No valid compact MLP score-training rows available"}
-    if len(set(project_names)) < 2:
-        return {"trained": False, "error": "Compact MLP project-level validation needs at least 2 projects"}
-
-    X = torch.tensor(np.array(X_list), dtype=torch.float32)
-    Y = torch.tensor(np.array(Y_list), dtype=torch.float32)
-    n = len(Y)
-    train_idx, val_idx, train_projects, val_projects = _project_level_split_indices(project_names)
+    X = prepared["X"]
+    Y = prepared["Y"]
+    train_idx = prepared["train_idx"]
+    val_idx = prepared["val_idx"]
+    train_projects = prepared["train_projects"]
+    val_projects = prepared["val_projects"]
+    feature_scaler = prepared["feature_scaler"]
+    n = int(prepared["training_samples"])
 
     model = CompactFeaturewiseMLP(input_dim=X.shape[1], hidden=DEFAULT_HIDDEN, dropout=DEFAULT_DROPOUT)
     optimizer = optim.Adam(model.parameters(), lr=DEFAULT_LR, weight_decay=DEFAULT_WEIGHT_DECAY)
@@ -172,6 +152,8 @@ def train_compact_featurewise_mlp_model(
         "val_project_count": len(val_projects),
         "train_projects": train_projects,
         "val_projects": val_projects,
+        "feature_scaler": feature_scaler,
+        "feature_standardization": "train_projects",
         "log_multiplier_bounds": {key: [float(bounds[key][0]), float(bounds[key][1])] for key in COMPACT_MODEL_GROUP_KEYS},
     }
     torch.save(checkpoint, model_path)
@@ -190,6 +172,8 @@ def train_compact_featurewise_mlp_model(
         "val_project_count": len(val_projects),
         "train_projects": train_projects,
         "val_projects": val_projects,
+        "feature_scaler": feature_scaler,
+        "feature_standardization": "train_projects",
         "epochs_trained": len(train_losses),
         "max_epochs": DEFAULT_EPOCHS,
         "best_epoch": best_epoch,
@@ -212,6 +196,78 @@ def train_compact_featurewise_mlp_model(
         "model_path": str(model_path),
         "metadata_path": str(metadata_path),
         **metadata,
+    }
+
+
+def _prepare_compact_mlp_dataset(
+    *,
+    training_data: list[dict[str, Any]],
+    bounds: dict[str, tuple[float, float]],
+) -> dict[str, Any]:
+    """Prepare train/validation tensors before the MLP optimizer runs.
+
+    The project split happens before descriptor standardization. The scaler is
+    fitted only from training-project rows, then applied to validation rows.
+    """
+    valid_entries: list[dict[str, Any]] = []
+    scores: list[float] = []
+    project_names: list[str] = []
+
+    for entry in training_data:
+        features = entry.get("features")
+        score = entry.get("relative_quality_score")
+        selected = entry.get("selected_multipliers")
+        project_name = entry.get("project_name")
+        if (
+            not isinstance(features, dict)
+            or not isinstance(selected, dict)
+            or not isinstance(score, (int, float))
+            or not isinstance(project_name, str)
+            or not project_name.strip()
+        ):
+            continue
+        action_logs = compact_action_logs_from_multipliers(selected, bounds=bounds)
+        if action_logs is None:
+            continue
+        valid_entries.append(
+            {
+                "features": dict(features),
+                "x_features": dict(features),
+                "action_logs": action_logs,
+                "project_name": project_name.strip(),
+            }
+        )
+        scores.append(float(score))
+        project_names.append(project_name.strip())
+
+    if not scores:
+        return {"ok": False, "error": "No valid compact MLP score-training rows available"}
+    if len(set(project_names)) < 2:
+        return {"ok": False, "error": "Compact MLP project-level validation needs at least 2 projects"}
+
+    train_idx, val_idx, train_projects, val_projects = _project_level_split_indices(project_names)
+    train_index_set = set(int(idx) for idx in train_idx.tolist())
+    scaler_rows = [valid_entries[idx] for idx in sorted(train_index_set)]
+    feature_scaler = build_compact_feature_scaler(scaler_rows)
+
+    design_rows = [
+        build_compact_score_design_vector(
+            build_compact_vector(entry["features"], feature_scaler),
+            entry["action_logs"],
+        ).astype(np.float32)
+        for entry in valid_entries
+    ]
+
+    return {
+        "ok": True,
+        "X": torch.tensor(np.array(design_rows), dtype=torch.float32),
+        "Y": torch.tensor(np.array(scores), dtype=torch.float32),
+        "train_idx": train_idx,
+        "val_idx": val_idx,
+        "train_projects": train_projects,
+        "val_projects": val_projects,
+        "feature_scaler": feature_scaler,
+        "training_samples": len(scores),
     }
 
 
@@ -280,7 +336,10 @@ def predict_compact_featurewise_mlp_from_checkpoint(
         source=candidate_log_multipliers_by_group,
     )
     combos = list(itertools.product(*(candidates_by_group[group] for group in COMPACT_MODEL_GROUP_KEYS)))
-    x = build_compact_vector(features)
+    feature_scaler = checkpoint.get("feature_scaler")
+    if not isinstance(feature_scaler, dict):
+        raise RuntimeError("Compact MLP checkpoint is missing feature_scaler. Retrain the MLP with standardized descriptors.")
+    x = build_compact_vector(features, feature_scaler)
     batch = np.stack([build_compact_score_design_vector(x, np.array(combo, dtype=np.float64)).astype(np.float32) for combo in combos], axis=0)
     with torch.no_grad():
         scores = model(torch.tensor(batch, dtype=torch.float32)).cpu().numpy().tolist()

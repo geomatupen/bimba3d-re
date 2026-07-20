@@ -284,6 +284,8 @@ def _validate_compact_mlp_checkpoint(path: Path) -> dict[str, Any]:
         raise ValueError("MLP checkpoint is missing state_dict.")
     if not isinstance(checkpoint.get("input_dim"), int):
         raise ValueError("MLP checkpoint is missing integer input_dim.")
+    if not isinstance(checkpoint.get("feature_scaler"), dict):
+        raise ValueError("MLP checkpoint is missing feature_scaler. Retrain or export the compact MLP with standardized descriptors.")
     return checkpoint
 
 
@@ -306,6 +308,7 @@ def _compact_mlp_registry_fields(
         "hidden": checkpoint.get("hidden"),
         "dropout": checkpoint.get("dropout"),
         "seed": checkpoint.get("seed") or meta.get("seed"),
+        "feature_standardization": checkpoint.get("feature_standardization") or meta.get("feature_standardization"),
     }
     config = {
         "candidate_points": checkpoint.get("candidate_points"),
@@ -317,6 +320,7 @@ def _compact_mlp_registry_fields(
         "early_stopping_patience": checkpoint.get("early_stopping_patience"),
         "seed": checkpoint.get("seed") or meta.get("seed"),
         "log_multiplier_bounds": checkpoint.get("log_multiplier_bounds"),
+        "feature_standardization": checkpoint.get("feature_standardization") or meta.get("feature_standardization"),
     }
     return metrics, config
 
