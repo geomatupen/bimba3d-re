@@ -480,7 +480,7 @@ def seed_learner_weights_into_project(
     ai_profile = model_record.get("ai_profile") if isinstance(model_record.get("ai_profile"), dict) else {}
     mode = str(ai_profile.get("ai_input_mode") or "").strip().lower()
     artifact_format = str(model_record.get("artifact_format") or "").strip().lower()
-    is_neural = (artifact_format == "neural_pt" or mode in {"featurewise_mlp", "compact_featurewise_mlp"})
+    is_neural = (artifact_format == "neural_pt" or mode in {"featurewise_mlp", "compact_featurewise_mlp", "compact_descriptor_mlp"})
 
     if not mode:
         # Fall back to metadata.json inside the model dir
@@ -521,18 +521,26 @@ def seed_learner_weights_into_project(
 
     # Destination depends on model type
     if is_neural:
-        dest_dir = project_dir / "models" / ("compact_featurewise_mlp" if mode == "compact_featurewise_mlp" else "featurewise_mlp")
+        if mode == "compact_featurewise_mlp":
+            dest_dir = project_dir / "models" / "compact_featurewise_mlp"
+        elif mode == "compact_descriptor_mlp":
+            dest_dir = project_dir / "models" / "compact_descriptor_mlp"
+        else:
+            dest_dir = project_dir / "models" / "featurewise_mlp"
         dest_dir.mkdir(parents=True, exist_ok=True)
         if mode == "featurewise_mlp":
             dest_path = dest_dir / "featurewise.pt"
         elif mode == "compact_featurewise_mlp":
             dest_path = dest_dir / "compact_featurewise.pt"
+        elif mode == "compact_descriptor_mlp":
+            dest_path = dest_dir / "compact_descriptor.pt"
         else:
             dest_path = dest_dir / f"{mode}.pt"
     else:
-        dest_dir = project_dir / "models" / (
-            "compact_featurewise_ridge_regression" if mode == "compact_featurewise_ridge_regression" else "featurewise_ridge_regression"
-        )
+        if mode == "compact_featurewise_ridge_regression":
+            dest_dir = project_dir / "models" / "compact_featurewise_ridge_regression"
+        else:
+            dest_dir = project_dir / "models" / "featurewise_ridge_regression"
         dest_dir.mkdir(parents=True, exist_ok=True)
         dest_path = dest_dir / f"{mode}.json"
 
@@ -579,6 +587,7 @@ def resolve_model_ai_profile(model_record: dict | None) -> dict[str, str]:
         "featurewise_mlp",
         "compact_featurewise_ridge_regression",
         "compact_featurewise_mlp",
+        "compact_descriptor_mlp",
     }
 
     if explicit_pipeline in {"controller", "input_mode"}:

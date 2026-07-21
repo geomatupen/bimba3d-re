@@ -1152,6 +1152,7 @@ class PipelineOrchestrator:
                         "featurewise_mlp",
                         "compact_featurewise_ridge_regression",
                         "compact_featurewise_mlp",
+                        "compact_descriptor_mlp",
                     }:
                         run_config["ai_selector_strategy"] = model_strategy
 

@@ -29,6 +29,10 @@ def seed_workflow_model_into_project(model: WorkflowModelManifest, project_dir: 
         target_dir = project_dir / "models" / "compact_featurewise_mlp"
         target_name = "compact_featurewise.pt"
         stale_pattern = "*.pt"
+    elif model.model_family == "compact_descriptor_mlp":
+        target_dir = project_dir / "models" / "compact_descriptor_mlp"
+        target_name = "compact_descriptor.pt"
+        stale_pattern = "*.pt"
     elif model.model_family == "featurewise_ridge_regression":
         target_dir = project_dir / "models" / "featurewise_ridge_regression"
         target_name = "exif_compact_featurewise.json"

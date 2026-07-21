@@ -147,17 +147,21 @@ export default function ModelArtifactDetailPage() {
                   <SummaryItem label="Selected Lambda" value={formatNumber(metricValue(rawModel, "lambda_selected") ?? metricValue(rawModel, "selected_lambda"), 6)} />
                   <SummaryItem label="Lambda Candidates" value={formatNumber(rawModel?.config?.lambda_search_count ?? rawModel?.metrics?.lambda_search?.length, 0)} />
                   <SummaryItem label="Lambda-Search MSE" value={formatNumber(rawModel?.metrics?.train_fit_metrics?.lambda_search_mse, 8)} />
+                  <SummaryItem label="Regularization" value={rawModel?.config?.regularization || rawModel?.metrics?.regularization || "-"} />
                 </div>
               )}
 
               {(rawModel?.model_family === "featurewise_mlp" ||
-                rawModel?.model_family === "compact_featurewise_mlp") && (
+                rawModel?.model_family === "compact_featurewise_mlp" ||
+                rawModel?.model_family === "compact_descriptor_mlp") && (
                 <div className="mt-4 grid gap-3 md:grid-cols-4">
                   <SummaryItem
                     label="Architecture"
                     value={
                       rawModel?.model_family === "compact_featurewise_mlp"
                         ? `compact shared model, hidden ${formatNumber(metricValue(rawModel, "hidden"), 0)}`
+                        : rawModel?.model_family === "compact_descriptor_mlp"
+                        ? `13-input compact model, hidden ${formatNumber(metricValue(rawModel, "hidden"), 0)}`
                         : `8 -> 4 heads, hidden ${formatNumber(metricValue(rawModel, "hidden"), 0)}`
                     }
                   />

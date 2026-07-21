@@ -15,14 +15,22 @@ def build_model_training_summary(paths: WorkflowPaths = DEFAULT_WORKFLOW_PATHS) 
     ridge_models = [
         model
         for model in models
-        if model.model_family in {"featurewise_ridge_regression", "compact_featurewise_ridge_regression"}
+        if model.model_family in {
+            "featurewise_ridge_regression",
+            "compact_featurewise_ridge_regression",
+        }
     ]
     mlp_models = [
         model
         for model in models
-        if model.model_family in {"featurewise_mlp", "compact_featurewise_mlp"}
+        if model.model_family in {"featurewise_mlp", "compact_featurewise_mlp", "compact_descriptor_mlp"}
     ]
-    compact_models = [model for model in models if str(model.model_family).startswith("compact_featurewise_")]
+    compact_models = [
+        model
+        for model in models
+        if str(model.model_family).startswith("compact_featurewise_")
+        or model.model_family in {"compact_descriptor_mlp"}
+    ]
     model_rows = []
     for model in models:
         model_rows.append(

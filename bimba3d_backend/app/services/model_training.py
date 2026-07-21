@@ -11,6 +11,7 @@ from typing import Any
 from bimba3d_backend.app.schemas.workflow_data import ModelFamily, TrainingDataRow, WorkflowModelManifest
 from bimba3d_backend.app.services import training_data_registry, workflow_model_registry
 from bimba3d_backend.app.services.workflow_paths import DEFAULT_WORKFLOW_PATHS, WorkflowPaths
+from bimba3d_backend.worker.ai_input_modes.compact_descriptor_mlp import train_compact_descriptor_mlp_model
 from bimba3d_backend.worker.ai_input_modes.compact_featurewise_mlp import train_compact_featurewise_mlp_model
 from bimba3d_backend.worker.ai_input_modes.compact_featurewise_ridge_regression import (
     train_compact_featurewise_ridge_model,
@@ -35,6 +36,10 @@ class ModelTrainingOptions:
     lambda_ridge: float | None = None
     # Prediction fallback grid size stored in the artifact; explicit testing grids take precedence.
     candidate_points: int = 30
+    # COMPACT_RIDGE_INTERCEPT_EXPERIMENT:
+    # Default True preserves the original compact Ridge behavior. Set False only
+    # for comparison runs where the intercept should be excluded from the penalty.
+    regularize_intercept: bool = True
     include_phases: list[int] | None = None
     include_run_ids: list[str] | None = None
 
@@ -69,6 +74,8 @@ def train_model_from_training_data(
         return _train_compact_ridge(options, training_rows, model_id=model_id, model_dir=model_dir, paths=paths, training_log=training_log)
     if options.model_family == "compact_featurewise_mlp":
         return _train_compact_mlp(options, training_rows, model_id=model_id, model_dir=model_dir, paths=paths, training_log=training_log)
+    if options.model_family == "compact_descriptor_mlp":
+        return _train_compact_descriptor_mlp(options, training_rows, model_id=model_id, model_dir=model_dir, paths=paths, training_log=training_log)
 
     raise ValueError(f"Unsupported model family: {options.model_family}")
 
@@ -84,7 +91,7 @@ def _train_ridge(
 ) -> WorkflowModelManifest:
     score_key = "relative_quality_score"
     model_evaluation_step = _model_evaluation_step(rows)
-    multiplier_bounds, multiplier_bounds_source = _source_multiplier_bounds(options.source_training_data_id)
+    multiplier_bounds, multiplier_bounds_source = _source_multiplier_bounds(options.source_training_data_id, paths=paths)
     train_rows = _ridge_rows(rows)
     if not train_rows:
         raise ValueError("No rows contain valid multipliers and quality scores for Ridge training.")
@@ -208,7 +215,7 @@ def _train_compact_ridge(
 ) -> WorkflowModelManifest:
     score_key = "relative_quality_score"
     model_evaluation_step = _model_evaluation_step(rows)
-    multiplier_bounds, multiplier_bounds_source = _source_multiplier_bounds(options.source_training_data_id)
+    multiplier_bounds, multiplier_bounds_source = _source_multiplier_bounds(options.source_training_data_id, paths=paths)
     train_rows = _ridge_rows(rows)
     if not train_rows:
         raise ValueError("No rows contain valid multipliers and quality scores for Compact Ridge training.")
@@ -226,12 +233,15 @@ def _train_compact_ridge(
         else [float(value) for value in RIDGE_LAMBDA_CANDIDATES]
     )
     candidate_points = int(max(5, options.candidate_points))
+    regularize_intercept = bool(options.regularize_intercept)
     training_log.append(
         _training_log(
             f"Searching {len(lambda_candidates)} compact Ridge lambda candidate{'' if len(lambda_candidates) == 1 else 's'} "
             f"with {candidate_points} multiplier candidate points."
         )
     )
+    if not regularize_intercept:
+        training_log.append(_training_log("Compact Ridge comparison: intercept is excluded from Ridge regularization."))
     best_model: dict[str, Any] | None = None
     best_metrics: dict[str, Any] | None = None
     best_lambda: float | None = None
@@ -245,6 +255,7 @@ def _train_compact_ridge(
             lambda_ridge=float(candidate_lambda),
             candidate_points=candidate_points,
             group_bounds=multiplier_bounds,
+            regularize_intercept=regularize_intercept,
         )
         lambda_search_mse = float(metrics["lambda_search_mse"])
         lambda_report.append({"lambda_ridge": float(candidate_lambda), "lambda_search_mse": lambda_search_mse})
@@ -274,6 +285,8 @@ def _train_compact_ridge(
             "theta_norm": best_theta_norm,
             "lambda_search": lambda_report,
             "candidate_points": candidate_points,
+            "regularize_intercept": regularize_intercept,
+            "regularization": "identity_all_terms" if regularize_intercept else "identity_except_intercept",
             "training_log": training_log + [_training_log("Saved compact Ridge model artifact and metadata.")],
         },
         "model": best_model,
@@ -289,6 +302,8 @@ def _train_compact_ridge(
             "model_evaluation_step": model_evaluation_step,
             "lambda_selected": best_lambda,
             "candidate_points": candidate_points,
+            "regularize_intercept": regularize_intercept,
+            "regularization": "identity_all_terms" if regularize_intercept else "identity_except_intercept",
         },
     )
 
@@ -308,6 +323,8 @@ def _train_compact_ridge(
             "lambda_selected": best_lambda,
             "lambda_candidates": lambda_candidates,
             "lambda_search_count": len(lambda_report),
+            "regularize_intercept": regularize_intercept,
+            "regularization": "identity_all_terms" if regularize_intercept else "identity_except_intercept",
             "model_evaluation_step": model_evaluation_step,
             "score_reference_step": model_evaluation_step,
             "log_multiplier_bounds": multiplier_bounds,
@@ -329,7 +346,7 @@ def _train_compact_mlp(
     training_log: list[dict[str, str]],
 ) -> WorkflowModelManifest:
     model_evaluation_step = _model_evaluation_step(rows)
-    multiplier_bounds, multiplier_bounds_source = _source_multiplier_bounds(options.source_training_data_id)
+    multiplier_bounds, multiplier_bounds_source = _source_multiplier_bounds(options.source_training_data_id, paths=paths)
     training_data = [_mlp_entry(row) for row in rows if row.relative_quality_score is not None and row.selected_multipliers]
     if not training_data:
         raise ValueError("No rows contain valid multipliers and quality scores for Compact MLP training.")
@@ -413,6 +430,108 @@ def _train_compact_mlp(
     )
 
 
+def _train_compact_descriptor_mlp(
+    options: ModelTrainingOptions,
+    rows: list[TrainingDataRow],
+    *,
+    model_id: str,
+    model_dir: Path,
+    paths: WorkflowPaths,
+    training_log: list[dict[str, str]],
+) -> WorkflowModelManifest:
+    """Train compact_descriptor_mlp: 10 descriptors + 3 log multipliers only."""
+    model_evaluation_step = _model_evaluation_step(rows)
+    multiplier_bounds, multiplier_bounds_source = _source_multiplier_bounds(options.source_training_data_id, paths=paths)
+    training_data = [_mlp_entry(row) for row in rows if row.relative_quality_score is not None and row.selected_multipliers]
+    if not training_data:
+        raise ValueError("No rows contain valid multipliers and quality scores for compact_descriptor_mlp training.")
+    training_log.extend(
+        [
+            _training_log(f"Validated one model evaluation step: {model_evaluation_step}."),
+            _training_log(f"Loaded multiplier bounds from {multiplier_bounds_source}."),
+            _training_log(
+                f"Prepared {len(training_data)} compact descriptor MLP score row{'' if len(training_data) == 1 else 's'}."
+            ),
+            _training_log(
+                "Started compact_descriptor_mlp optimizer with 10 descriptors + 3 log multipliers, "
+                "project-level train/validation split, and early stopping."
+            ),
+        ]
+    )
+
+    result = train_compact_descriptor_mlp_model(
+        training_data=training_data,
+        save_dir=model_dir,
+        group_bounds=multiplier_bounds,
+    )
+    if not result.get("trained"):
+        raise RuntimeError(f"compact_descriptor_mlp training failed: {result.get('error', 'unknown error')}")
+    training_log.extend(_mlp_training_result_logs(result, compact=True))
+
+    artifact_path = Path(str(result.get("model_path") or "")).expanduser()
+    metadata_path = Path(str(result.get("metadata_path") or "")).expanduser() if result.get("metadata_path") else None
+    return workflow_model_registry.register_model(
+        model_id=model_id,
+        model_name=options.model_name,
+        model_family="compact_descriptor_mlp",
+        source_training_data_id=options.source_training_data_id,
+        source_pipeline_id=options.source_pipeline_id,
+        artifact_path=artifact_path,
+        metadata_path=metadata_path,
+        training_samples=int(result.get("training_samples") or 0),
+        model_evaluation_step=model_evaluation_step,
+        metrics={
+            "best_val_loss": result.get("best_val_loss"),
+            "final_train_loss": result.get("final_train_loss"),
+            "final_val_loss": result.get("final_val_loss"),
+            "epochs_trained": result.get("epochs_trained"),
+            "max_epochs": result.get("max_epochs"),
+            "best_epoch": result.get("best_epoch"),
+            "early_stopping_patience": result.get("early_stopping_patience"),
+            "total_parameters": result.get("total_parameters"),
+            "learning_rate": result.get("learning_rate"),
+            "weight_decay": result.get("weight_decay"),
+            "hidden": result.get("hidden"),
+            "dropout": result.get("dropout"),
+            "seed": result.get("seed"),
+            "input_representation": result.get("input_representation"),
+            "feature_standardization": result.get("feature_standardization"),
+            "validation_split_level": result.get("validation_split_level"),
+            "train_split": result.get("train_split"),
+            "val_split": result.get("val_split"),
+            "train_project_count": result.get("train_project_count"),
+            "val_project_count": result.get("val_project_count"),
+            "training_log": training_log + [_training_log("Saved compact_descriptor_mlp checkpoint and metadata.")],
+        },
+        config={
+            "candidate_points": result.get("candidate_points"),
+            "hidden": result.get("hidden"),
+            "dropout": result.get("dropout"),
+            "learning_rate": result.get("learning_rate"),
+            "weight_decay": result.get("weight_decay"),
+            "max_epochs": result.get("max_epochs"),
+            "early_stopping_patience": result.get("early_stopping_patience"),
+            "seed": result.get("seed"),
+            "input_representation": result.get("input_representation"),
+            "feature_standardization": result.get("feature_standardization"),
+            "validation_split_level": result.get("validation_split_level"),
+            "train_split": result.get("train_split"),
+            "val_split": result.get("val_split"),
+            "train_project_count": result.get("train_project_count"),
+            "val_project_count": result.get("val_project_count"),
+            "train_projects": result.get("train_projects"),
+            "val_projects": result.get("val_projects"),
+            "model_evaluation_step": model_evaluation_step,
+            "score_reference_step": model_evaluation_step,
+            "log_multiplier_bounds": multiplier_bounds,
+            "log_multiplier_bounds_source": multiplier_bounds_source,
+            "include_phases": options.include_phases,
+            "include_run_ids": options.include_run_ids,
+        },
+        paths=paths,
+    )
+
+
 def _train_mlp(
     options: ModelTrainingOptions,
     rows: list[TrainingDataRow],
@@ -423,7 +542,7 @@ def _train_mlp(
     training_log: list[dict[str, str]],
 ) -> WorkflowModelManifest:
     model_evaluation_step = _model_evaluation_step(rows)
-    multiplier_bounds, multiplier_bounds_source = _source_multiplier_bounds(options.source_training_data_id)
+    multiplier_bounds, multiplier_bounds_source = _source_multiplier_bounds(options.source_training_data_id, paths=paths)
     training_data = [_mlp_entry(row) for row in rows if row.relative_quality_score is not None and row.selected_multipliers]
     if not training_data:
         raise ValueError("No rows contain valid multipliers and quality scores for MLP training.")
@@ -538,8 +657,8 @@ def _model_evaluation_step(rows: list[TrainingDataRow]) -> int:
     return next(iter(steps))
 
 
-def _source_multiplier_bounds(training_data_id: str) -> tuple[dict[str, list[float]], str]:
-    manifest = training_data_registry.read_manifest(training_data_id)
+def _source_multiplier_bounds(training_data_id: str, *, paths: WorkflowPaths = DEFAULT_WORKFLOW_PATHS) -> tuple[dict[str, list[float]], str]:
+    manifest = training_data_registry.read_manifest(training_data_id, paths=paths)
     if manifest is not None and isinstance(manifest.build_summary, dict):
         bounds = manifest.build_summary.get("log_multiplier_bounds")
         source = manifest.build_summary.get("log_multiplier_bounds_source")
@@ -681,6 +800,7 @@ def _build_model_id(model_name: str, model_family: ModelFamily) -> str:
         "featurewise_mlp": "mlp",
         "compact_featurewise_ridge_regression": "compact-ridge",
         "compact_featurewise_mlp": "compact-mlp",
+        "compact_descriptor_mlp": "compact-descriptor-mlp",
     }.get(model_family, "model")
     return f"model_{family}_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}_{token}"
 

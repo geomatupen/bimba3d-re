@@ -9,10 +9,14 @@ type ModelMode =
   | "featurewise_ridge_regression"
   | "featurewise_mlp"
   | "compact_featurewise_ridge_regression"
-  | "compact_featurewise_mlp";
+  | "compact_featurewise_mlp"
+  | "compact_descriptor_mlp";
 type SortBy = "time_desc" | "time_asc" | "name";
 type TrainingLogLevel = "info" | "success" | "warning" | "error";
-type UploadModelMode = "compact_featurewise_ridge_regression" | "compact_featurewise_mlp";
+type UploadModelMode =
+  | "compact_featurewise_ridge_regression"
+  | "compact_featurewise_mlp"
+  | "compact_descriptor_mlp";
 
 interface TrainingLogEntry {
   timestamp: string;
@@ -32,6 +36,11 @@ const MODEL_MODE_OPTIONS: Array<{ value: ModelMode; label: string; description: 
     description: "One shared MLP model for all multiplier groups.",
   },
   {
+    value: "compact_descriptor_mlp",
+    label: "Compact Descriptor MLP",
+    description: "One shared MLP using only 10 descriptors + 3 log multipliers.",
+  },
+  {
     value: "featurewise_ridge_regression",
     label: "Featurewise Ridge Regression",
     description: "Legacy group-wise Ridge models for geometry, appearance, and densification.",
@@ -42,6 +51,15 @@ const MODEL_MODE_OPTIONS: Array<{ value: ModelMode; label: string; description: 
     description: "Legacy group-wise MLP heads for multiplier groups.",
   },
 ];
+
+const isMlpModelFamily = (family?: string | null) =>
+  family === "featurewise_mlp" || family === "compact_featurewise_mlp" || family === "compact_descriptor_mlp";
+
+const isRidgeModelFamily = (family?: string | null) =>
+  family === "featurewise_ridge_regression" ||
+  family === "compact_featurewise_ridge_regression";
+
+const isUploadMlpMode = (mode: UploadModelMode) => mode === "compact_featurewise_mlp" || mode === "compact_descriptor_mlp";
 
 interface TrainingDataSource {
   training_data_id: string;
@@ -87,7 +105,9 @@ const normalizeTrainingLogLevel = (level: unknown): TrainingLogLevel => {
 };
 
 const trainingWaitMessages = (mode: ModelMode, autoLambda: boolean) => {
-  const ridge = mode === "featurewise_ridge_regression" || mode === "compact_featurewise_ridge_regression";
+  const ridge =
+    mode === "featurewise_ridge_regression" ||
+    mode === "compact_featurewise_ridge_regression";
   return [
     { delayMs: 900, message: "Backend step: loading and filtering Training Data rows." },
     { delayMs: 2200, message: "Backend step: validating score reference step and multiplier bounds." },
@@ -128,6 +148,7 @@ export default function ModelTrainingPage() {
   const [uploadResult, setUploadResult] = useState<any | null>(null);
   const [autoSelectLambda, setAutoSelectLambda] = useState(true);
   const [lambdaInput, setLambdaInput] = useState("2.0");
+  const [regularizeCompactRidgeIntercept, setRegularizeCompactRidgeIntercept] = useState(true);
   const [training, setTraining] = useState(false);
   const [trainingStartedAt, setTrainingStartedAt] = useState<number | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -360,7 +381,10 @@ export default function ModelTrainingPage() {
       payload.model_name = modelName.trim();
     }
 
-    if (modelMode === "featurewise_ridge_regression" || modelMode === "compact_featurewise_ridge_regression") {
+    if (isRidgeModelFamily(modelMode)) {
+      if (modelMode === "compact_featurewise_ridge_regression") {
+        payload.regularize_intercept = regularizeCompactRidgeIntercept;
+      }
       if (autoSelectLambda) {
         payload.lambda_ridge = null;
       } else {
@@ -394,7 +418,7 @@ export default function ModelTrainingPage() {
         timestamp: new Date().toLocaleTimeString(),
         level: "info",
         message:
-          modelMode === "featurewise_ridge_regression" || modelMode === "compact_featurewise_ridge_regression"
+          isRidgeModelFamily(modelMode)
             ? autoSelectLambda
               ? "Ridge lambda: auto-selecting best candidate."
               : `Ridge lambda: ${lambdaInput}.`
@@ -419,7 +443,7 @@ export default function ModelTrainingPage() {
             appendTrainingLog(String(entry.message), normalizeTrainingLogLevel(entry.level));
           }
         });
-        if (res.data?.model_family === "featurewise_ridge_regression" || res.data?.model_family === "compact_featurewise_ridge_regression") {
+        if (isRidgeModelFamily(res.data?.model_family)) {
           appendTrainingLog(`Training completed. Selected lambda: ${metrics.lambda_selected ?? metrics.selected_lambda ?? "n/a"}.`, "success");
         } else {
           appendTrainingLog(
@@ -496,7 +520,7 @@ export default function ModelTrainingPage() {
       return;
     }
     if (!uploadArtifactFile) {
-      setUploadError(uploadModelMode === "compact_featurewise_mlp" ? "Select the .pt checkpoint file." : "Select the Ridge model JSON file.");
+      setUploadError(isUploadMlpMode(uploadModelMode) ? "Select the .pt checkpoint file." : "Select the Ridge model JSON file.");
       return;
     }
 
@@ -765,7 +789,7 @@ export default function ModelTrainingPage() {
                     setUploadArtifactFile(null);
                     setUploadMetadataFile(null);
                     setUploadModelName(
-                      mode === "compact_featurewise_mlp"
+                      isUploadMlpMode(mode)
                         ? "Uploaded Featurewise MLP Quality Model"
                         : "Uploaded Featurewise Ridge Quality Model",
                     );
@@ -775,6 +799,7 @@ export default function ModelTrainingPage() {
                 >
                   <option value="compact_featurewise_ridge_regression">Featurewise Ridge Quality Model</option>
                   <option value="compact_featurewise_mlp">Featurewise MLP Quality Model</option>
+                  <option value="compact_descriptor_mlp">Compact Descriptor MLP Quality Model</option>
                 </select>
               </div>
 
@@ -791,12 +816,12 @@ export default function ModelTrainingPage() {
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
-                  {uploadModelMode === "compact_featurewise_mlp" ? "MLP Checkpoint (.pt)" : "Ridge Model JSON"}
+                  {isUploadMlpMode(uploadModelMode) ? "MLP Checkpoint (.pt)" : "Ridge Model JSON"}
                 </label>
                 <input
                   key={`artifact-${uploadModelMode}`}
                   type="file"
-                  accept={uploadModelMode === "compact_featurewise_mlp" ? ".pt,.pth" : ".json,application/json"}
+                  accept={isUploadMlpMode(uploadModelMode) ? ".pt,.pth" : ".json,application/json"}
                   onChange={(event) => setUploadArtifactFile(event.target.files?.[0] || null)}
                   disabled={uploadingModel}
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-slate-200 disabled:opacity-60"
@@ -955,7 +980,7 @@ export default function ModelTrainingPage() {
                     />
                   </div>
 
-                  {(modelMode === "featurewise_ridge_regression" || modelMode === "compact_featurewise_ridge_regression") && (
+                  {isRidgeModelFamily(modelMode) && (
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                       <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
                         <input
@@ -981,6 +1006,25 @@ export default function ModelTrainingPage() {
                           />
                         </div>
                       )}
+                      {modelMode === "compact_featurewise_ridge_regression" && (
+                        <div className="mt-3 rounded-md border border-slate-200 bg-white p-2">
+                          <label className="flex items-start gap-2 text-xs font-medium text-slate-700">
+                            <input
+                              type="checkbox"
+                              checked={regularizeCompactRidgeIntercept}
+                              onChange={(event) => setRegularizeCompactRidgeIntercept(event.target.checked)}
+                              disabled={training}
+                              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                            />
+                            <span>
+                              Regularize intercept
+                              <span className="mt-0.5 block font-normal text-slate-500">
+                                Keep checked for the original compact Ridge. Uncheck only for the intercept comparison run.
+                              </span>
+                            </span>
+                          </label>
+                        </div>
+                      )}
                     </div>
                   )}
                 </>
@@ -996,14 +1040,14 @@ export default function ModelTrainingPage() {
                       ? ` | Mean relative score: ${Number(trainResult.metrics.mean_relative_quality_score).toFixed(4)}`
                       : ""}
                   </div>
-                  {(trainResult.model_family === "featurewise_ridge_regression" ||
-                    trainResult.model_family === "compact_featurewise_ridge_regression") &&
+                  {isRidgeModelFamily(trainResult.model_family) &&
                     (trainResult.metrics?.lambda_selected || trainResult.metrics?.selected_lambda || trainResult.config?.lambda_ridge) && (
                     <div className="mt-1 text-xs">
                       Lambda: {trainResult.metrics?.lambda_selected || trainResult.metrics?.selected_lambda || trainResult.config.lambda_ridge}
+                      {trainResult.config?.regularization ? ` | Regularization: ${trainResult.config.regularization}` : ""}
                     </div>
                   )}
-                  {(trainResult.model_family === "featurewise_mlp" || trainResult.model_family === "compact_featurewise_mlp") && (
+                  {isMlpModelFamily(trainResult.model_family) && (
                     <div className="mt-1 text-xs">
                       Epochs: {trainResult.metrics?.epochs_trained ?? "-"} / {trainResult.metrics?.max_epochs ?? trainResult.config?.max_epochs ?? "-"}
                       {trainResult.metrics?.best_val_loss !== undefined && trainResult.metrics?.best_val_loss !== null

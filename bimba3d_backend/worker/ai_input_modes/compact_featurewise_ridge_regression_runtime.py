@@ -27,10 +27,17 @@ def train_compact_featurewise_ridge_model(
     lambda_ridge: float,
     candidate_points: int,
     group_bounds: dict[str, Any] | None = None,
+    regularize_intercept: bool = True,
 ) -> tuple[dict[str, Any], dict[str, Any], float]:
     bounds = normalise_compact_group_bounds(group_bounds)
     scaler = build_compact_feature_scaler(rows)
-    model = _empty_model(lambda_ridge=lambda_ridge, scaler=scaler, candidate_points=candidate_points, bounds=bounds)
+    model = _empty_model(
+        lambda_ridge=lambda_ridge,
+        scaler=scaler,
+        candidate_points=candidate_points,
+        bounds=bounds,
+        regularize_intercept=regularize_intercept,
+    )
     score_sum = 0.0
     runs = 0
 
@@ -211,9 +218,16 @@ def _empty_model(
     scaler: dict[str, dict[str, float]],
     candidate_points: int,
     bounds: dict[str, tuple[float, float]],
+    regularize_intercept: bool = True,
 ) -> dict[str, Any]:
     d_x = len(build_compact_vector({}, scaler))
     d_phi = d_x + len(COMPACT_MODEL_GROUP_KEYS) + len(COMPACT_MODEL_GROUP_KEYS) + (d_x - 1) * len(COMPACT_MODEL_GROUP_KEYS)
+    penalty = np.eye(d_phi, dtype=np.float64) * float(lambda_ridge)
+    # COMPACT_RIDGE_INTERCEPT_EXPERIMENT:
+    # Keep the default as the original platform behavior. When this flag is
+    # disabled for comparison runs, the intercept term is not shrunk by Ridge.
+    if not regularize_intercept:
+        penalty[0, 0] = 0.0
     return {
         "version": 1,
         "model_family": "compact_featurewise_ridge_regression",
@@ -226,7 +240,9 @@ def _empty_model(
         "log_multiplier_bounds": {key: [float(bounds[key][0]), float(bounds[key][1])] for key in COMPACT_MODEL_GROUP_KEYS},
         "action_space": "joint_log_multiplier",
         "design": "x_plus_three_actions_plus_action2_plus_xa",
-        "A": (np.eye(d_phi, dtype=np.float64) * float(lambda_ridge)).tolist(),
+        "regularize_intercept": bool(regularize_intercept),
+        "regularization": "identity_all_terms" if regularize_intercept else "identity_except_intercept",
+        "A": penalty.tolist(),
         "b": np.zeros(d_phi, dtype=np.float64).tolist(),
         "n": 0,
         "design_dim": d_phi,

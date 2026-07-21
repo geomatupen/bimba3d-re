@@ -31,6 +31,7 @@ class TrainWorkflowModelRequest(BaseModel):
     lambda_ridge: float | None = Field(None, gt=0)
     # Stored with the model as a prediction fallback. Test pipelines with an explicit candidate grid override it.
     candidate_points: int = Field(30, ge=5, le=101)
+    regularize_intercept: bool = True
     include_phases: list[int] | None = None
     include_run_ids: list[str] | None = None
 
@@ -66,6 +67,7 @@ def train_workflow_model(request: TrainWorkflowModelRequest) -> WorkflowModelMan
                 source_pipeline_id=request.source_pipeline_id.strip() if request.source_pipeline_id else None,
                 lambda_ridge=request.lambda_ridge,
                 candidate_points=request.candidate_points,
+                regularize_intercept=request.regularize_intercept,
                 include_phases=request.include_phases,
                 include_run_ids=request.include_run_ids,
             ),
@@ -116,10 +118,14 @@ async def upload_workflow_model(
         raise HTTPException(status_code=400, detail="Model name is required.")
     if not clean_training_data_id:
         raise HTTPException(status_code=400, detail="Training Data source is required.")
-    if model_family not in {"compact_featurewise_ridge_regression", "compact_featurewise_mlp"}:
+    if model_family not in {
+        "compact_featurewise_ridge_regression",
+        "compact_featurewise_mlp",
+        "compact_descriptor_mlp",
+    }:
         raise HTTPException(
             status_code=400,
-            detail="Upload currently supports compact Featurewise Ridge JSON and compact Featurewise MLP .pt models.",
+            detail="Upload currently supports compact Ridge JSON variants and compact MLP .pt models.",
         )
 
     manifest = training_data_registry.read_manifest(clean_training_data_id, paths=WORKFLOW_PATHS)
@@ -152,9 +158,9 @@ async def upload_workflow_model(
             _write_json(artifact_path, artifact_payload)
             training_samples = _int_or_none(model_payload.get("runs") or model_payload.get("n"))
         else:
-            artifact_path = model_dir / "compact_featurewise.pt"
+            artifact_path = model_dir / ("compact_descriptor.pt" if model_family == "compact_descriptor_mlp" else "compact_featurewise.pt")
             await _copy_upload_to_path(artifact_file, artifact_path)
-            checkpoint = _validate_compact_mlp_checkpoint(artifact_path)
+            checkpoint = _validate_compact_mlp_checkpoint(artifact_path, expected_type=str(model_family))
             metrics, config = _compact_mlp_registry_fields(checkpoint, metadata_payload)
             training_samples = _int_or_none(checkpoint.get("training_samples") or (metadata_payload or {}).get("training_samples"))
 
@@ -213,6 +219,7 @@ def _build_uploaded_model_id(model_name: str, model_family: ModelFamily) -> str:
     family = {
         "compact_featurewise_ridge_regression": "compact-ridge",
         "compact_featurewise_mlp": "compact-mlp",
+        "compact_descriptor_mlp": "compact-descriptor-mlp",
     }.get(model_family, "model")
     return f"model_{family}_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}_{token}"
 
@@ -220,6 +227,8 @@ def _build_uploaded_model_id(model_name: str, model_family: ModelFamily) -> str:
 def _upload_metadata_filename(model_family: ModelFamily) -> str:
     if model_family == "compact_featurewise_mlp":
         return "compact_featurewise_mlp_metadata.json"
+    if model_family == "compact_descriptor_mlp":
+        return "compact_descriptor_mlp_metadata.json"
     return "compact_featurewise_ridge_metadata.json"
 
 
@@ -264,12 +273,14 @@ def _validate_compact_ridge_payload(payload: dict[str, Any]) -> tuple[dict[str, 
         "candidate_points": model_payload.get("candidate_points"),
         "lambda_selected": payload.get("lambda_ridge") or model_payload.get("lambda_ridge"),
         "log_multiplier_bounds": model_payload.get("log_multiplier_bounds"),
+        "regularize_intercept": model_payload.get("regularize_intercept"),
+        "regularization": model_payload.get("regularization") or (payload.get("metrics") or {}).get("regularization"),
         "artifact_schema": schema or None,
     }
     return model_payload, metrics, config
 
 
-def _validate_compact_mlp_checkpoint(path: Path) -> dict[str, Any]:
+def _validate_compact_mlp_checkpoint(path: Path, *, expected_type: str = "compact_featurewise_mlp") -> dict[str, Any]:
     try:
         import torch
     except Exception as exc:  # pragma: no cover - depends on local environment
@@ -278,8 +289,8 @@ def _validate_compact_mlp_checkpoint(path: Path) -> dict[str, Any]:
     checkpoint = torch.load(path, map_location="cpu", weights_only=False)
     if not isinstance(checkpoint, dict):
         raise ValueError("MLP checkpoint must contain a dictionary.")
-    if str(checkpoint.get("model_type") or "") != "compact_featurewise_mlp":
-        raise ValueError("MLP checkpoint must have model_type compact_featurewise_mlp.")
+    if str(checkpoint.get("model_type") or "") != expected_type:
+        raise ValueError(f"MLP checkpoint must have model_type {expected_type}.")
     if not isinstance(checkpoint.get("state_dict"), dict):
         raise ValueError("MLP checkpoint is missing state_dict.")
     if not isinstance(checkpoint.get("input_dim"), int):

@@ -415,6 +415,9 @@ def apply_initial_preset(
         "featurewise_mlp",
         "compact_featurewise_ridge_regression",
         "compact_featurewise_mlp",
+        # compact_descriptor_mlp: 13-input comparison model
+        # (10 descriptors + 3 log multipliers; no x*m or m^2 terms).
+        "compact_descriptor_mlp",
     }
     if selector_strategy not in valid_selector_strategies:
         selector_strategy = "featurewise_ridge_regression"
@@ -597,6 +600,32 @@ def apply_initial_preset(
             else:
                 raise RuntimeError(
                     f"Compact neural featurewise prediction failed for project {project_dir}; no fallback to ridge is allowed."
+                )
+        elif selector_choice == "compact_descriptor_mlp":
+            from .compact_descriptor_mlp import predict_compact_descriptor_mlp_multipliers
+            shared_models_dir = project_dir / "models"
+
+            # compact_descriptor_mlp is intentionally separate from
+            # compact_featurewise_mlp so the simple 13-input experiment can be
+            # compared or removed without touching the expanded-input MLP.
+            descriptor_neural_result = predict_compact_descriptor_mlp_multipliers(
+                shared_models_dir=shared_models_dir,
+                features=model_features,
+                params=params,
+            )
+            if descriptor_neural_result is not None:
+                selection = descriptor_neural_result
+                selected_updates = build_featurewise_ridge_updates(params, descriptor_neural_result["yhat_scores"])
+                selected_preset = str(descriptor_neural_result.get("selected_preset", "compact_descriptor_mlp"))
+                preset_forced = False
+                logger.info(
+                    "COMPACT_DESCRIPTOR_MLP_PREDICTION mode=%s multipliers=%s",
+                    mode,
+                    json.dumps(descriptor_neural_result.get("group_multipliers", {})),
+                )
+            else:
+                raise RuntimeError(
+                    f"Compact descriptor MLP prediction failed for project {project_dir}; no fallback to ridge is allowed."
                 )
         elif selector_choice == "compact_featurewise_ridge_regression":
             from .compact_featurewise_ridge_regression import select_compact_featurewise_ridge_multipliers

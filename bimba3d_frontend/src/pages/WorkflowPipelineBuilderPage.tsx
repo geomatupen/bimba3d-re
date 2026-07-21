@@ -380,6 +380,7 @@ export default function WorkflowPipelineBuilderPage() {
 
  const modelFamilyLabel = (model: any) => {
  const family = String(model.model_family || model.artifact_format || model.ai_profile?.ai_selector_strategy || model.ai_profile?.ai_input_mode || "").toLowerCase();
+ if (family.includes("compact_descriptor_mlp")) return "Compact Descriptor MLP";
  if (family.includes("compact") && family.includes("mlp")) return "Compact Featurewise MLP";
  if (family.includes("compact") && family.includes("ridge")) return "Compact Featurewise Ridge";
  if (family.includes("mlp")) return "Featurewise MLP";

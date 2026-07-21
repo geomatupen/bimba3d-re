@@ -53,6 +53,7 @@ const AI_SELECTOR_STRATEGIES: AiSelectorStrategy[] = [
  "featurewise_mlp",
  "compact_featurewise_ridge_regression",
  "compact_featurewise_mlp",
+ "compact_descriptor_mlp",
 ];
 
 const AI_SELECTOR_LABELS: Record<AiSelectorStrategy, string> = {
@@ -60,6 +61,7 @@ const AI_SELECTOR_LABELS: Record<AiSelectorStrategy, string> = {
  featurewise_mlp: "Featurewise MLP",
  compact_featurewise_ridge_regression: "Compact Featurewise Ridge Regression",
  compact_featurewise_mlp: "Compact Featurewise MLP",
+ compact_descriptor_mlp: "Compact Descriptor MLP",
 };
 
 const isAiSelectorStrategy = (value: unknown): value is AiSelectorStrategy =>
@@ -319,7 +321,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  tune_scope: 'Hidden fixed AI profile path for AI Guided Run. The selected model determines Ridge or MLP behavior.',
  trend_scope: 'Core AI optimization trend scope for report-aligned project testing.',
  ai_input_mode: 'Feature source used by Core AI optimization. Compact featurewise uses metadata and scene features.',
- ai_selector_strategy: 'Core AI optimization selector strategy. Featurewise models use separate group models; compact featurewise models use one shared Ridge/MLP model for all multiplier groups.',
+ ai_selector_strategy: 'Core AI optimization selector strategy. Featurewise models use separate group models; compact models use one shared model. Compact Descriptor MLP uses only descriptors and log multipliers.',
  baseline_session_id: 'Completed baseline gsplat session used as reference for baseline-relative scoring in Core AI optimization modes. Required in train mode, optional in test mode.',
  warmup_at_start: 'Runs an automatic 3-phase warmup from this project base-session config (keeps base max_steps and densify_until_iter). Phase A forces rotating presets (balanced, conservative, geometry_fast, appearance_fast) with wider random jitter; Phases B and C switch back to adaptive preset selection with tighter jitter. Manual batch jitter controls are ignored while enabled.',
  run_count: 'Total sessions in this batch, including the selected session as run 1. Default 1 keeps manual behavior.',
@@ -4716,6 +4718,8 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  ? "Featurewise MLP predicts multiplier groups with separate geometry, appearance, and densification heads."
  : aiSelectorStrategy === "compact_featurewise_mlp"
  ? "Compact Featurewise MLP predicts all multiplier groups with one shared model."
+ : aiSelectorStrategy === "compact_descriptor_mlp"
+ ? "Compact Descriptor MLP uses one shared model with only descriptors and log multipliers."
  : aiSelectorStrategy === "compact_featurewise_ridge_regression"
  ? "Compact Featurewise Ridge Regression scores joint bounded multiplier candidates with one shared model."
  : "Featurewise Ridge Regression scores bounded log-space multiplier candidates with separate group models."}

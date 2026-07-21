@@ -1,5 +1,344 @@
 [
   {
+    "model_id": "model_compact-descriptor-mlp_20260721_195159_mlp_using_compact_13_descriptor",
+    "model_name": "MLP_using_compact_13_descriptor",
+    "model_family": "compact_descriptor_mlp",
+    "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
+    "source_pipeline_id": "pipeline_55776ebd244e",
+    "artifact_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_compact-descriptor-mlp_20260721_195159_mlp_using_compact_13_descriptor\\compact_descriptor_mlp\\compact_descriptor_20260721_215206.pt",
+    "metadata_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_compact-descriptor-mlp_20260721_195159_mlp_using_compact_13_descriptor\\compact_descriptor_mlp\\compact_descriptor_20260721_215206_metadata.json",
+    "training_report_path": null,
+    "trained_at": "2026-07-21T19:52:06.398334Z",
+    "training_samples": 653,
+    "model_evaluation_step": 5000,
+    "metrics": {
+      "best_val_loss": 0.0045497966930270195,
+      "final_train_loss": 0.0038523979019373655,
+      "final_val_loss": 0.00459064356982708,
+      "epochs_trained": 536,
+      "max_epochs": 1000,
+      "best_epoch": 486,
+      "early_stopping_patience": 50,
+      "total_parameters": 369,
+      "learning_rate": 0.001,
+      "weight_decay": 0.001,
+      "hidden": 16,
+      "dropout": 0.2,
+      "seed": 42,
+      "input_representation": "10_standardized_descriptors_plus_3_log_multipliers",
+      "feature_standardization": "train_projects",
+      "validation_split_level": "project",
+      "train_split": 514,
+      "val_split": 139,
+      "train_project_count": 36,
+      "val_project_count": 10,
+      "training_log": [
+        {
+          "level": "info",
+          "message": "Loaded 653 rows from Training Data."
+        },
+        {
+          "level": "info",
+          "message": "Using 653 non-baseline rows after phase/run filters."
+        },
+        {
+          "level": "info",
+          "message": "Prepared model artifact folder: model_compact-descriptor-mlp_20260721_195159_mlp_using_compact_13_descriptor."
+        },
+        {
+          "level": "info",
+          "message": "Validated one model evaluation step: 5000."
+        },
+        {
+          "level": "info",
+          "message": "Loaded multiplier bounds from source_pipeline.fixed_log_space_bounds_snapshot."
+        },
+        {
+          "level": "info",
+          "message": "Prepared 653 compact descriptor MLP score rows."
+        },
+        {
+          "level": "info",
+          "message": "Started compact_descriptor_mlp optimizer with 10 descriptors + 3 log multipliers, project-level train/validation split, and early stopping."
+        },
+        {
+          "level": "info",
+          "message": "Split data by project into 514 training rows from 36 projects and 139 validation rows from 10 projects."
+        },
+        {
+          "level": "info",
+          "message": "Built compact MLP network: input_dim=13, hidden=16."
+        },
+        {
+          "level": "success",
+          "message": "Finished 536/1000 epochs; best epoch 486; best validation loss 0.004550."
+        },
+        {
+          "level": "info",
+          "message": "Final train loss 0.003852; final validation loss 0.004591."
+        },
+        {
+          "level": "info",
+          "message": "Optimizer config: lr=0.001, weight_decay=0.001, dropout=0.2, parameters=369."
+        },
+        {
+          "level": "info",
+          "message": "Saved compact_descriptor_mlp checkpoint and metadata."
+        }
+      ]
+    },
+    "config": {
+      "candidate_points": 30,
+      "hidden": 16,
+      "dropout": 0.2,
+      "learning_rate": 0.001,
+      "weight_decay": 0.001,
+      "max_epochs": 1000,
+      "early_stopping_patience": 50,
+      "seed": 42,
+      "input_representation": "10_standardized_descriptors_plus_3_log_multipliers",
+      "feature_standardization": "train_projects",
+      "validation_split_level": "project",
+      "train_split": 514,
+      "val_split": 139,
+      "train_project_count": 36,
+      "val_project_count": 10,
+      "train_projects": [
+        "1-Montreal-City-Hall",
+        "11-St-George-Church",
+        "13-Murugan-Temple",
+        "14-Hindu-Mandir",
+        "16-Mosque",
+        "17-Shaughnessy-Mansion",
+        "2-Resurrection-Chapel",
+        "3-Maison_Louis-Hippolyte_Lafontaine",
+        "5-Gurdwara-Lasalle",
+        "6-Westmount-City-Hall",
+        "BILOVEC",
+        "Blume_drone_data_capture_may2021",
+        "Chapel_of_the_Holy_Trinity",
+        "Chatteau",
+        "DJI_202402171440_004_KTM20-oblique-split_group_1",
+        "DJI_202402171440_004_KTM20-oblique-split_group_2",
+        "DJI_202402171501_005_KTM20-oblique",
+        "DJI_202402171525_008_KTM20-oblique",
+        "Denver_Red_Rocks_Amphitheatre_Split_group_2",
+        "Gaurisankar",
+        "Jindrichuv_Hradec_St_JakubUAS",
+        "Lithuania_Trakai_Island_Castle_Split_group_1",
+        "Lithuania_Trakai_Island_Castle_Split_group_2",
+        "Mavic2DET_Prejmer",
+        "NAKLO",
+        "Narayani_Bridge",
+        "Otaslavice",
+        "Pix4Dmatic_example_100_images",
+        "Pix4d_Demo_Office_Building",
+        "Pix4d_eagle",
+        "Telc_sv_Jakub_March_19",
+        "Tiburon_Angel_Islands_State_Park_Split_group_1",
+        "Tiburon_Angel_Islands_State_Park_Split_group_2",
+        "Tiburon_Angel_Islands_State_Park_Split_group_4",
+        "podoli",
+        "spranek"
+      ],
+      "val_projects": [
+        "10_Holy_Ghost_Ukrainian_Church",
+        "15-Congregation-Shaar-Hashomayim",
+        "7-Clock-Tower",
+        "8-Saint-Joseph-Oratory",
+        "9-Loyola-Chapel",
+        "Concord_Buchanan_Airport_FAA_Tower",
+        "DJI_202402171413_003_KTM20-oblique",
+        "Denver_Red_Rocks_Amphitheatre_Split_group_1",
+        "Pistachio-trees-by-velez",
+        "huzova"
+      ],
+      "model_evaluation_step": 5000,
+      "score_reference_step": 5000,
+      "log_multiplier_bounds": {
+        "geometry_lr": [
+          0.2,
+          5.0
+        ],
+        "appearance_lr": [
+          0.2,
+          5.0
+        ],
+        "scale_lr": [
+          0.7,
+          1.43
+        ]
+      },
+      "log_multiplier_bounds_source": "source_pipeline.fixed_log_space_bounds_snapshot",
+      "include_phases": null,
+      "include_run_ids": null
+    }
+  },
+  {
+    "model_id": "model_compact-ridge_20260721_195042_ridge_without_intercept_regularization",
+    "model_name": "Ridge_without_intercept_regularization",
+    "model_family": "compact_featurewise_ridge_regression",
+    "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
+    "source_pipeline_id": "pipeline_55776ebd244e",
+    "artifact_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_compact-ridge_20260721_195042_ridge_without_intercept_regularization\\compact_featurewise_ridge_model.json",
+    "metadata_path": "D:\\bimba3d-re\\bimba3d_backend\\data\\workflow\\models\\model_compact-ridge_20260721_195042_ridge_without_intercept_regularization\\compact_featurewise_ridge_metadata.json",
+    "training_report_path": null,
+    "trained_at": "2026-07-21T19:50:45.248751Z",
+    "training_samples": 653,
+    "model_evaluation_step": 5000,
+    "metrics": {
+      "lambda_selected": 0.1,
+      "selected_lambda": 0.1,
+      "train_fit_metrics": {
+        "mse": 0.0026109881273641876,
+        "rmse": 0.05109782898875634,
+        "mae": 0.03157433691955541,
+        "r_squared": 0.7279439396446852,
+        "samples": 653,
+        "lambda_search_mse": 0.0026109881273641876
+      },
+      "theta_norm": 0.37377170968447704,
+      "lambda_search": [
+        {
+          "lambda_ridge": 0.1,
+          "lambda_search_mse": 0.0026109881273641876
+        },
+        {
+          "lambda_ridge": 0.5,
+          "lambda_search_mse": 0.0026400794385777453
+        },
+        {
+          "lambda_ridge": 1.0,
+          "lambda_search_mse": 0.002670593488638369
+        },
+        {
+          "lambda_ridge": 2.0,
+          "lambda_search_mse": 0.0027071988003639384
+        },
+        {
+          "lambda_ridge": 5.0,
+          "lambda_search_mse": 0.0027511834587719613
+        },
+        {
+          "lambda_ridge": 10.0,
+          "lambda_search_mse": 0.002778257011620242
+        },
+        {
+          "lambda_ridge": 20.0,
+          "lambda_search_mse": 0.0028040931195900463
+        }
+      ],
+      "candidate_points": 30,
+      "regularize_intercept": false,
+      "regularization": "identity_except_intercept",
+      "training_log": [
+        {
+          "level": "info",
+          "message": "Loaded 653 rows from Training Data."
+        },
+        {
+          "level": "info",
+          "message": "Using 653 non-baseline rows after phase/run filters."
+        },
+        {
+          "level": "info",
+          "message": "Prepared model artifact folder: model_compact-ridge_20260721_195042_ridge_without_intercept_regularization."
+        },
+        {
+          "level": "info",
+          "message": "Validated one model evaluation step: 5000."
+        },
+        {
+          "level": "info",
+          "message": "Loaded multiplier bounds from source_pipeline.fixed_log_space_bounds_snapshot."
+        },
+        {
+          "level": "info",
+          "message": "Prepared 653 compact Ridge score rows."
+        },
+        {
+          "level": "info",
+          "message": "Searching 7 compact Ridge lambda candidates with 30 multiplier candidate points."
+        },
+        {
+          "level": "info",
+          "message": "Compact Ridge comparison: intercept is excluded from Ridge regularization."
+        },
+        {
+          "level": "info",
+          "message": "Lambda 0.1: lambda-search MSE 0.002611."
+        },
+        {
+          "level": "info",
+          "message": "Lambda 0.5: lambda-search MSE 0.002640."
+        },
+        {
+          "level": "info",
+          "message": "Lambda 1: lambda-search MSE 0.002671."
+        },
+        {
+          "level": "info",
+          "message": "Lambda 2: lambda-search MSE 0.002707."
+        },
+        {
+          "level": "info",
+          "message": "Lambda 5: lambda-search MSE 0.002751."
+        },
+        {
+          "level": "info",
+          "message": "Lambda 10: lambda-search MSE 0.002778."
+        },
+        {
+          "level": "info",
+          "message": "Lambda 20: lambda-search MSE 0.002804."
+        },
+        {
+          "level": "success",
+          "message": "Selected lambda 0.1 with lowest lambda-search MSE."
+        },
+        {
+          "level": "info",
+          "message": "Saved compact Ridge model artifact and metadata."
+        }
+      ]
+    },
+    "config": {
+      "candidate_points": 30,
+      "lambda_selected": 0.1,
+      "lambda_candidates": [
+        0.1,
+        0.5,
+        1.0,
+        2.0,
+        5.0,
+        10.0,
+        20.0
+      ],
+      "lambda_search_count": 7,
+      "regularize_intercept": false,
+      "regularization": "identity_except_intercept",
+      "model_evaluation_step": 5000,
+      "score_reference_step": 5000,
+      "log_multiplier_bounds": {
+        "geometry_lr": [
+          0.2,
+          5.0
+        ],
+        "appearance_lr": [
+          0.2,
+          5.0
+        ],
+        "scale_lr": [
+          0.7,
+          1.43
+        ]
+      },
+      "log_multiplier_bounds_source": "source_pipeline.fixed_log_space_bounds_snapshot",
+      "include_phases": null,
+      "include_run_ids": null
+    }
+  },
+  {
     "model_id": "model_compact-mlp_20260720_203905_final_mlp_descriptor_standardized_with_hard_capped_data",
     "model_name": "Final_MLP_descriptor_standardized_with_hard_capped_data",
     "model_family": "compact_featurewise_mlp",

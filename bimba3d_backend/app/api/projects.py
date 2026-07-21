@@ -3544,6 +3544,7 @@ def process_project(project_id: str, params: ProcessParams | None = Body(None)):
             "featurewise_mlp",
             "compact_featurewise_ridge_regression",
             "compact_featurewise_mlp",
+            "compact_descriptor_mlp",
         }
         if requested_ai_input_mode and requested_ai_input_mode not in valid_ai_input_modes:
             raise HTTPException(
@@ -3562,7 +3563,7 @@ def process_project(project_id: str, params: ProcessParams | None = Body(None)):
                 status_code=400,
                 detail=(
                     "ai_selector_strategy must be one of: featurewise_ridge_regression, featurewise_mlp, "
-                    "compact_featurewise_ridge_regression, compact_featurewise_mlp"
+                    "compact_featurewise_ridge_regression, compact_featurewise_mlp, compact_descriptor_mlp"
                 ),
             )
 

@@ -154,7 +154,8 @@ export type AiSelectorStrategy =
   | "featurewise_ridge_regression"
   | "featurewise_mlp"
   | "compact_featurewise_ridge_regression"
-  | "compact_featurewise_mlp";
+  | "compact_featurewise_mlp"
+  | "compact_descriptor_mlp";
 export type RunJitterMode = "fixed" | "random";
 export type TuneScopeDropdownValue =
   | TuneScope
