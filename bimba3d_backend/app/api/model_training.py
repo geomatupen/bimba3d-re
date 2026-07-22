@@ -31,7 +31,7 @@ class TrainWorkflowModelRequest(BaseModel):
     lambda_ridge: float | None = Field(None, gt=0)
     # Stored with the model as a prediction fallback. Test pipelines with an explicit candidate grid override it.
     candidate_points: int = Field(30, ge=5, le=101)
-    regularize_intercept: bool = True
+    regularize_intercept: bool = False
     include_phases: list[int] | None = None
     include_run_ids: list[str] | None = None
 

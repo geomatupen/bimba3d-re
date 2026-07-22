@@ -27,7 +27,7 @@ def train_compact_featurewise_ridge_model(
     lambda_ridge: float,
     candidate_points: int,
     group_bounds: dict[str, Any] | None = None,
-    regularize_intercept: bool = True,
+    regularize_intercept: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any], float]:
     bounds = normalise_compact_group_bounds(group_bounds)
     scaler = build_compact_feature_scaler(rows)
@@ -218,20 +218,15 @@ def _empty_model(
     scaler: dict[str, dict[str, float]],
     candidate_points: int,
     bounds: dict[str, tuple[float, float]],
-    regularize_intercept: bool = True,
+    regularize_intercept: bool = False,
 ) -> dict[str, Any]:
     d_x = len(build_compact_vector({}, scaler))
     d_phi = d_x + len(COMPACT_MODEL_GROUP_KEYS) + len(COMPACT_MODEL_GROUP_KEYS) + (d_x - 1) * len(COMPACT_MODEL_GROUP_KEYS)
     penalty = np.eye(d_phi, dtype=np.float64) * float(lambda_ridge)
-    # COMPACT_RIDGE_INTERCEPT_EXPERIMENT:
-    # The intercept is the constant reference prediction, not a measured descriptor.
-    # In the standardized design, x=0 means descriptors are at their training mean,
-    # and action logs=0 means all multipliers are 1.0. If regularize_intercept=False,
-    # Ridge uses P=diag(0, 1, ..., 1), so this reference offset is not pulled toward
-    # zero while all descriptor/action weights remain regularized. This matters more
-    # for larger lambda values; with small lambda values such as 0.1 or lower, the
-    # difference is usually small and the original regularize_intercept=True behavior
-    # can be left enabled.
+    # Ridge uses P=diag(0, 1, ..., 1) by default: the intercept is the
+    # reference score for mean descriptors and multiplier 1.0, so it is not
+    # regularized. All descriptor, multiplier, squared, and interaction terms
+    # remain regularized by lambda.
     if not regularize_intercept:
         penalty[0, 0] = 0.0
     return {

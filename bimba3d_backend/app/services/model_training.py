@@ -36,11 +36,9 @@ class ModelTrainingOptions:
     lambda_ridge: float | None = None
     # Prediction fallback grid size stored in the artifact; explicit testing grids take precedence.
     candidate_points: int = 30
-    # COMPACT_RIDGE_INTERCEPT_EXPERIMENT:
-    # Default True preserves the original compact Ridge behavior. Set False for
-    # comparison runs that use P=diag(0, 1, ..., 1), leaving the mean-descriptor,
-    # multiplier=1.0 reference prediction unpenalized.
-    regularize_intercept: bool = True
+    # Compact Ridge uses P=diag(0, 1, ..., 1) by default, so lambda regularizes
+    # model terms but leaves the reference prediction/intercept unpenalized.
+    regularize_intercept: bool = False
     include_phases: list[int] | None = None
     include_run_ids: list[str] | None = None
 
@@ -241,8 +239,13 @@ def _train_compact_ridge(
             f"with {candidate_points} multiplier candidate points."
         )
     )
-    if not regularize_intercept:
-        training_log.append(_training_log("Compact Ridge comparison: intercept is excluded from Ridge regularization."))
+    training_log.append(
+        _training_log(
+            "Compact Ridge regularization: P=diag(0, 1, ..., 1), so the intercept is excluded."
+            if not regularize_intercept
+            else "Compact Ridge regularization: all terms, including the intercept, are regularized."
+        )
+    )
     best_model: dict[str, Any] | None = None
     best_metrics: dict[str, Any] | None = None
     best_lambda: float | None = None

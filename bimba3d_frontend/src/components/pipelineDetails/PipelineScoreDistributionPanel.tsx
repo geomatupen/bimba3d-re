@@ -516,13 +516,19 @@ function FinalMetricBeeswarm({
     );
   }
 
+  const completedPoints = points.filter((point) => !point.hardCap);
   const values = points.map((point) => point.improvement);
+  const summaryValues = completedPoints.map((point) => point.improvement);
   const [minY, maxY] = paddedRange(Math.min(0, ...values), Math.max(0, ...values));
-  const mean = values.reduce((sum, value) => sum + value, 0) / Math.max(values.length, 1);
-  const sorted = [...values].sort((a, b) => a - b);
+  const mean = summaryValues.length
+    ? summaryValues.reduce((sum, value) => sum + value, 0) / summaryValues.length
+    : 0;
+  const sorted = [...summaryValues].sort((a, b) => a - b);
   const median = sorted.length % 2
     ? sorted[Math.floor(sorted.length / 2)]
-    : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
+    : sorted.length
+      ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+      : 0;
   const width = 360;
   const height = 278;
   const plot = { left: 54, right: 16, top: 18, bottom: 70 };
@@ -1187,6 +1193,11 @@ export default function PipelineScoreDistributionPanel({
                     <FinalMetricBeeswarm key={metric.key} metric={metric} points={finalMetricImprovementPoints(finalMetricRows, metric, projectOrder)} />
                   ))}
                 </div>
+                {finalMetricRows.some(isHardCapRow) && (
+                  <p className="rounded border border-blue-100 bg-white px-3 py-2 text-xs leading-snug text-slate-600">
+                    Mean and median lines use completed runs only; hard-cap projects stay visible at 0 to keep the project index.
+                  </p>
+                )}
                 <WinLossSummary rows={finalMetricRows} projectOrder={projectOrder} />
               </div>
             )}

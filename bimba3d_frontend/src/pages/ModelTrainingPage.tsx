@@ -148,7 +148,6 @@ export default function ModelTrainingPage() {
   const [uploadResult, setUploadResult] = useState<any | null>(null);
   const [autoSelectLambda, setAutoSelectLambda] = useState(true);
   const [lambdaInput, setLambdaInput] = useState("2.0");
-  const [regularizeCompactRidgeIntercept, setRegularizeCompactRidgeIntercept] = useState(true);
   const [training, setTraining] = useState(false);
   const [trainingStartedAt, setTrainingStartedAt] = useState<number | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -382,9 +381,6 @@ export default function ModelTrainingPage() {
     }
 
     if (isRidgeModelFamily(modelMode)) {
-      if (modelMode === "compact_featurewise_ridge_regression") {
-        payload.regularize_intercept = regularizeCompactRidgeIntercept;
-      }
       if (autoSelectLambda) {
         payload.lambda_ridge = null;
       } else {
@@ -1004,25 +1000,6 @@ export default function ModelTrainingPage() {
                             disabled={training}
                             className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
                           />
-                        </div>
-                      )}
-                      {modelMode === "compact_featurewise_ridge_regression" && (
-                        <div className="mt-3 rounded-md border border-slate-200 bg-white p-2">
-                          <label className="flex items-start gap-2 text-xs font-medium text-slate-700">
-                            <input
-                              type="checkbox"
-                              checked={regularizeCompactRidgeIntercept}
-                              onChange={(event) => setRegularizeCompactRidgeIntercept(event.target.checked)}
-                              disabled={training}
-                              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                            />
-                            <span>
-                              Regularize intercept
-                              <span className="mt-0.5 block font-normal text-slate-500">
-                                Keep checked for the original Ridge. Uncheck to use P=diag(0,1,...), so the mean-descriptor, multiplier=1 reference score is not pulled toward zero. Most useful with larger lambda.
-                              </span>
-                            </span>
-                          </label>
                         </div>
                       )}
                     </div>
