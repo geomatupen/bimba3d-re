@@ -1,4 +1,6 @@
+import { useEffect, useMemo, useState } from "react";
 import { BrainCircuit } from "lucide-react";
+import { api } from "../../api/client";
 import type { PipelineDetail } from "./types";
 
 interface TestingModelsPanelProps {
@@ -34,6 +36,43 @@ const expectedRunsPerModel = (pipeline: PipelineDetail): number => {
   return configuredProjects * Math.max(1, nonBaselineRunsPerProject || 1);
 };
 
+const addModelLabel = (labels: Map<string, string>, rawId: unknown, rawName: unknown) => {
+  const id = String(rawId || "").trim();
+  const name = String(rawName || "").trim();
+  if (id && name) labels.set(id, name);
+};
+
+const collectConfiguredModelLabels = (pipeline: PipelineDetail): Map<string, string> => {
+  const labels = new Map<string, string>();
+  const config = pipeline.config || {};
+  const possibleLists = [
+    config.source_models,
+    config.models,
+    config.model_records,
+    config.workflow_models,
+    config.selected_models,
+  ];
+  possibleLists.forEach((list: unknown) => {
+    if (!Array.isArray(list)) return;
+    list.forEach((item: any) => {
+      if (!item || typeof item !== "object") return;
+      addModelLabel(labels, item.model_id || item.id || item.source_model_id, item.model_name || item.name || item.label);
+    });
+  });
+
+  const possibleMaps = [config.source_model_names, config.model_names, config.model_name_by_id];
+  possibleMaps.forEach((map: unknown) => {
+    if (!map || typeof map !== "object" || Array.isArray(map)) return;
+    Object.entries(map as Record<string, unknown>).forEach(([id, name]) => addModelLabel(labels, id, name));
+  });
+
+  (Array.isArray(pipeline.runs) ? pipeline.runs : []).forEach((run: any) => {
+    addModelLabel(labels, runModelKey(run), run.source_model_name || run.model_name || run.test_model_name);
+  });
+
+  return labels;
+};
+
 const getModelProgress = (pipeline: PipelineDetail, modelId: string) => {
   const runs = Array.isArray(pipeline.runs) ? pipeline.runs : [];
   // Only count phase > 1 runs (exclude baseline) for model progress
@@ -46,14 +85,34 @@ const getModelProgress = (pipeline: PipelineDetail, modelId: string) => {
 };
 
 export default function TestingModelsPanel({ onSelectModel, pipeline, selectedModelId }: TestingModelsPanelProps) {
+  const [registryLabels, setRegistryLabels] = useState<Map<string, string>>(new Map());
   const configuredModels = Array.isArray(pipeline.config?.source_model_ids)
     ? pipeline.config.source_model_ids.filter(Boolean)
     : pipeline.config?.source_model_id
       ? [pipeline.config.source_model_id]
       : [];
+  const configLabels = useMemo(() => collectConfiguredModelLabels(pipeline), [pipeline]);
   const activeModel = pipeline.active_run?.test_model_id || pipeline.current_test_model_id || configuredModels[0] || null;
   const selectedModel = selectedModelId || null;
   const allSelected = !selectedModelId;
+
+  useEffect(() => {
+    let cancelled = false;
+    api.get("/api/models")
+      .then((res) => {
+        if (cancelled) return;
+        const labels = new Map<string, string>();
+        const items = Array.isArray(res.data?.items) ? res.data.items : [];
+        items.forEach((item: any) => addModelLabel(labels, item.model_id, item.model_name || item.name));
+        setRegistryLabels(labels);
+      })
+      .catch(() => {
+        if (!cancelled) setRegistryLabels(new Map());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -92,6 +151,8 @@ export default function TestingModelsPanel({ onSelectModel, pipeline, selectedMo
             const progress = getModelProgress(pipeline, modelId);
             const progressLabel = progress.total > 0 ? `${progress.done}/${progress.total} done` : "No runs yet";
             const selected = selectedModel === modelId;
+            const modelName = registryLabels.get(modelId) || configLabels.get(modelId) || modelId;
+            const showIdLine = modelName !== modelId;
             return (
             <button
               key={modelId}
@@ -116,11 +177,15 @@ export default function TestingModelsPanel({ onSelectModel, pipeline, selectedMo
                 <div className="min-w-0 flex-1">
                   <div
                     className="truncate text-sm font-semibold leading-snug text-slate-950"
-                    title={modelId}
+                    title={modelName}
                   >
-                    {modelId}
+                    {modelName}
                   </div>
-                  <div className="mt-1 text-xs text-slate-600">Workflow model output</div>
+                  {showIdLine && (
+                    <div className="mt-1 truncate font-mono text-[11px] text-slate-500" title={modelId}>
+                      ID: {modelId}
+                    </div>
+                  )}
                   <div className="mt-2 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200">
                     {progressLabel}
                   </div>

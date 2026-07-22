@@ -49,8 +49,11 @@ def get_workflow_pipeline(pipeline_id: str) -> dict[str, Any]:
     return normalise_pipeline_detail(pipeline)
 
 
-def get_learning_rows(pipeline_id: str) -> dict[str, Any]:
-    return pipeline_learning_rows.collect_pipeline_learning_rows(pipeline_id)
+def get_learning_rows(pipeline_id: str, *, include_hard_cap: bool = False) -> dict[str, Any]:
+    return pipeline_learning_rows.collect_pipeline_learning_rows(
+        pipeline_id,
+        include_hard_cap=include_hard_cap,
+    )
 
 
 def get_worker_logs(pipeline_id: str) -> dict[str, Any]:

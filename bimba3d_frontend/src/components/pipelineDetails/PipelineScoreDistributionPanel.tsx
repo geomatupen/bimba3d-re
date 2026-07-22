@@ -14,22 +14,27 @@ interface ScoreRow {
   final_lpips?: number | null;
   final_psnr?: number | null;
   final_ssim?: number | null;
+  gaussian_cap_reached?: boolean | null;
   is_baseline_row?: boolean;
   model_id?: string | null;
   project_id?: string | null;
   project_name?: string | null;
+  quality_score_source?: string | null;
+  reason?: string | null;
   score?: number | null;
   source_model_id?: string | null;
   relative_quality_score?: number | null;
   run_id?: string | null;
   selected_log_multipliers?: Record<string, unknown> | null;
   selected_multipliers?: Record<string, unknown> | null;
+  status?: string | null;
   test_model_id?: string | null;
 }
 
 interface PipelineDetail {
   config?: {
     pipeline_type?: string;
+    projects?: Array<string | { name?: string; project_name?: string; id?: string; project_id?: string }>;
     shared_config?: Record<string, unknown>;
     test_candidate_log_multipliers?: Record<string, unknown>;
   };
@@ -47,6 +52,7 @@ interface PlotPoint {
 
 interface MetricImprovementPoint {
   baseline: number;
+  hardCap?: boolean;
   improvement: number;
   project: string;
   run: string;
@@ -72,6 +78,15 @@ const scoreOf = (row: ScoreRow): number | null => numeric(row.relative_quality_s
 const projectKey = (row: ScoreRow): string => String(row.project_name || row.project_id || "");
 
 const modelKey = (row: ScoreRow): string => String(row.model_id || row.test_model_id || row.source_model_id || "");
+
+const isHardCapRow = (row: ScoreRow | null | undefined): boolean => {
+  if (!row) return false;
+  if (row.gaussian_cap_reached === true) return true;
+  if (String(row.status || "").toLowerCase() === "hard_cap_reached") return true;
+  if (String(row.reason || "").toLowerCase() === "gaussian_hard_cap_reached") return true;
+  if (String(row.quality_score_source || "").toLowerCase().includes("gaussian_cap")) return true;
+  return false;
+};
 
 function FullscreenIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
@@ -344,17 +359,63 @@ const FINAL_RESULT_METRICS = [
 ] as const;
 
 const BASELINE_CHANGE_LABEL = "No improvement";
+const HARD_CAP_FILL = "#fbbf24";
+const HARD_CAP_STROKE = "#d97706";
 
 function compareProjectIndexOrder(a: string, b: string) {
   if (a === b) return 0;
   return a < b ? -1 : 1;
 }
 
-function compactProjectLabel(project: string) {
-  return project.length > 18 ? `${project.slice(0, 17)}...` : project;
+function projectNameFromConfigEntry(project: string | { name?: string; project_name?: string; id?: string; project_id?: string }): string {
+  if (typeof project === "string") return project;
+  return String(project.name || project.project_name || project.id || project.project_id || "");
 }
 
-function finalMetricProjectIndex(rows: ScoreRow[]) {
+function configuredProjectOrder(pipelineDetail: PipelineDetail | null): string[] {
+  const projects = pipelineDetail?.config?.projects;
+  if (!Array.isArray(projects)) return [];
+  return projects.map(projectNameFromConfigEntry).filter(Boolean);
+}
+
+function sortByProjectOrder(projectOrder: string[]) {
+  const order = new Map(projectOrder.map((project, index) => [project, index]));
+  return (a: string, b: string) => {
+    const aIndex = order.get(a);
+    const bIndex = order.get(b);
+    if (aIndex !== undefined && bIndex !== undefined) return aIndex - bIndex;
+    if (aIndex !== undefined) return -1;
+    if (bIndex !== undefined) return 1;
+    return compareProjectIndexOrder(a, b);
+  };
+}
+
+function ProjectIndexTable({ projects }: { projects: string[] }) {
+  if (projects.length === 0) return null;
+  const columns = [0, 1, 2].map((offset) => projects.filter((_, index) => index % 3 === offset));
+  return (
+    <div className="mt-2 rounded border border-slate-200 bg-white/70 p-2">
+      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Project index used in charts</div>
+      <div className="grid gap-x-3 gap-y-0.5 md:grid-cols-3">
+        {columns.map((items, columnIndex) => (
+          <div key={`project-index-column-${columnIndex}`} className="space-y-0.5">
+            {items.map((project) => {
+              const index = projects.indexOf(project);
+              return (
+                <div key={project} className="grid grid-cols-[1.4rem_1fr] gap-1 text-[10px] leading-snug text-slate-600" title={project}>
+                  <span className="font-mono font-semibold text-slate-700">{index + 1}.</span>
+                  <span className="truncate">{project}</span>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function finalMetricProjectIndex(rows: ScoreRow[], projectOrder: string[] = []) {
   const baselineProjects = new Set<string>();
   const resultProjects = new Set<string>();
   rows.forEach((row) => {
@@ -365,7 +426,7 @@ function finalMetricProjectIndex(rows: ScoreRow[]) {
   });
   return Array.from(resultProjects)
     .filter((project) => baselineProjects.has(project))
-    .sort(compareProjectIndexOrder);
+    .sort(sortByProjectOrder(projectOrder));
 }
 
 function metricPoints(rows: ScoreRow[], metricKey: (typeof METRICS)[number]["key"]): PlotPoint[] {
@@ -388,6 +449,7 @@ function metricPoints(rows: ScoreRow[], metricKey: (typeof METRICS)[number]["key
 function finalMetricImprovementPoints(
   rows: ScoreRow[],
   metric: (typeof FINAL_RESULT_METRICS)[number],
+  projectOrder: string[] = [],
 ): MetricImprovementPoint[] {
   const baselineByProject = new Map<string, ScoreRow>();
   const resultByProject = new Map<string, ScoreRow>();
@@ -408,8 +470,19 @@ function finalMetricImprovementPoints(
     .map<MetricImprovementPoint | null>(([project, row]) => {
       const baselineRow = baselineByProject.get(project);
       const baseline = numeric(baselineRow?.[metric.key]);
+      if (baseline === null) return null;
+      if (isHardCapRow(row)) {
+        return {
+          baseline,
+          hardCap: true,
+          improvement: 0,
+          project,
+          run: row.run_id || "",
+          value: baseline,
+        };
+      }
       const value = numeric(row[metric.key]);
-      if (baseline === null || value === null) return null;
+      if (value === null) return null;
       const improvement = metric.higherIsBetter ? value - baseline : baseline - value;
       return {
         baseline,
@@ -420,7 +493,7 @@ function finalMetricImprovementPoints(
       };
     })
     .filter((item): item is MetricImprovementPoint => item !== null)
-    .sort((a, b) => compareProjectIndexOrder(a.project, b.project));
+    .sort((a, b) => sortByProjectOrder(projectOrder)(a.project, b.project));
 }
 
 function FinalMetricBeeswarm({
@@ -451,17 +524,17 @@ function FinalMetricBeeswarm({
     ? sorted[Math.floor(sorted.length / 2)]
     : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
   const width = 360;
-  const height = 245;
-  const plot = { left: 54, right: 16, top: 18, bottom: 38 };
+  const height = 278;
+  const plot = { left: 54, right: 16, top: 18, bottom: 70 };
   const plotWidth = width - plot.left - plot.right;
   const plotHeight = height - plot.top - plot.bottom;
   const scaleY = (value: number) => plot.top + plotHeight - ((value - minY) / (maxY - minY || 1)) * plotHeight;
   const centerX = plot.left + plotWidth / 2;
+  const projectBand = plotWidth / Math.max(points.length, 1);
   const scaleProjectX = (index: number) => {
     if (points.length <= 1) return centerX;
-    return plot.left + (index / (points.length - 1)) * plotWidth;
+    return plot.left + projectBand * index + projectBand / 2;
   };
-  const projectBand = plotWidth / Math.max(points.length, 1);
   const barWidth = Math.max(5, Math.min(14, projectBand * 0.54));
   const spreadPoints = (items: MetricImprovementPoint[]) => {
     const placed: Array<{ x: number; y: number }> = [];
@@ -545,7 +618,7 @@ function FinalMetricBeeswarm({
           </label>
         </div>
       </div>
-      <svg ref={captureSvg} viewBox={`0 0 ${width} ${height}`} className="h-60 w-full rounded border border-slate-200 bg-white">
+      <svg ref={captureSvg} viewBox={`0 0 ${width} ${height}`} className="h-72 w-full rounded border border-slate-200 bg-white">
         <rect x={plot.left} y={plot.top} width={plotWidth} height={plotHeight} fill="#f8fafc" />
         {yTicks.map((tick) => {
           const y = scaleY(tick);
@@ -584,29 +657,43 @@ function FinalMetricBeeswarm({
           const barHeight = Math.max(Math.abs(y0 - y), 1);
           return (
             <g key={`${metric.key}-bar-${point.project}-${index}`}>
-              <rect
-                x={x - barWidth / 2}
-                y={barY}
-                width={barWidth}
-                height={barHeight}
-                fill={metric.color}
-                opacity="0.78"
-                stroke="#ffffff"
-                strokeWidth="0.8"
-              >
-                <title>{`Project ${index + 1}: ${point.project}\n${point.run}\nBaseline ${metric.label}: ${point.baseline.toFixed(6)}\nTest ${metric.label}: ${point.value.toFixed(6)}\nImprovement: ${point.improvement.toFixed(6)}`}</title>
-              </rect>
+              {point.hardCap ? (
+                <>
+                  <line x1={x} x2={x} y1={y0 - 5} y2={y0 + 5} stroke={HARD_CAP_STROKE} strokeWidth="0.9" />
+                  <path
+                    d={`M ${x} ${y0 - 3.8} L ${x + 3.8} ${y0} L ${x} ${y0 + 3.8} L ${x - 3.8} ${y0} Z`}
+                    fill={HARD_CAP_FILL}
+                    stroke={HARD_CAP_STROKE}
+                    strokeWidth="0.7"
+                  >
+                    <title>{`Project ${index + 1}: ${point.project}\n${point.run}\nHard cap reached; displayed at 0 to keep the project index.`}</title>
+                  </path>
+                </>
+              ) : (
+                <rect
+                  x={x - barWidth / 2}
+                  y={barY}
+                  width={barWidth}
+                  height={barHeight}
+                  fill={metric.color}
+                  opacity="0.78"
+                  stroke="#ffffff"
+                  strokeWidth="0.8"
+                >
+                  <title>{`Project ${index + 1}: ${point.project}\n${point.run}\nBaseline ${metric.label}: ${point.baseline.toFixed(6)}\nTest ${metric.label}: ${point.value.toFixed(6)}\nImprovement: ${point.improvement.toFixed(6)}`}</title>
+                </rect>
+              )}
               {showLabels && (
                 <text
                   x={x}
-                  y={point.improvement >= 0 ? barY - 3 : barY + barHeight + 9}
+                  y={point.hardCap ? y0 - 12 : point.improvement >= 0 ? barY - 3 : barY + barHeight + 9}
                   textAnchor="middle"
                   className="pointer-events-none fill-slate-500 text-[8px] font-bold"
                   stroke="#ffffff"
                   strokeWidth="2.6"
                   paintOrder="stroke"
                 >
-                  {formatTick(point.improvement)}
+                  {point.hardCap ? "HC" : formatTick(point.improvement)}
                 </text>
               )}
             </g>
@@ -617,8 +704,8 @@ function FinalMetricBeeswarm({
           const label = labelOffset(index);
           return (
             <g key={`${metric.key}-${point.project}-${point.run}-${index}`}>
-              <circle cx={x} cy={y} r="4.5" fill={metric.color} opacity="0.84" stroke="#ffffff" strokeWidth="0.8">
-                <title>{`Project ${index + 1}: ${point.project}\n${point.run}\nBaseline ${metric.label}: ${point.baseline.toFixed(6)}\nTest ${metric.label}: ${point.value.toFixed(6)}\nImprovement: ${point.improvement.toFixed(6)}`}</title>
+              <circle cx={x} cy={y} r="4.5" fill={point.hardCap ? HARD_CAP_FILL : metric.color} opacity="0.84" stroke={point.hardCap ? HARD_CAP_STROKE : "#ffffff"} strokeWidth="0.8">
+                <title>{`Project ${index + 1}: ${point.project}\n${point.run}\n${point.hardCap ? "Hard cap reached; displayed at 0 to keep the project index." : `Baseline ${metric.label}: ${point.baseline.toFixed(6)}\nTest ${metric.label}: ${point.value.toFixed(6)}\nImprovement: ${point.improvement.toFixed(6)}`}`}</title>
               </circle>
               {showLabels && (
                 <text
@@ -630,37 +717,44 @@ function FinalMetricBeeswarm({
                   strokeWidth="2.6"
                   paintOrder="stroke"
                 >
-                  {index + 1}
+                  {point.hardCap ? "HC" : index + 1}
                 </text>
               )}
             </g>
           );
         })}
-        <text x={plot.left + plotWidth / 2} y={height - 7} textAnchor="middle" className="fill-slate-500 text-[10px]">
-          {viewMode === "project_index" ? "X-axis = project index in sorted project order" : "Dot number = project index in sorted project order"}
+        <text x={plot.left + plotWidth / 2} y={height - 39} textAnchor="middle" className="fill-slate-500 text-[10px]">
+          Project index in order
         </text>
         <text x="14" y={plot.top + plotHeight / 2} textAnchor="middle" transform={`rotate(-90 14 ${plot.top + plotHeight / 2})`} className="fill-slate-700 text-[10px] font-medium">
           Improvement
         </text>
+        <g transform={`translate(${plot.left} ${height - 24})`} className="fill-slate-600 text-[10px]">
+          <circle cx="0" cy="0" r="4" fill={metric.color} />
+          <text x="8" y="3">Project</text>
+          <path d="M 74 -3.5 L 77.5 0 L 74 3.5 L 70.5 0 Z" fill={HARD_CAP_FILL} stroke={HARD_CAP_STROKE} strokeWidth="0.7" />
+          <text x="86" y="3">Hard cap</text>
+          <circle cx="154" cy="0" r="5" fill="#ffffff" stroke="#334155" strokeWidth="1.2" />
+          <text x="164" y="3">Mean</text>
+          <line x1="218" x2="240" y1="0" y2="0" stroke="#64748b" strokeWidth="1.35" />
+          <text x="248" y="3">Median</text>
+          <line x1="0" x2="22" y1="17" y2="17" stroke="#f97316" strokeDasharray="4 3" strokeWidth="1.4" />
+          <text x="30" y="20">{BASELINE_CHANGE_LABEL}</text>
+        </g>
       </svg>
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600">
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: metric.color }} />Project</span>
-        <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full border-2 border-slate-900 bg-white" />Mean</span>
-        <span className="flex items-center gap-1.5"><span className="h-0 w-5 border-t-2 border-slate-600" />Median</span>
-        <span className="flex items-center gap-1.5"><span className="h-0 w-5 border-t-2 border-dashed border-orange-500" />{BASELINE_CHANGE_LABEL}</span>
-      </div>
     </div>
   );
 }
 
-function WinLossSummary({ rows }: { rows: ScoreRow[] }) {
+function WinLossSummary({ rows, projectOrder = [] }: { rows: ScoreRow[]; projectOrder?: string[] }) {
   const [svgElement, setSvgElement] = useState<SVGSVGElement | null>(null);
   const captureSvg = useCallback((node: SVGSVGElement | null) => setSvgElement(node), []);
   const summary = FINAL_RESULT_METRICS.map((metric) => {
-    const points = finalMetricImprovementPoints(rows, metric);
-    const wins = points.filter((point) => point.improvement > 0).length;
-    const losses = points.length - wins;
-    return { metric, points, wins, losses, total: points.length };
+    const points = finalMetricImprovementPoints(rows, metric, projectOrder);
+    const hardCaps = points.filter((point) => point.hardCap).length;
+    const wins = points.filter((point) => !point.hardCap && point.improvement > 0).length;
+    const losses = points.filter((point) => !point.hardCap && point.improvement <= 0).length;
+    return { metric, points, wins, losses, hardCaps, total: points.length };
   });
   const totalMax = Math.max(1, ...summary.map((item) => item.total));
 
@@ -673,8 +767,8 @@ function WinLossSummary({ rows }: { rows: ScoreRow[] }) {
   }
 
   const width = 720;
-  const height = 184;
-  const plot = { left: 76, right: 24, top: 18, bottom: 36 };
+  const height = 238;
+  const plot = { left: 76, right: 24, top: 18, bottom: 90 };
   const rowHeight = 34;
   const barHeight = 22;
   const plotWidth = width - plot.left - plot.right;
@@ -686,32 +780,31 @@ function WinLossSummary({ rows }: { rows: ScoreRow[] }) {
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-semibold text-slate-950">Win/loss summary over baseline</div>
-          <div className="text-[11px] text-slate-500">A win means the selected model improved that metric for a project.</div>
+          <div className="text-[11px] text-slate-500">Hard-cap runs keep the project count but are not counted as wins or losses.</div>
         </div>
         <div className="shrink-0">
           <SvgChartExportButton filename="final_metric_win_loss_summary" svgElement={svgElement} />
         </div>
       </div>
-      <svg ref={captureSvg} viewBox={`0 0 ${width} ${height}`} className="h-48 w-full rounded border border-slate-200 bg-white">
+      <svg ref={captureSvg} viewBox={`0 0 ${width} ${height}`} className="h-60 w-full rounded border border-slate-200 bg-white">
         <rect x={plot.left} y={plot.top} width={plotWidth} height={height - plot.top - plot.bottom} fill="#f8fafc" />
         {countTicks.map((tick) => {
           const x = plot.left + scaleX(tick);
           return (
             <g key={`win-loss-count-${tick}`}>
               <line x1={x} x2={x} y1={plot.top} y2={height - plot.bottom} stroke="#e2e8f0" />
-              <text x={x} y={height - 16} textAnchor="middle" className="fill-slate-500 text-[10px]">
+              <text x={x} y={height - 58} textAnchor="middle" className="fill-slate-500 text-[10px]">
                 {tick}
               </text>
             </g>
           );
         })}
-        {summary.map(({ metric, wins, losses, total }, index) => {
-          const winPct = total > 0 ? (wins / total) * 100 : 0;
-          const lossPct = total > 0 ? (losses / total) * 100 : 0;
+        {summary.map(({ metric, wins, losses, hardCaps, total }, index) => {
           const y = plot.top + index * rowHeight + 6;
           const totalWidth = scaleX(total);
-          const winWidth = (winPct / 100) * totalWidth;
-          const lossWidth = (lossPct / 100) * totalWidth;
+          const winWidth = scaleX(wins);
+          const hardCapWidth = scaleX(hardCaps);
+          const lossWidth = scaleX(losses);
           return (
             <g key={metric.key}>
               <text x={plot.left - 12} y={y + 15} textAnchor="end" className="fill-slate-700 text-[13px] font-semibold">
@@ -719,22 +812,29 @@ function WinLossSummary({ rows }: { rows: ScoreRow[] }) {
               </text>
               <rect x={plot.left} y={y} width={Math.max(totalWidth, 1)} height={barHeight} fill="#e2e8f0" stroke="#cbd5e1" />
               <rect x={plot.left} y={y} width={winWidth} height={barHeight} fill={metric.color} opacity="0.78" stroke="#ffffff" strokeWidth="0.8" />
-              <rect x={plot.left + winWidth} y={y} width={lossWidth} height={barHeight} fill="#e2e8f0" />
+              {hardCaps > 0 && (
+                <rect x={plot.left + winWidth} y={y} width={hardCapWidth} height={barHeight} fill={HARD_CAP_FILL} opacity="0.9" stroke="#cbd5e1" strokeWidth="0.8" />
+              )}
+              <rect x={plot.left + winWidth + hardCapWidth} y={y} width={lossWidth} height={barHeight} fill="#e2e8f0" />
               <text x={plot.left + Math.max(winWidth / 2, 36)} y={y + 15} textAnchor="middle" className="fill-white text-[11px] font-semibold">
-                {wins}/{total} improved
+                {wins} improved
               </text>
-              <title>{`${metric.label}\nImproved: ${wins}/${total}\nNot improved or equal: ${losses}/${total}`}</title>
+              <title>{`${metric.label}\nImproved: ${wins}/${total}\nNot improved or equal: ${losses}/${total}\nHard cap: ${hardCaps}/${total}`}</title>
             </g>
           );
         })}
-        <text x={plot.left + plotWidth / 2} y={height - 4} textAnchor="middle" className="fill-slate-500 text-[10px]">
+        <text x={plot.left + plotWidth / 2} y={height - 35} textAnchor="middle" className="fill-slate-500 text-[10px]">
           Project count
         </text>
+        <g transform={`translate(${plot.left} ${height - 15})`} className="fill-slate-600 text-[10px]">
+          <rect x="0" y="-6" width="12" height="8" fill={FINAL_RESULT_METRICS[0].color} opacity="0.78" />
+          <text x="18" y="2">Improved</text>
+          <rect x="88" y="-6" width="12" height="8" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="0.8" />
+          <text x="106" y="2">Not improved/equal</text>
+          <rect x="214" y="-6" width="12" height="8" fill={HARD_CAP_FILL} stroke="#cbd5e1" strokeWidth="0.8" />
+          <text x="236" y="2">Hard cap</text>
+        </g>
       </svg>
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600">
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-slate-300" />Not improved or equal</span>
-        <span>PSNR/SSIM: higher is better; LPIPS: lower is better.</span>
-      </div>
     </div>
   );
 }
@@ -905,7 +1005,7 @@ export default function PipelineScoreDistributionPanel({
     setLoading(true);
     try {
       const [rowsRes, pipelineRes] = await Promise.all([
-        api.get(`/api/workflow/pipelines/${pipelineId}/learning-rows`),
+        api.get(`/api/workflow/pipelines/${pipelineId}/learning-rows`, { params: { include_hard_cap: true } }),
         api.get(`/api/workflow/pipelines/${pipelineId}`),
       ]);
       setRows(Array.isArray(rowsRes.data?.rows) ? rowsRes.data.rows : []);
@@ -937,12 +1037,14 @@ export default function PipelineScoreDistributionPanel({
     });
   }, [rows, selectedModelId]);
 
+  const projectOrder = useMemo(() => configuredProjectOrder(pipelineDetail), [pipelineDetail]);
+  const projectSorter = useMemo(() => sortByProjectOrder(projectOrder), [projectOrder]);
   const projects = useMemo(
     () =>
       Array.from(new Set(displayRows.map((row) => row.project_name || row.project_id).filter(Boolean) as string[])).sort(
-        compareProjectIndexOrder,
+        projectSorter,
       ),
-    [displayRows],
+    [displayRows, projectSorter],
   );
 
   useEffect(() => {
@@ -957,6 +1059,7 @@ export default function PipelineScoreDistributionPanel({
   const filteredRows = useMemo(
     () =>
       displayRows.filter((row) => {
+        if (isHardCapRow(row)) return false;
         if (row.is_baseline_row) return false;
         if (selectedProject === "all") return true;
         return (row.project_name || row.project_id) === selectedProject;
@@ -971,10 +1074,11 @@ export default function PipelineScoreDistributionPanel({
       }),
     [displayRows, selectedProject],
   );
-  const finalMetricProjectNames = useMemo(() => finalMetricProjectIndex(finalMetricRows), [finalMetricRows]);
+  const finalMetricProjectNames = useMemo(() => finalMetricProjectIndex(finalMetricRows, projectOrder), [finalMetricRows, projectOrder]);
   const metricRows = useMemo(
     () =>
       displayRows.filter((row) => {
+        if (isHardCapRow(row)) return false;
         if (metricSelectedProject === "all") return true;
         return (row.project_name || row.project_id) === metricSelectedProject;
       }),
@@ -1070,16 +1174,7 @@ export default function PipelineScoreDistributionPanel({
               <p className="text-sm text-slate-600">
                 PSNR, SSIM, and LPIPS improvements for the selected model. Baseline and test rows are paired by project.
               </p>
-              {selectedModelId && finalMetricProjectNames.length > 0 && (
-                <p className="mt-1 text-[10px] leading-snug text-slate-500">
-                  <span className="font-semibold text-slate-600">Project index:</span>{" "}
-                  {finalMetricProjectNames.map((project, index) => (
-                    <span key={project} className="mr-2 inline-block" title={project}>
-                      {index + 1}. {compactProjectLabel(project)}
-                    </span>
-                  ))}
-                </p>
-              )}
+              {selectedModelId && <ProjectIndexTable projects={finalMetricProjectNames} />}
             </div>
             {!selectedModelId ? (
               <div className="rounded border border-dashed border-blue-200 bg-white p-3 text-sm text-slate-600">
@@ -1089,10 +1184,10 @@ export default function PipelineScoreDistributionPanel({
               <div className="space-y-3">
                 <div className="grid gap-3 lg:grid-cols-3">
                   {FINAL_RESULT_METRICS.map((metric) => (
-                    <FinalMetricBeeswarm key={metric.key} metric={metric} points={finalMetricImprovementPoints(finalMetricRows, metric)} />
+                    <FinalMetricBeeswarm key={metric.key} metric={metric} points={finalMetricImprovementPoints(finalMetricRows, metric, projectOrder)} />
                   ))}
                 </div>
-                <WinLossSummary rows={finalMetricRows} />
+                <WinLossSummary rows={finalMetricRows} projectOrder={projectOrder} />
               </div>
             )}
           </div>

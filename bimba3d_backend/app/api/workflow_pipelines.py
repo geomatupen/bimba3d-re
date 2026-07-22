@@ -150,9 +150,15 @@ def update_workflow_pipeline_config(
 
 
 @router.get("/{pipeline_id}/learning-rows")
-def get_workflow_pipeline_learning_rows(pipeline_id: str) -> dict[str, Any]:
+def get_workflow_pipeline_learning_rows(
+    pipeline_id: str,
+    include_hard_cap: bool = Query(default=False),
+) -> dict[str, Any]:
     try:
-        return workflow_pipeline_service.get_learning_rows(pipeline_id)
+        return workflow_pipeline_service.get_learning_rows(
+            pipeline_id,
+            include_hard_cap=include_hard_cap,
+        )
     except FileNotFoundError as exc:
         raise _not_found(pipeline_id, exc) from exc
 
