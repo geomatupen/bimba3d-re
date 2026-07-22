@@ -25,6 +25,7 @@ coverage/
 .ipynb_checkpoints/
 _matplotlib_cache/
 notebooks/_matplotlib_cache/
+/outputs/
 
 # Backend runtime artifacts
 bimba3d_backend/venv/
