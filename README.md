@@ -41,6 +41,14 @@ If `colmap` is not on `PATH`, set `COLMAP_EXE` to the full executable or `.bat` 
 - `bimba3d_frontend/src`: frontend application source
 - `compatibility-matrix.json`: compatibility data used by build and training tooling
 
+## Research Outputs
+Large generated research outputs are kept outside this code repository to keep clone size small. The output archive contains final model artifacts, selected training data snapshots, test-pipeline result snapshots, metric tables, and preview images used for thesis/report analysis.
+
+Research outputs repository:
+[geomatupen/Bimba3d-re_research_outputs](https://github.com/geomatupen/Bimba3d-re_research_outputs)
+
+The local `outputs/` folder is intentionally ignored by this repository. If you need the archived outputs, clone or download the separate outputs repository and place/use it independently from the application code.
+
 ## Install
 
 ### 1. Clone and enter the repository
