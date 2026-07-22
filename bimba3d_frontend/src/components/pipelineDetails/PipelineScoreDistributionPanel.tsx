@@ -1193,11 +1193,9 @@ export default function PipelineScoreDistributionPanel({
                     <FinalMetricBeeswarm key={metric.key} metric={metric} points={finalMetricImprovementPoints(finalMetricRows, metric, projectOrder)} />
                   ))}
                 </div>
-                {finalMetricRows.some(isHardCapRow) && (
-                  <p className="rounded border border-blue-100 bg-white px-3 py-2 text-xs leading-snug text-slate-600">
-                    Mean and median lines use completed runs only; hard-cap projects stay visible at 0 to keep the project index.
-                  </p>
-                )}
+                <p className="px-1 text-xs leading-snug text-slate-600">
+                  Mean and median use completed runs only; hard-cap projects stay visible at 0.
+                </p>
                 <WinLossSummary rows={finalMetricRows} projectOrder={projectOrder} />
               </div>
             )}
