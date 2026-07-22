@@ -1019,7 +1019,7 @@ export default function ModelTrainingPage() {
                             <span>
                               Regularize intercept
                               <span className="mt-0.5 block font-normal text-slate-500">
-                                Keep checked for the original compact Ridge. Uncheck only for the intercept comparison run.
+                                Keep checked for the original Ridge. Uncheck to use P=diag(0,1,...), so the mean-descriptor, multiplier=1 reference score is not pulled toward zero. Most useful with larger lambda.
                               </span>
                             </span>
                           </label>

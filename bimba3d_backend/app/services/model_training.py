@@ -37,8 +37,9 @@ class ModelTrainingOptions:
     # Prediction fallback grid size stored in the artifact; explicit testing grids take precedence.
     candidate_points: int = 30
     # COMPACT_RIDGE_INTERCEPT_EXPERIMENT:
-    # Default True preserves the original compact Ridge behavior. Set False only
-    # for comparison runs where the intercept should be excluded from the penalty.
+    # Default True preserves the original compact Ridge behavior. Set False for
+    # comparison runs that use P=diag(0, 1, ..., 1), leaving the mean-descriptor,
+    # multiplier=1.0 reference prediction unpenalized.
     regularize_intercept: bool = True
     include_phases: list[int] | None = None
     include_run_ids: list[str] | None = None

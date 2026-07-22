@@ -224,8 +224,14 @@ def _empty_model(
     d_phi = d_x + len(COMPACT_MODEL_GROUP_KEYS) + len(COMPACT_MODEL_GROUP_KEYS) + (d_x - 1) * len(COMPACT_MODEL_GROUP_KEYS)
     penalty = np.eye(d_phi, dtype=np.float64) * float(lambda_ridge)
     # COMPACT_RIDGE_INTERCEPT_EXPERIMENT:
-    # Keep the default as the original platform behavior. When this flag is
-    # disabled for comparison runs, the intercept term is not shrunk by Ridge.
+    # The intercept is the constant reference prediction, not a measured descriptor.
+    # In the standardized design, x=0 means descriptors are at their training mean,
+    # and action logs=0 means all multipliers are 1.0. If regularize_intercept=False,
+    # Ridge uses P=diag(0, 1, ..., 1), so this reference offset is not pulled toward
+    # zero while all descriptor/action weights remain regularized. This matters more
+    # for larger lambda values; with small lambda values such as 0.1 or lower, the
+    # difference is usually small and the original regularize_intercept=True behavior
+    # can be left enabled.
     if not regularize_intercept:
         penalty[0, 0] = 0.0
     return {
