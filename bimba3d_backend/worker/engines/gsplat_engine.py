@@ -2039,6 +2039,7 @@ def run_training(
             metadata["gaussian_hard_cap"] = int(gaussian_hard_cap)
             metadata["gaussian_cap_step"] = cap_step
             metadata["gaussian_cap_count"] = cap_count
+            metadata["final_gaussian_count"] = cap_count
             metadata["gaussian_cap_reached"] = True
             metadata["partial_completed"] = True
             metadata["valid_completed_quality"] = False
@@ -2055,6 +2056,7 @@ def run_training(
             analytics_summary["gaussian_cap_reached"] = True
             analytics_summary["gaussian_cap_step"] = cap_step
             analytics_summary["gaussian_cap_count"] = cap_count
+            analytics_summary["final_gaussian_count"] = cap_count
             analytics_summary["gaussian_hard_cap"] = int(gaussian_hard_cap)
             analytics_summary["quality_score_source"] = "gaussian_cap_penalty"
             analytics_summary["relative_quality_score"] = -1.0
@@ -2410,7 +2412,13 @@ def run_training(
                 except Exception as exc:
                     logger.warning("Failed input-mode reward-only computation: %s", exc)
 
-        metadata["num_gaussians"] = final_eval.get("num_gaussians")
+        final_gaussian_count = final_eval.get("num_gaussians")
+        metadata["num_gaussians"] = final_gaussian_count
+        metadata["final_gaussian_count"] = final_gaussian_count
+        metadata["gaussian_hard_cap"] = int(gaussian_hard_cap)
+        metadata["gaussian_cap_reached"] = bool(tuning_state.get("gaussian_cap_reached"))
+        metadata["gaussian_cap_step"] = tuning_state.get("gaussian_cap_step")
+        metadata["gaussian_cap_count"] = tuning_state.get("gaussian_cap_count")
         metadata["mode"] = mode
         metadata["tune_scope"] = tune_scope if mode == "modified" else None
         metadata["best_splat"] = tuning_state.get("best_splat")
@@ -2512,12 +2520,17 @@ def run_training(
             "status": "completed",
             "mode": mode,
             "engine": "gsplat",
+            "gaussian_hard_cap": int(gaussian_hard_cap),
+            "gaussian_cap_reached": bool(tuning_state.get("gaussian_cap_reached")),
+            "gaussian_cap_step": tuning_state.get("gaussian_cap_step"),
+            "gaussian_cap_count": tuning_state.get("gaussian_cap_count"),
+            "final_gaussian_count": final_gaussian_count,
             "metrics": {
                 "convergence_speed": final_eval.get("convergence_speed"),
                 "final_loss": final_loss_value,
                 "lpips_mean": final_eval.get("lpips_mean"),
                 "sharpness_mean": final_eval.get("sharpness_mean"),
-                "num_gaussians": final_eval.get("num_gaussians"),
+                "num_gaussians": final_gaussian_count,
                 "total_time_seconds": total_time_seconds,
                 "best_splat_step": (
                     (tuning_state.get("best_splat") or {}).get("step")
