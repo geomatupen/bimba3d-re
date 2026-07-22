@@ -340,7 +340,7 @@
   },
   {
     "model_id": "model_compact-mlp_20260720_203905_final_mlp_descriptor_standardized_with_hard_capped_data",
-    "model_name": "Final_MLP_descriptor_standardized_with_hard_capped_data",
+    "model_name": "B2_Final_MLP_used_in_report_descriptor_standardized_with_hard_capped_data",
     "model_family": "compact_featurewise_mlp",
     "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
     "source_pipeline_id": "pipeline_55776ebd244e",
@@ -513,7 +513,7 @@
   },
   {
     "model_id": "model_compact-mlp_20260720_203745_final_mlp_descriptor_standardized",
-    "model_name": "Final_MLP_descriptor_standardized",
+    "model_name": "B1_Final_MLP_used_in_report_descriptor_standardized",
     "model_family": "compact_featurewise_mlp",
     "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
     "source_pipeline_id": "pipeline_55776ebd244e",
@@ -686,7 +686,7 @@
   },
   {
     "model_id": "model_compact-ridge_20260720_094510_model-to-delete",
-    "model_name": "model-to-delete",
+    "model_name": "A3_Ridge_additional_run_with_same_multipliers",
     "model_family": "compact_featurewise_ridge_regression",
     "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
     "source_pipeline_id": "pipeline_55776ebd244e",
@@ -842,7 +842,7 @@
   },
   {
     "model_id": "model_compact-mlp_20260718_194519_compact_mlp_july18_with_hardcap_data_final_offline_data_june_27-training-data",
-    "model_name": "Final_MLP_used_in_report_with_hard_capped_data",
+    "model_name": "Final_MLP_without_descriptor_standardization_with_hard_capped_data",
     "model_family": "compact_featurewise_mlp",
     "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
     "source_pipeline_id": "pipeline_55776ebd244e",
@@ -1013,7 +1013,7 @@
   },
   {
     "model_id": "model_compact-mlp_20260718_194410_compact_mlp_july18_final_offline_data_june_27-training-data-compact-featurewise-mlp",
-    "model_name": "Final_MLP_used_in_report",
+    "model_name": "Final_MLP_without_descriptor_standardization",
     "model_family": "compact_featurewise_mlp",
     "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
     "source_pipeline_id": "pipeline_55776ebd244e",
@@ -1184,7 +1184,7 @@
   },
   {
     "model_id": "model_compact-ridge_20260713_095334_final_compact_ridge_with_hard_cap_data_july13",
-    "model_name": "Final_ridge_used_in_report_trained_with_hard_capped_data",
+    "model_name": "A2_Final_ridge_used_in_report_trained_with_hard_capped_data",
     "model_family": "compact_featurewise_ridge_regression",
     "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
     "source_pipeline_id": "pipeline_55776ebd244e",
@@ -1340,7 +1340,7 @@
   },
   {
     "model_id": "model_compact-ridge_20260712_131550_final_offline_data_june_27-training-data-compact-ridge",
-    "model_name": "Final_ridge_used_in_report",
+    "model_name": "A1_Final_ridge_used_in_report",
     "model_family": "compact_featurewise_ridge_regression",
     "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
     "source_pipeline_id": "pipeline_55776ebd244e",

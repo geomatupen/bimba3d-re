@@ -1,6 +1,6 @@
 {
   "model_id": "model_compact-ridge_20260720_094510_model-to-delete",
-  "model_name": "model-to-delete",
+  "model_name": "A3_Ridge_additional_run_with_same_multipliers",
   "model_family": "compact_featurewise_ridge_regression",
   "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
   "source_pipeline_id": "pipeline_55776ebd244e",

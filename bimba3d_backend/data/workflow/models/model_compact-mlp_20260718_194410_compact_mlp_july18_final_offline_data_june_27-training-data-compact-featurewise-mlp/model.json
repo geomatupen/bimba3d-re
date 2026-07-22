@@ -1,6 +1,6 @@
 {
   "model_id": "model_compact-mlp_20260718_194410_compact_mlp_july18_final_offline_data_june_27-training-data-compact-featurewise-mlp",
-  "model_name": "Final_MLP_used_in_report",
+  "model_name": "Final_MLP_without_descriptor_standardization",
   "model_family": "compact_featurewise_mlp",
   "source_training_data_id": "training_data_20260710_183008_final_offline_data_june_27-training-data",
   "source_pipeline_id": "pipeline_55776ebd244e",
