@@ -53,18 +53,14 @@ function FullscreenChartIcon() {
   );
 }
 
-const logSpaceTicks = ([min, max]: [number, number]): number[] => {
+const logSpaceTicks = ([min, max]: [number, number], divisions = 4): number[] => {
   const safeMin = Math.max(min, 1e-12);
   const safeMax = Math.max(max, safeMin + 1e-12);
   const logMin = Math.log(safeMin);
   const logMax = Math.log(safeMax);
-  const candidates = [
-    safeMin,
-    Math.exp(logMin + (logMax - logMin) * 0.25),
-    Math.exp(logMin + (logMax - logMin) * 0.5),
-    Math.exp(logMin + (logMax - logMin) * 0.75),
-    safeMax,
-  ];
+  const candidates = Array.from({ length: divisions + 1 }, (_, index) =>
+    Math.exp(logMin + (logMax - logMin) * (index / divisions)),
+  );
   if (safeMin < 1 && safeMax > 1) {
     candidates.push(1);
   }
@@ -222,8 +218,8 @@ function CandidateScoreChart({
   const minY = Math.min(0, minScore - scorePad);
   const maxY = Math.max(0, maxScore + scorePad);
   const width = fullscreen ? 1280 : 340;
-  const height = fullscreen ? 520 : 220;
-  const plot = { left: fullscreen ? 58 : 42, right: fullscreen ? 24 : 12, top: 18, bottom: 56 };
+  const height = fullscreen ? 560 : 244;
+  const plot = { left: fullscreen ? 76 : 58, right: fullscreen ? 28 : 16, top: 20, bottom: 78 };
   const plotWidth = width - plot.left - plot.right;
   const plotHeight = height - plot.top - plot.bottom;
   const logMinX = Math.log(Math.max(minX, 1e-12));
@@ -233,7 +229,7 @@ function CandidateScoreChart({
     return plot.left + ((logValue - logMinX) / (logMaxX - logMinX || 1)) * plotWidth;
   };
   const scaleY = (value: number) => plot.top + (1 - ((value - minY) / (maxY - minY || 1))) * plotHeight;
-  const xTicks = logSpaceTicks([minX, maxX]);
+  const xTicks = logSpaceTicks([minX, maxX], 8);
   const yTicks = [minScore, (minScore + maxScore) / 2, maxScore];
   const sortedPoints = [...points].sort((a, b) => a.multiplier - b.multiplier);
   const axisY = plot.top + plotHeight;
@@ -274,16 +270,16 @@ function CandidateScoreChart({
           <span className="font-mono">{formatTick(selectedPoint.multiplier)}</span>
         </div>
       )}
-      <svg ref={captureSvg} viewBox={`0 0 ${width} ${height}`} className={`${fullscreen ? "h-[calc(100vh-13rem)] min-h-[28rem]" : "h-56"} w-full rounded border border-slate-200 bg-white`}>
+      <svg ref={captureSvg} viewBox={`0 0 ${width} ${height}`} className={`${fullscreen ? "h-[calc(100vh-13rem)] min-h-[28rem]" : "h-64"} w-full rounded border border-slate-200 bg-white`}>
         <rect x={plot.left} y={plot.top} width={plotWidth} height={plotHeight} fill="#f8fafc" />
         {xTicks.map((tick, index) => {
           const x = scaleX(tick);
-          const labelTick = index === 0 || index === Math.floor(xTicks.length / 2) || index === xTicks.length - 1;
+          const labelTick = index === 0 || index % 2 === 0 || index === xTicks.length - 1;
           return (
             <g key={`${group}-score-x-${tick}`}>
               <line x1={x} x2={x} y1={plot.top} y2={plot.top + plotHeight} stroke="#e2e8f0" />
               {labelTick && (
-                <text x={x} y={plot.top + plotHeight + 15} textAnchor="middle" className="fill-slate-500 text-[10px]">
+                <text x={x} y={plot.top + plotHeight + 17} textAnchor="middle" className="fill-slate-500 text-[11px]">
                   {formatTick(tick)}
                 </text>
               )}
@@ -295,7 +291,7 @@ function CandidateScoreChart({
           return (
             <g key={`${group}-score-y-${tick}`}>
               <line x1={plot.left} x2={plot.left + plotWidth} y1={y} y2={y} stroke="#e2e8f0" />
-              <text x={plot.left - 7} y={y + 3} textAnchor="end" className="fill-slate-500 text-[9px]">
+              <text x={plot.left - 9} y={y + 4} textAnchor="end" className="fill-slate-500 text-[10px]">
                 {formatTick(tick)}
               </text>
             </g>
@@ -311,15 +307,13 @@ function CandidateScoreChart({
             <g>
               <line x1={plot.left} x2={plot.left + plotWidth} y1={zeroY} y2={zeroY}
                 stroke="#f97316" strokeDasharray="4 3" strokeWidth="1.5" />
-              <text x={plot.left + plotWidth - 2} y={zeroY - 3} textAnchor="end"
-                className="fill-orange-600 text-[9px] font-medium">baseline=0</text>
             </g>
           );
         })()}
         <polyline
           fill="none"
           stroke="#2563eb"
-          strokeWidth="1.5"
+          strokeWidth="1.6"
           points={sortedPoints.map((point) => `${scaleX(point.multiplier)},${scaleY(point.score as number)}`).join(" ")}
         />
         {points.map((point) => {
@@ -334,20 +328,20 @@ function CandidateScoreChart({
               y2={axisY}
               stroke="#16a34a"
               strokeDasharray="3 3"
-              strokeWidth="1"
+              strokeWidth="1.2"
               opacity="0.75"
             />
           ) : null;
         })}
-        <text x={plot.left + plotWidth / 2} y={height - 14} textAnchor="middle" className="fill-slate-700 text-[11px] font-medium">
-          Candidate multiplier (log-scaled x) vs model-predicted score
+        <text x={plot.left + plotWidth / 2} y={height - 38} textAnchor="middle" className="fill-slate-700 text-[12px] font-medium">
+          Candidate multiplier (log-scaled)
         </text>
         <text
           x={14}
           y={plot.top + plotHeight / 2}
           textAnchor="middle"
           transform={`rotate(-90 14 ${plot.top + plotHeight / 2})`}
-          className="fill-slate-600 text-[10px] font-medium"
+          className="fill-slate-600 text-[12px] font-medium"
         >
           Predicted score
         </text>
@@ -363,17 +357,8 @@ function CandidateScoreChart({
             <g key={`${group}-score-point-${point.index}`}>
               <circle
                 cx={scaleX(point.multiplier)}
-                cy={axisY}
-                r={isPointSelected(point) ? 4 : 2.8}
-                fill={isPointSelected(point) ? "#16a34a" : "#94a3b8"}
-                opacity={isPointSelected(point) ? 1 : 0.8}
-              >
-                <title>{title}</title>
-              </circle>
-              <circle
-                cx={scaleX(point.multiplier)}
                 cy={scaleY(point.score as number)}
-                r={isPointSelected(point) ? 5 : 3.5}
+                r={isPointSelected(point) ? 3.4 : 2.5}
                 fill={isPointSelected(point) ? "#16a34a" : "#2563eb"}
                 opacity={isPointSelected(point) ? 1 : 0.72}
               >
@@ -382,12 +367,15 @@ function CandidateScoreChart({
             </g>
           );
         })}
+        <g transform={`translate(${plot.left - 36} ${height - 14})`} className="fill-slate-600 text-[10px]">
+          <circle cx="0" cy="0" r="3" fill="#2563eb" opacity="0.75" />
+          <text x="8" y="3">Predicted score</text>
+          <circle cx="110" cy="0" r="3.4" fill="#16a34a" />
+          <text x="120" y="3">Selected</text>
+          <line x1="178" x2="198" y1="0" y2="0" stroke="#f97316" strokeDasharray="4 3" strokeWidth="1.4" />
+          <text x="204" y="3">Baseline score=0</text>
+        </g>
       </svg>
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600">
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-slate-400" />Candidate multiplier on x-axis</span>
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-blue-600 opacity-75" />Predicted score</span>
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-green-600" />Selected highest score</span>
-      </div>
     </div>
   );
 }

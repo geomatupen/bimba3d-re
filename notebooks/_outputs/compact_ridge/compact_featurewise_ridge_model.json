@@ -66,9 +66,11 @@
     },
     "action_space": "joint_log_multiplier",
     "design": "x_plus_three_actions_plus_action2_plus_xa",
+    "regularize_intercept": false,
+    "regularization": "identity_except_intercept",
     "A": [
       [
-        653.1,
+        653.0,
         -1.580957587066223e-13,
         -4.914957330015568e-13,
         -3.108624468950438e-14,
@@ -2424,11 +2426,11 @@
     "design_dim": 47
   },
   "metrics": {
-    "mse": 0.00261099533074423,
-    "rmse": 0.05109789947487303,
-    "mae": 0.03157451250794493,
-    "r_squared": 0.7279431890770457,
+    "mse": 0.0026109881273641876,
+    "rmse": 0.05109782898875634,
+    "mae": 0.03157433691955541,
+    "r_squared": 0.7279439396446852,
     "samples": 653,
-    "lambda_search_mse": 0.00261099533074423
+    "lambda_search_mse": 0.0026109881273641876
   }
 }

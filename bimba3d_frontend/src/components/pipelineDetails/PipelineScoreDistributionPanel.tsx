@@ -145,20 +145,16 @@ const formatTick = (value: number): string => {
   return value.toFixed(3);
 };
 
-const formatRealLogTick = (value: number): string[] => [formatTick(value), `ln ${formatTick(Math.log(Math.max(value, 1e-12)))}`];
+const formatRealLogTick = (value: number): string[] => [formatTick(value), `log ${formatTick(Math.log(Math.max(value, 1e-12)))}`];
 
-const logSpaceTicks = ([min, max]: [number, number]): number[] => {
+const logSpaceTicks = ([min, max]: [number, number], divisions = 8): number[] => {
   const safeMin = Math.max(min, 1e-12);
   const safeMax = Math.max(max, safeMin + 1e-12);
   const logMin = Math.log(safeMin);
   const logMax = Math.log(safeMax);
-  const candidates = [
-    safeMin,
-    Math.exp(logMin + (logMax - logMin) * 0.25),
-    Math.exp(logMin + (logMax - logMin) * 0.5),
-    Math.exp(logMin + (logMax - logMin) * 0.75),
-    safeMax,
-  ];
+  const candidates = Array.from({ length: divisions + 1 }, (_, index) =>
+    Math.exp(logMin + (logMax - logMin) * (index / divisions)),
+  );
   if (safeMin < 1 && safeMax > 1) {
     candidates.push(1);
   }
@@ -209,7 +205,7 @@ function MiniScatter({
   const best = points.reduce((acc, point) => (point.y > acc.y ? point : acc), points[0]);
   const width = fullscreen ? 1280 : 340;
   const height = fullscreen ? 520 : 220;
-  const plot = { left: 54, right: 18, top: 18, bottom: 54 };
+  const plot = { left: 54, right: 18, top: 18, bottom: 74 };
   const plotWidth = width - plot.left - plot.right;
   const plotHeight = height - plot.top - plot.bottom;
   const xTicks = logSpaceTicks([minX, maxX]);
@@ -264,7 +260,7 @@ function MiniScatter({
         })}
         {xTicks.map((tick, index) => {
           const x = scaleX(tick);
-          const labelTick = index === 0 || index === Math.floor(xTicks.length / 2) || index === xTicks.length - 1;
+          const labelTick = index === 0 || index % 2 === 0 || index === xTicks.length - 1;
           return (
             <g key={`x-${tick}`}>
               <line x1={x} x2={x} y1={plot.top} y2={plot.top + plotHeight} stroke="#e2e8f0" strokeWidth="1" />
@@ -295,13 +291,10 @@ function MiniScatter({
               strokeDasharray="4 3"
               strokeWidth="1.5"
             />
-            <text x={plot.left + plotWidth - 4} y={zeroY - 4} textAnchor="end" className="fill-orange-600 text-[10px] font-medium">
-              0 Rquality (baseline)
-            </text>
           </g>
         )}
-        <text x={plot.left + plotWidth / 2} y={height - 12} textAnchor="middle" className="fill-slate-700 text-[11px] font-medium">
-          Real multiplier value, with ln(multiplier) shown below
+        <text x={plot.left + plotWidth / 2} y={height - 30} textAnchor="middle" className="fill-slate-700 text-[11px] font-medium">
+          Multiplier value; log value shown below
         </text>
         <text x="13" y={plot.top + plotHeight / 2} textAnchor="middle" transform={`rotate(-90 13 ${plot.top + plotHeight / 2})`} className="fill-slate-700 text-[11px] font-medium">
           Rquality
@@ -311,28 +304,22 @@ function MiniScatter({
             key={`${point.run}-${index}`}
             cx={scaleX(point.x)}
             cy={scaleY(point.y)}
-            r={point === best ? 4 : 3}
+            r={point === best ? 2.8 : 2.1}
             fill={point === best ? "#16a34a" : "#2563eb"}
             opacity={point === best ? 1 : 0.72}
           >
             <title>{`${point.project}\n${point.run}\nMultiplier: ${point.x.toFixed(6)}\nln(multiplier): ${(point.logX ?? Math.log(Math.max(point.x, 1e-12))).toFixed(6)}\nRquality: ${point.y.toFixed(6)}`}</title>
           </circle>
         ))}
+        <g transform={`translate(${plot.left - 36} ${height - 10})`} className="fill-slate-600 text-[11px]">
+          <circle cx="0" cy="0" r="4" fill="#2563eb" opacity="0.75" />
+          <text x="8" y="3">Run</text>
+          <circle cx="52" cy="0" r="4" fill="#16a34a" />
+          <text x="62" y="3">Best Rquality</text>
+          <line x1="162" x2="184" y1="0" y2="0" stroke="#f97316" strokeDasharray="4 3" strokeWidth="1.4" />
+          <text x="192" y="3">Baseline score = 0</text>
+        </g>
       </svg>
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600">
-        <div className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-blue-600 opacity-75" />
-          Phase/test run
-        </div>
-        <div className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-green-600" />
-            Best Rquality
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="h-0 w-5 border-t-2 border-dashed border-orange-500" />
-            Baseline (score=0)
-          </div>
-      </div>
       <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-slate-600">
         <div>
           Best Rquality: <span className="font-semibold text-green-700">{best.y.toFixed(6)}</span>
@@ -869,7 +856,7 @@ function MetricStripChart({
   const projectLaneWidth = fullscreen ? 108 : 92;
   const width = Math.max(fullscreen ? 720 : 360, projects.length * projectLaneWidth + 54);
   const height = fullscreen ? 590 : 275;
-  const plot = { left: 46, right: 8, top: 18, bottom: fullscreen ? 154 : 112 };
+  const plot = { left: 46, right: 8, top: 18, bottom: fullscreen ? 174 : 132 };
   const plotWidth = width - plot.left - plot.right;
   const plotHeight = height - plot.top - plot.bottom;
   const yTicks = [minY, (minY + maxY) / 2, maxY];
@@ -959,7 +946,7 @@ function MetricStripChart({
             </g>
           );
         })}
-        <text x={plot.left + plotWidth / 2} y={height - 18} textAnchor="middle" className="fill-slate-500 text-[10px]">
+        <text x={plot.left + plotWidth / 2} y={height - 36} textAnchor="middle" className="fill-slate-500 text-[10px]">
           Scroll horizontally to inspect all project groups. Hover points for full project and run names.
         </text>
         <text x="14" y={plot.top + plotHeight / 2} textAnchor="middle" transform={`rotate(-90 14 ${plot.top + plotHeight / 2})`} className="fill-slate-700 text-[11px] font-medium">
@@ -982,11 +969,13 @@ function MetricStripChart({
             </circle>
           );
         })}
+        <g transform={`translate(${plot.left} ${height - 13})`} className="fill-slate-600 text-[10px]">
+          <circle cx="0" cy="0" r="4" fill="#f59e0b" />
+          <text x="8" y="3">Baseline</text>
+          <circle cx="78" cy="0" r="3.5" fill="#2563eb" opacity="0.76" />
+          <text x="88" y="3">Non-baseline run</text>
+        </g>
       </svg>
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600">
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-500" />Baseline</span>
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-blue-600 opacity-75" />Non-baseline run</span>
       </div>
     </div>
   );
@@ -1247,10 +1236,6 @@ export default function PipelineScoreDistributionPanel({
                 </button>
               </div>
             </div>
-            <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600">
-              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-500" />Baseline</span>
-              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-blue-600 opacity-75" />Non-baseline run</span>
-            </div>
             {renderMetricChartGrid()}
           </div>
         </div>
@@ -1289,10 +1274,6 @@ export default function PipelineScoreDistributionPanel({
               </div>
             </div>
             <div className="overflow-auto p-4">
-              <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600">
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-500" />Baseline</span>
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-blue-600 opacity-75" />Non-baseline run</span>
-              </div>
               {renderMetricChartGrid(true)}
             </div>
           </div>

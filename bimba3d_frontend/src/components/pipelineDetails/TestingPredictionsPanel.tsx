@@ -196,8 +196,8 @@ function CandidateMiniChart({ checks }: { checks: CandidateCheckRow[] }) {
   }
 
   const width = 720;
-  const height = 180;
-  const pad = { left: 44, right: 14, top: 14, bottom: 34 };
+  const height = 200;
+  const pad = { left: 44, right: 14, top: 14, bottom: 54 };
   const plotW = width - pad.left - pad.right;
   const plotH = height - pad.top - pad.bottom;
   const scores = points.map((point) => point.score);
@@ -234,8 +234,15 @@ function CandidateMiniChart({ checks }: { checks: CandidateCheckRow[] }) {
           <title>{`multiplier=${formatNumber(point.multiplier, 6)} score=${formatNumber(point.score, 6)}`}</title>
         </circle>
       ))}
-      <text x={pad.left} y={height - 10} fill="#64748b" fontSize="11">multiplier</text>
+      <text x={pad.left + plotW / 2} y={height - 30} fill="#64748b" fontSize="11" textAnchor="middle">multiplier</text>
       <text x="8" y={pad.top + 10} fill="#64748b" fontSize="11">score</text>
+      <g transform={`translate(${pad.left} ${height - 11})`} fill="#64748b" fontSize="10">
+        <line x1="0" x2="24" y1="0" y2="0" stroke="#2563eb" strokeWidth="2" />
+        <circle cx="12" cy="0" r="3" fill="#2563eb" stroke="#ffffff" strokeWidth="1" />
+        <text x="32" y="3">Predicted score</text>
+        <circle cx="134" cy="0" r="4.5" fill="#f59e0b" stroke="#ffffff" strokeWidth="1" />
+        <text x="144" y="3">Selected candidate</text>
+      </g>
     </svg>
   );
 }
