@@ -219,7 +219,7 @@ function CandidateScoreChart({
   const maxY = Math.max(0, maxScore + scorePad);
   const width = fullscreen ? 1280 : 340;
   const height = fullscreen ? 560 : 244;
-  const plot = { left: fullscreen ? 76 : 58, right: fullscreen ? 28 : 16, top: 20, bottom: 78 };
+  const plot = { left: fullscreen ? 98 : 74, right: fullscreen ? 32 : 18, top: 22, bottom: 106 };
   const plotWidth = width - plot.left - plot.right;
   const plotHeight = height - plot.top - plot.bottom;
   const logMinX = Math.log(Math.max(minX, 1e-12));
@@ -279,7 +279,7 @@ function CandidateScoreChart({
             <g key={`${group}-score-x-${tick}`}>
               <line x1={x} x2={x} y1={plot.top} y2={plot.top + plotHeight} stroke="#e2e8f0" />
               {labelTick && (
-                <text x={x} y={plot.top + plotHeight + 17} textAnchor="middle" className="fill-slate-500 text-[11px]">
+                <text x={x} y={plot.top + plotHeight + 20} textAnchor="middle" className="fill-slate-500 text-[16px]">
                   {formatTick(tick)}
                 </text>
               )}
@@ -291,7 +291,7 @@ function CandidateScoreChart({
           return (
             <g key={`${group}-score-y-${tick}`}>
               <line x1={plot.left} x2={plot.left + plotWidth} y1={y} y2={y} stroke="#e2e8f0" />
-              <text x={plot.left - 9} y={y + 4} textAnchor="end" className="fill-slate-500 text-[10px]">
+              <text x={plot.left - 12} y={y + 5} textAnchor="end" className="fill-slate-500 text-[15px]">
                 {formatTick(tick)}
               </text>
             </g>
@@ -333,15 +333,15 @@ function CandidateScoreChart({
             />
           ) : null;
         })}
-        <text x={plot.left + plotWidth / 2} y={height - 38} textAnchor="middle" className="fill-slate-700 text-[12px] font-medium">
+        <text x={plot.left + plotWidth / 2} y={height - 52} textAnchor="middle" className="fill-slate-700 text-[18px] font-medium">
           Candidate multiplier (log-scaled)
         </text>
         <text
-          x={14}
+          x={17}
           y={plot.top + plotHeight / 2}
           textAnchor="middle"
-          transform={`rotate(-90 14 ${plot.top + plotHeight / 2})`}
-          className="fill-slate-600 text-[12px] font-medium"
+          transform={`rotate(-90 17 ${plot.top + plotHeight / 2})`}
+          className="fill-slate-600 text-[18px] font-medium"
         >
           Predicted score
         </text>
@@ -367,13 +367,13 @@ function CandidateScoreChart({
             </g>
           );
         })}
-        <g transform={`translate(${plot.left - 36} ${height - 14})`} className="fill-slate-600 text-[10px]">
-          <circle cx="0" cy="0" r="3" fill="#2563eb" opacity="0.75" />
-          <text x="8" y="3">Predicted score</text>
-          <circle cx="110" cy="0" r="3.4" fill="#16a34a" />
-          <text x="120" y="3">Selected</text>
-          <line x1="178" x2="198" y1="0" y2="0" stroke="#f97316" strokeDasharray="4 3" strokeWidth="1.4" />
-          <text x="204" y="3">Baseline score=0</text>
+        <g transform={`translate(${plot.left - 50} ${height - 25})`} className="fill-slate-600 text-[14px]">
+          <circle cx="0" cy="0" r="3.8" fill="#2563eb" opacity="0.75" />
+          <text x="10" y="5">Predicted score</text>
+          <circle cx="154" cy="0" r="4.2" fill="#16a34a" />
+          <text x="166" y="5">Selected</text>
+          <line x1="0" x2="24" y1="18" y2="18" stroke="#f97316" strokeDasharray="4 3" strokeWidth="1.5" />
+          <text x="32" y="23">Baseline score=0</text>
         </g>
       </svg>
     </div>

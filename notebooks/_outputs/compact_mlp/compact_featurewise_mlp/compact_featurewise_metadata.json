@@ -60,13 +60,56 @@
     "Pistachio-trees-by-velez",
     "huzova"
   ],
-  "epochs_trained": 333,
+  "feature_scaler": {
+    "gsd_median": {
+      "mean": -3.246720989616787,
+      "std": 0.7145118911309639
+    },
+    "overlap_proxy": {
+      "mean": 0.8402012547844334,
+      "std": 0.11584762080934254
+    },
+    "coverage_spread": {
+      "mean": 0.2970229259040236,
+      "std": 0.21979960140965654
+    },
+    "camera_angle_bucket": {
+      "mean": 2.0,
+      "std": 0.01
+    },
+    "heading_consistency": {
+      "mean": 0.6177853665107208,
+      "std": 0.22164343140753442
+    },
+    "texture_density": {
+      "mean": 0.16019115728929187,
+      "std": 0.051160322467073284
+    },
+    "blur_motion_risk": {
+      "mean": 0.8750912171249898,
+      "std": 0.04162765079397905
+    },
+    "terrain_roughness_proxy": {
+      "mean": 0.7379226646113622,
+      "std": 0.18126646642234145
+    },
+    "vegetation_complexity_score": {
+      "mean": 0.16247543539727244,
+      "std": 0.1012458026999968
+    },
+    "vegetation_cover_percentage": {
+      "mean": 0.16474825352000602,
+      "std": 0.18181012777092073
+    }
+  },
+  "feature_standardization": "train_projects",
+  "epochs_trained": 374,
   "max_epochs": 1000,
-  "best_epoch": 283,
+  "best_epoch": 324,
   "early_stopping_patience": 50,
-  "best_val_loss": 0.004096213262528181,
-  "final_train_loss": 0.003206972498446703,
-  "final_val_loss": 0.004110663663595915,
+  "best_val_loss": 0.002823402639478445,
+  "final_train_loss": 0.002167480532079935,
+  "final_val_loss": 0.0028709217440336943,
   "learning_rate": 0.001,
   "weight_decay": 0.001,
   "candidate_points": 30,
