@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Eye, Download, AlertCircle } from "lucide-react";
+import { Eye, Download, AlertCircle, Maximize2, Minimize2 } from "lucide-react";
 import ThreeDViewer from "../ThreeDViewer";
 import { api } from "../../api/client";
 
@@ -27,8 +27,11 @@ export default function ViewerTab({ projectId, snapshotUrl, engineOverride, mode
   const [selectedVariant, setSelectedVariant] = useState<"final" | "best">("final");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [autoRotate, setAutoRotate] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const allowLocalEngineSelection = !engineOverride;
   const engineOverrideRef = useRef<string | null>(engineOverride ?? null);
+  const viewerShellRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     engineOverrideRef.current = engineOverride ?? null;
@@ -40,6 +43,14 @@ export default function ViewerTab({ projectId, snapshotUrl, engineOverride, mode
       setSelectedEngine(engineOverride);
     }
   }, [engineOverride, engineSources]);
+
+  useEffect(() => {
+    const syncFullscreenState = () => {
+      setIsFullscreen(document.fullscreenElement === viewerShellRef.current);
+    };
+    document.addEventListener("fullscreenchange", syncFullscreenState);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreenState);
+  }, []);
 
   useEffect(() => {
     const fetchFiles = async () => {
@@ -119,6 +130,20 @@ export default function ViewerTab({ projectId, snapshotUrl, engineOverride, mode
   const downloadLabel = selectedEngineSource?.format || baseFormat;
   const downloadUrl = modelUrlOverride || activeEngineUrl || splatFile;
 
+  const toggleFullscreen = async () => {
+    const target = viewerShellRef.current;
+    if (!target) return;
+    try {
+      if (document.fullscreenElement === target) {
+        await document.exitFullscreen();
+      } else {
+        await target.requestFullscreen();
+      }
+    } catch (err) {
+      console.error("Failed to toggle fullscreen:", err);
+    }
+  };
+
   if (error) {
     return (
       <div className="bg-white rounded-xl shadow-md p-8 border border-gray-200">
@@ -143,7 +168,7 @@ export default function ViewerTab({ projectId, snapshotUrl, engineOverride, mode
 
   return (
     <div className="max-w-7xl">
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+      <div ref={viewerShellRef} className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden viewer-shell">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
@@ -210,12 +235,29 @@ export default function ViewerTab({ projectId, snapshotUrl, engineOverride, mode
                 Latest .{downloadLabel || "splat"}
               </a>
             )}
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 px-3 py-2 border border-gray-300 rounded-lg bg-white">
+              <input
+                type="checkbox"
+                checked={autoRotate}
+                onChange={(event) => setAutoRotate(event.target.checked)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              Rotate
+            </label>
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-colors flex items-center gap-2"
+            >
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              {isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            </button>
           </div>
         </div>
 
         {/* Viewer */}
         <div className="bg-gray-900 h-[700px]">
-          <ThreeDViewer splatsUrl={activeViewerUrl} />
+          <ThreeDViewer splatsUrl={activeViewerUrl} autoRotate={autoRotate} />
         </div>
 
         {/* Instructions */}

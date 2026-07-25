@@ -23,17 +23,24 @@ interface UrlProbeResult {
 interface ViewerProps {
   splatsUrl?: string;
   metadataUrl?: string;
+  autoRotate?: boolean;
   onLoaded?: () => void;
   onError?: (error: string) => void;
 }
 
 export default function ThreeDViewer({
   splatsUrl,
+  autoRotate = false,
   onLoaded,
   onError,
 }: ViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<any>(null);
+  const autoRotateRef = useRef(autoRotate);
+
+  useEffect(() => {
+    autoRotateRef.current = autoRotate;
+  }, [autoRotate]);
 
   useEffect(() => {
     if (!splatsUrl) return;
@@ -206,6 +213,15 @@ export default function ThreeDViewer({
         const originalUpdate = viewer.update?.bind(viewer);
         viewer.update = function (...args: any[]) {
           trackball?.update();
+          if (autoRotateRef.current && camera) {
+            const target = trackball?.target ?? { x: 0, y: 0, z: 0 };
+            const dx = camera.position.x - target.x;
+            const dz = camera.position.z - target.z;
+            const angle = 0.0022;
+            camera.position.x = target.x + dx * Math.cos(angle) - dz * Math.sin(angle);
+            camera.position.z = target.z + dx * Math.sin(angle) + dz * Math.cos(angle);
+            camera.lookAt(target.x, target.y, target.z);
+          }
           return originalUpdate?.(...args);
         };
       };
