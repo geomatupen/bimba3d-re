@@ -179,7 +179,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  const [logInterval, setLogInterval] = useState<number>(cfgLogInterval ?? cfg.logInterval ?? 100);
  const [splatInterval, setSplatInterval] = useState<number>(cfgSplatExportInterval ?? cfg.splatInterval ?? 31000);
  const [bestSplatInterval, setBestSplatInterval] = useState<number>(cfgBestSplatInterval ?? cfg.bestSplatInterval ?? 100);
- const [saveBestSplat, setSaveBestSplat] = useState<boolean>(cfgSaveBestSplat ?? cfg.saveBestSplat ?? false);
+ const [saveBestSplat, setSaveBestSplat] = useState<boolean>(cfgSaveBestSplat ?? cfg.saveBestSplat ?? true);
  const [bestSplatStartStep, setBestSplatStartStep] = useState<number>(cfgBestSplatStartStep ?? cfg.bestSplatStartStep ?? 2000);
  const [pngInterval, setPngInterval] = useState<number>(cfg.pngInterval ?? 50);
  const [evalInterval, setEvalInterval] = useState<number>(cfgEvalInterval ?? cfg.evalInterval ?? 1000);
@@ -495,7 +495,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  }, [mode, sessionExecutionMode, tuneScope, aiInputMode]);
 
  const applyTrainingDefaults = (defaults: ReturnType<typeof getDefaultProcessConfig>) => {
- setSaveBestSplat(typeof defaults.saveBestSplat === "boolean" ? defaults.saveBestSplat : false);
+ setSaveBestSplat(typeof defaults.saveBestSplat === "boolean" ? defaults.saveBestSplat : true);
  setMode(defaults.mode ?? "baseline");
  setTuneStartStep(defaults.tune_start_step ?? 100);
  setTuneMinImprovement(defaults.tune_min_improvement ?? 0.005);

@@ -184,7 +184,7 @@ export const getDefaultProcessConfig = () => ({
   splatInterval: 31000,
   bestSplatInterval: 100,
   bestSplatStartStep: 2000,
-  saveBestSplat: false,
+  saveBestSplat: true,
   pngInterval: 50,
   evalInterval: 1000,
   saveInterval: 31000,
