@@ -32,6 +32,7 @@ COMPACT_EXIF_GPS_SAMPLE_LIMIT = 48
 COMPACT_PROCESSING_SIZE_SAMPLE_LIMIT = 24
 COMPACT_IMAGE_METRIC_SAMPLE_LIMIT = 20
 COMPACT_COLMAP_ANGLE_SAMPLE_LIMIT = 48
+COMPACT_NADIR_ONLY_ANGLE_DEG = 88.0
 
 
 def _iter_images(image_dir: Path, *, limit: int | None = None) -> list[Path]:
@@ -121,12 +122,8 @@ def _haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return 2.0 * r * math.atan2(math.sqrt(a), math.sqrt(max(1e-12, 1.0 - a)))
 
 
-def _angle_bucket_from_pitch(angle: float) -> str:
-    if angle <= -80:
-        return "nadir"
-    if angle <= -60:
-        return "oblique"
-    return "high_oblique"
+def _is_near_nadir_pitch(angle: float) -> bool:
+    return abs(angle) >= COMPACT_NADIR_ONLY_ANGLE_DEG
 
 
 def _qvec_to_rotmat(qw: float, qx: float, qy: float, qz: float) -> tuple[tuple[float, float, float], tuple[float, float, float], tuple[float, float, float]]:
@@ -293,12 +290,9 @@ def build_preset(ctx: ModeContext) -> PresetResult:
         heading_consistency = 0.5
 
     angle_samples = _collect_colmap_pitch_angles(ctx.colmap_dir, limit=COMPACT_COLMAP_ANGLE_SAMPLE_LIMIT)
-    coarse_buckets = ["nadir" if _angle_bucket_from_pitch(angle) == "nadir" else "oblique" for angle in angle_samples]
-    if not coarse_buckets:
+    if not angle_samples:
         camera_angle_bucket = 0
-    elif len(set(coarse_buckets)) > 1:
-        camera_angle_bucket = 3
-    elif coarse_buckets[0] == "nadir":
+    elif all(_is_near_nadir_pitch(angle) for angle in angle_samples):
         camera_angle_bucket = 1
     else:
         camera_angle_bucket = 2

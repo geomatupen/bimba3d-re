@@ -258,11 +258,12 @@ async def start_exif_extraction_test(pipeline_id: str):
                                     "reason": None
                                 }
 
-                            # Compact scene descriptor: camera_angle_bucket depends on pitch.
+                            # Compact scene descriptor: camera_angle_bucket depends on SfM camera orientation.
                             if "camera_angle_bucket" in features:
                                 dependencies["camera_angle_bucket"] = {
                                     "type": "derived",
-                                    "depends_on": ["Pitch", "CameraElevationAngle", "GimbalPitchDegree"],
+                                    "formula": "SfM angle bucket: 0=no samples, 1=nadir/near-nadir only, 2=oblique or mixed",
+                                    "depends_on": ["SfM/COLMAP camera orientations"],
                                     "defaulted": False
                                 }
 

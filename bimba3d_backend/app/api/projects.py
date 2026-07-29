@@ -179,7 +179,8 @@ def _infer_feature_dependencies(features: dict[str, Any]) -> dict[str, dict[str,
     if "camera_angle_bucket" in features:
         deps["camera_angle_bucket"] = {
             "type": "derived",
-            "depends_on": ["Pitch", "GimbalPitchDegree"],
+            "formula": "SfM angle bucket: 0=no samples, 1=nadir/near-nadir only, 2=oblique or mixed",
+            "depends_on": ["SfM/COLMAP camera orientations"],
             "defaulted": False,
         }
 

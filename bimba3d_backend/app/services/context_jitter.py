@@ -18,7 +18,7 @@ FEATURE_BOUNDS = {
     "gsd_median": (0.001, 0.5),
     "overlap_proxy": (0.0, 1.0),
     "coverage_spread": (0.0, 1.0),
-    "camera_angle_bucket": (0, 3),  # Discrete: {0, 1, 2, 3}
+    "camera_angle_bucket": (0, 2),  # Discrete: {0, 1, 2}
     "heading_consistency": (0.0, 1.0),
 
     # External features
@@ -76,7 +76,7 @@ def apply_context_jitter(features: dict[str, Any], jitter_mode: str = "uniform")
         if jitter_mode == "uniform":
             # Sample uniformly from valid bounds
             if key == "camera_angle_bucket":
-                # Discrete values: randomly choose from {0, 1, 2, 3}
+                # Discrete values: randomly choose from {0, 1, 2}
                 jittered[key] = random.randint(int(min_val), int(max_val))
             else:
                 # Continuous values: uniform sampling

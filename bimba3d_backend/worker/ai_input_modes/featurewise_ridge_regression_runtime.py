@@ -74,7 +74,7 @@ def normalize_context_mode(mode: str) -> str:
 #   gsd_norm:                gsd_median / 0.5
 #   overlap_proxy:           [0-1] as-is
 #   coverage_spread:         [0-1] as-is
-#   camera_angle_bucket:     bucket / 3.0
+#   camera_angle_bucket:     legacy bucket / 3.0 scaling
 #   heading_consistency:     [0-1] as-is
 #   texture_density:         [0-1] as-is
 #   blur_motion_risk:        [0-1] as-is
@@ -300,7 +300,7 @@ def build_context_vector(features: dict[str, Any], mode: str) -> np.ndarray:
     x.append(features.get("coverage_spread", 0.5))
 
     angle_bucket = features.get("camera_angle_bucket", 0)
-    x.append(float(angle_bucket) / 3.0)     # {0,1,2,3} â†’ [0, 0.33, 0.67, 1.0]
+    x.append(float(angle_bucket) / 3.0)     # {0,1,2}; legacy divisor retained for model compatibility
 
     x.append(features.get("heading_consistency", 0.5))
 
@@ -324,7 +324,7 @@ def _build_compact_vector(features: dict[str, Any]) -> np.ndarray:
       [3]  gsd_norm            â€” ground sampling distance
       [4]  overlap_proxy       â€” frame overlap [0-1]
       [5]  coverage_spread     â€” geographic extent [0-1]
-      [6]  camera_angle_bucket â€” {0,1,2,3} normalised to [0,1]
+      [6]  camera_angle_bucket â€” {0,1,2}; legacy divisor retained for model compatibility
       [7]  heading_consistency â€” flight path regularity [0-1]
       [8]  texture_density     â€” image texture richness [0-1]
       [9]  blur_motion_risk    â€” motion blur risk [0-1]
