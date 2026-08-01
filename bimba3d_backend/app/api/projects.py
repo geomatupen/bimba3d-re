@@ -3482,6 +3482,8 @@ def process_project(project_id: str, params: ProcessParams | None = Body(None)):
         params_payload.setdefault("best_splat_interval", 100)
         params_payload.setdefault("best_splat_start_step", 2000)
         params_payload.setdefault("save_best_splat", True)
+        params_payload.setdefault("replace_eval_images", True)
+        params_payload.setdefault("replace_checkpoints", True)
         params_payload.setdefault("auto_early_stop", False)
         params_payload.setdefault("early_stop_monitor_interval", 200)
         params_payload.setdefault("early_stop_decision_points", 10)

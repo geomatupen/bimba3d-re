@@ -146,6 +146,8 @@ class ProcessParams(BaseModel):
     best_splat_start_step: Optional[int] = None  # [custom]
     save_best_splat: Optional[bool] = None  # [custom]
     png_export_interval: Optional[int] = None  # [original]
+    replace_eval_images: Optional[bool] = None  # [custom]
+    replace_checkpoints: Optional[bool] = None  # [custom]
     # --- CUSTOM PARAMETERS ---
     auto_early_stop: Optional[bool] = None  # [custom]
     early_stop_monitor_interval: Optional[int] = None  # [custom]

@@ -140,6 +140,8 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  const cfgSplatExportInterval = typeof cfgLegacy["splat_export_interval"] === "number" ? cfgLegacy["splat_export_interval"] : undefined;
  const cfgBestSplatInterval = typeof cfgLegacy["best_splat_interval"] === "number" ? cfgLegacy["best_splat_interval"] : undefined;
  const cfgSaveBestSplat = typeof cfgLegacy["save_best_splat"] === "boolean" ? cfgLegacy["save_best_splat"] : undefined;
+ const cfgReplaceEvalImages = typeof cfgLegacy["replace_eval_images"] === "boolean" ? cfgLegacy["replace_eval_images"] : undefined;
+ const cfgReplaceCheckpoints = typeof cfgLegacy["replace_checkpoints"] === "boolean" ? cfgLegacy["replace_checkpoints"] : undefined;
  const cfgBestSplatStartStep = typeof cfgLegacy["best_splat_start_step"] === "number" ? cfgLegacy["best_splat_start_step"] : undefined;
  const cfgSaveInterval = typeof cfgLegacy["save_interval"] === "number" ? cfgLegacy["save_interval"] : undefined;
  const [mode, setMode] = useState<"baseline" | "modified">(cfg.mode ?? "baseline");
@@ -180,6 +182,8 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  const [splatInterval, setSplatInterval] = useState<number>(cfgSplatExportInterval ?? cfg.splatInterval ?? 31000);
  const [bestSplatInterval, setBestSplatInterval] = useState<number>(cfgBestSplatInterval ?? cfg.bestSplatInterval ?? 100);
  const [saveBestSplat, setSaveBestSplat] = useState<boolean>(cfgSaveBestSplat ?? cfg.saveBestSplat ?? true);
+ const [replaceEvalImages, setReplaceEvalImages] = useState<boolean>(cfgReplaceEvalImages ?? cfg.replaceEvalImages ?? true);
+ const [replaceCheckpoints, setReplaceCheckpoints] = useState<boolean>(cfgReplaceCheckpoints ?? cfg.replaceCheckpoints ?? true);
  const [bestSplatStartStep, setBestSplatStartStep] = useState<number>(cfgBestSplatStartStep ?? cfg.bestSplatStartStep ?? 2000);
  const [pngInterval, setPngInterval] = useState<number>(cfg.pngInterval ?? 50);
  const [evalInterval, setEvalInterval] = useState<number>(cfgEvalInterval ?? cfg.evalInterval ?? 1000);
@@ -340,6 +344,8 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  splatInterval: 'How often (in steps) to export intermediate .splat/.ply files during training. [original]',
  bestSplatInterval: 'How often (in steps) to evaluate and update best.splat using measured training loss. Final export cadence remains controlled by Splat export interval. [custom]',
  bestSplatStartStep: 'First step where best.splat tracking becomes active. Use this to skip expensive best-splat checks early in training. [custom]',
+ replaceEvalImages: 'Keep only the latest eval preview/render images for this project run. This saves disk space and does not change pipeline settings. [custom]',
+ replaceCheckpoints: 'Keep only the latest checkpoint for this project run. This saves disk space and does not change pipeline settings. [custom]',
  pngInterval: 'Deprecated for gsplat: previews are generated on eval steps. Use eval interval to control preview cadence.',
  evalInterval: 'How often to run eval cycles + metrics collection. Preview images are generated on each eval step. This value is configurable from frontend in both modes. [original]',
  saveInterval: 'Checkpoint frequency for gsplat. This value is configurable from frontend. [original]',
@@ -496,6 +502,8 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
 
  const applyTrainingDefaults = (defaults: ReturnType<typeof getDefaultProcessConfig>) => {
  setSaveBestSplat(typeof defaults.saveBestSplat === "boolean" ? defaults.saveBestSplat : true);
+ setReplaceEvalImages(typeof defaults.replaceEvalImages === "boolean" ? defaults.replaceEvalImages : true);
+ setReplaceCheckpoints(typeof defaults.replaceCheckpoints === "boolean" ? defaults.replaceCheckpoints : true);
  setMode(defaults.mode ?? "baseline");
  setTuneStartStep(defaults.tune_start_step ?? 100);
  setTuneMinImprovement(defaults.tune_min_improvement ?? 0.005);
@@ -604,6 +612,10 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  if (typeof resolved.best_splat_start_step === "number") setBestSplatStartStep(resolved.best_splat_start_step);
  if (typeof resolved.save_best_splat === "boolean") setSaveBestSplat(resolved.save_best_splat);
  else if (typeof resolved.saveBestSplat === "boolean") setSaveBestSplat(resolved.saveBestSplat);
+ if (typeof resolved.replace_eval_images === "boolean") setReplaceEvalImages(resolved.replace_eval_images);
+ else if (typeof resolved.replaceEvalImages === "boolean") setReplaceEvalImages(resolved.replaceEvalImages);
+ if (typeof resolved.replace_checkpoints === "boolean") setReplaceCheckpoints(resolved.replace_checkpoints);
+ else if (typeof resolved.replaceCheckpoints === "boolean") setReplaceCheckpoints(resolved.replaceCheckpoints);
  if (typeof resolved.eval_interval === "number") setEvalInterval(resolved.eval_interval);
  if (typeof resolved.save_interval === "number") setSaveInterval(resolved.save_interval);
  if (typeof resolved.densify_from_iter === "number") setDensifyFromIter(resolved.densify_from_iter);
@@ -659,6 +671,8 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  if (typeof normalized.splat_export_interval !== "number" && typeof raw.splatInterval === "number") normalized.splat_export_interval = raw.splatInterval;
  if (typeof normalized.best_splat_interval !== "number" && typeof raw.bestSplatInterval === "number") normalized.best_splat_interval = raw.bestSplatInterval;
  if (typeof normalized.best_splat_start_step !== "number" && typeof raw.bestSplatStartStep === "number") normalized.best_splat_start_step = raw.bestSplatStartStep;
+ if (typeof normalized.replace_eval_images !== "boolean" && typeof raw.replaceEvalImages === "boolean") normalized.replace_eval_images = raw.replaceEvalImages;
+ if (typeof normalized.replace_checkpoints !== "boolean" && typeof raw.replaceCheckpoints === "boolean") normalized.replace_checkpoints = raw.replaceCheckpoints;
  if (typeof normalized.eval_interval !== "number" && typeof raw.evalInterval === "number") normalized.eval_interval = raw.evalInterval;
  if (typeof normalized.save_interval !== "number" && typeof raw.saveInterval === "number") normalized.save_interval = raw.saveInterval;
  if (typeof normalized.densify_from_iter !== "number" && typeof raw.densifyFromIter === "number") normalized.densify_from_iter = raw.densifyFromIter;
@@ -725,6 +739,8 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  best_splat_interval: bestSplatInterval,
  best_splat_start_step: bestSplatStartStep,
  save_best_splat: saveBestSplat,
+ replace_eval_images: replaceEvalImages,
+ replace_checkpoints: replaceCheckpoints,
  png_export_interval: pngInterval,
  eval_interval: evalInterval,
  save_interval: saveInterval,
@@ -738,7 +754,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  lambda_dssim: lambdaDssim,
  };
  localStorage.setItem(getTrainingConfigStorageKey(selectedRunId), JSON.stringify(config));
- }, [mode, tuneStartStep, tuneMinImprovement, tuneEndStep, tuneInterval, tuneScope, trendScope, aiInputMode, baselineSessionIdForAi, warmupAtStart, runCount, runJitterMode, runJitterFactor, runJitterMin, runJitterMax, continueOnFailure, sessionExecutionMode, startModelMode, projectModelName, sourceModelId, engine, shouldUpdateTrainingData, trainingDataTargetId, maxSteps, logInterval, splatInterval, bestSplatInterval, bestSplatStartStep, saveBestSplat, pngInterval, evalInterval, saveInterval, sparsePreference, sparseMergeSelection, densifyFromIter, densifyUntilIter, densificationInterval, densifyGradThreshold, opacityThreshold, lambdaDssim, selectedRunId, getTrainingConfigStorageKey]);
+ }, [mode, tuneStartStep, tuneMinImprovement, tuneEndStep, tuneInterval, tuneScope, trendScope, aiInputMode, baselineSessionIdForAi, warmupAtStart, runCount, runJitterMode, runJitterFactor, runJitterMin, runJitterMax, continueOnFailure, sessionExecutionMode, startModelMode, projectModelName, sourceModelId, engine, shouldUpdateTrainingData, trainingDataTargetId, maxSteps, logInterval, splatInterval, bestSplatInterval, bestSplatStartStep, saveBestSplat, replaceEvalImages, replaceCheckpoints, pngInterval, evalInterval, saveInterval, sparsePreference, sparseMergeSelection, densifyFromIter, densifyUntilIter, densificationInterval, densifyGradThreshold, opacityThreshold, lambdaDssim, selectedRunId, getTrainingConfigStorageKey]);
 
  useEffect(() => {
  let cancelled = false;
@@ -2442,6 +2458,8 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  best_splat_interval: bestSplatInterval,
  best_splat_start_step: bestSplatStartStep,
  save_best_splat: saveBestSplat,
+ replace_eval_images: replaceEvalImages,
+ replace_checkpoints: replaceCheckpoints,
  png_export_interval: evalInterval,
  eval_interval: evalInterval,
  save_interval: saveInterval,
@@ -2599,6 +2617,8 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  best_splat_interval: bestSplatInterval,
  best_splat_start_step: bestSplatStartStep,
  save_best_splat: saveBestSplat,
+ replace_eval_images: replaceEvalImages,
+ replace_checkpoints: replaceCheckpoints,
  png_export_interval: evalInterval,
  eval_interval: evalInterval,
  save_interval: saveInterval,
@@ -2731,6 +2751,8 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  best_splat_interval: bestSplatInterval,
  best_splat_start_step: bestSplatStartStep,
  save_best_splat: saveBestSplat,
+ replace_eval_images: replaceEvalImages,
+ replace_checkpoints: replaceCheckpoints,
  png_export_interval: evalInterval,
  eval_interval: evalInterval,
  save_interval: saveInterval,
@@ -2779,6 +2801,8 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  best_splat_interval: bestSplatInterval,
  best_splat_start_step: bestSplatStartStep,
  save_best_splat: saveBestSplat,
+ replace_eval_images: replaceEvalImages,
+ replace_checkpoints: replaceCheckpoints,
  png_export_interval: pngInterval,
  eval_interval: evalInterval,
  save_interval: saveInterval,
@@ -2960,6 +2984,8 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  best_splat_interval: defaults.bestSplatInterval,
  best_splat_start_step: defaults.bestSplatStartStep,
  save_best_splat: defaults.saveBestSplat,
+ replace_eval_images: defaults.replaceEvalImages,
+ replace_checkpoints: defaults.replaceCheckpoints,
  png_export_interval: defaults.evalInterval,
  eval_interval: defaults.evalInterval,
  save_interval: defaults.saveInterval,
@@ -5265,6 +5291,30 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  step={50}
  />
  </div>
+ <label className="flex items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-medium text-slate-700">
+ <span className="inline-flex items-center gap-1">
+ Replace previews
+ <button type="button" onClick={() => setSelectedInfoKey("replaceEvalImages")} className="p-1 text-slate-400 hover:text-slate-600"><Info /></button>
+ </span>
+ <input
+ type="checkbox"
+ checked={replaceEvalImages}
+ onChange={(e) => setReplaceEvalImages(e.target.checked)}
+ className="h-4 w-4"
+ />
+ </label>
+ <label className="flex items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-medium text-slate-700">
+ <span className="inline-flex items-center gap-1">
+ Replace checkpoints
+ <button type="button" onClick={() => setSelectedInfoKey("replaceCheckpoints")} className="p-1 text-slate-400 hover:text-slate-600"><Info /></button>
+ </span>
+ <input
+ type="checkbox"
+ checked={replaceCheckpoints}
+ onChange={(e) => setReplaceCheckpoints(e.target.checked)}
+ className="h-4 w-4"
+ />
+ </label>
  <div className="flex items-center justify-between">
  <label className="flex items-center gap-1 text-[11px] font-medium text-slate-600 mb-0.5">
  <span>Save best splat</span>

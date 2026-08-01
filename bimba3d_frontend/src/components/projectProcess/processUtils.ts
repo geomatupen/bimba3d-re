@@ -185,6 +185,8 @@ export const getDefaultProcessConfig = () => ({
   bestSplatInterval: 100,
   bestSplatStartStep: 2000,
   saveBestSplat: true,
+  replaceEvalImages: true,
+  replaceCheckpoints: true,
   pngInterval: 50,
   evalInterval: 1000,
   saveInterval: 31000,
