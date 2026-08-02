@@ -295,9 +295,9 @@ export default function Dashboard({ view = "home" }: DashboardProps) {
             <div>
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 backdrop-blur-sm">
                 <Activity className="h-3 w-3 text-white" />
-                <span className="text-xs font-medium uppercase tracking-wider text-white">Gaussian Splatting Platform</span>
+                <span className="text-xs font-medium uppercase tracking-wider text-white">Research Gaussian Splatting Platform</span>
               </div>
-              <h1 className="mb-2 text-3xl font-bold tracking-tight text-white lg:text-4xl">Bimba3d</h1>
+              <h1 className="mb-2 text-3xl font-bold tracking-tight text-white lg:text-4xl">Bimba3D-re</h1>
               <p className="max-w-2xl text-base text-blue-100">
                 Professional 3D reconstruction pipeline. Upload images, train Gaussian splats, and visualize results in real-time.
               </p>
