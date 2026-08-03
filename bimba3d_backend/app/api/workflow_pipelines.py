@@ -63,6 +63,10 @@ class SaveFixedLogSpacePreviewRequest(BaseModel):
     schedule: dict[str, Any] = Field(default_factory=dict)
 
 
+class RenameWorkflowPipelineRequest(BaseModel):
+    name: str
+
+
 @router.get("", response_model=WorkflowPipelineListResponse)
 def list_workflow_pipelines(
     limit: int = Query(default=100, ge=1, le=1000),
@@ -134,6 +138,29 @@ def get_workflow_pipeline(pipeline_id: str) -> dict[str, Any]:
         return workflow_pipeline_service.get_workflow_pipeline(pipeline_id)
     except FileNotFoundError as exc:
         raise _not_found(pipeline_id, exc) from exc
+
+
+@router.patch("/{pipeline_id}")
+def rename_workflow_pipeline(
+    pipeline_id: str,
+    request: RenameWorkflowPipelineRequest,
+) -> dict[str, Any]:
+    try:
+        return workflow_pipeline_service.rename_workflow_pipeline(pipeline_id, request.name)
+    except FileNotFoundError as exc:
+        raise _not_found(pipeline_id, exc) from exc
+    except ValueError as exc:
+        raise _invalid_action(pipeline_id, exc) from exc
+
+
+@router.delete("/{pipeline_id}")
+def delete_workflow_pipeline(pipeline_id: str) -> dict[str, Any]:
+    try:
+        return workflow_pipeline_service.delete_workflow_pipeline(pipeline_id)
+    except FileNotFoundError as exc:
+        raise _not_found(pipeline_id, exc) from exc
+    except ValueError as exc:
+        raise _invalid_action(pipeline_id, exc) from exc
 
 
 @router.put("/{pipeline_id}/config")

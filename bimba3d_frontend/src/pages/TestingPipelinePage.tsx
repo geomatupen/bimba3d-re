@@ -91,6 +91,7 @@ export default function TestingPipelinePage() {
             detailBasePath="/testing-pipeline/pipelines"
             emptyMessage="No testing pipelines found yet."
             loading={loading}
+            onChanged={loadPipelines}
             pipelines={testingPipelines}
             tone="amber"
           />

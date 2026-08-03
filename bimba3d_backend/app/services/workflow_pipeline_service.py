@@ -49,6 +49,42 @@ def get_workflow_pipeline(pipeline_id: str) -> dict[str, Any]:
     return normalise_pipeline_detail(pipeline)
 
 
+def rename_workflow_pipeline(pipeline_id: str, name: str) -> dict[str, Any]:
+    pipeline = training_pipeline_storage.get_pipeline(pipeline_id)
+    if not pipeline:
+        raise FileNotFoundError("Pipeline not found")
+
+    next_name = str(name or "").strip()
+    if not next_name:
+        raise ValueError("Pipeline name is required.")
+
+    config = dict(pipeline.get("config") or {}) if isinstance(pipeline.get("config"), dict) else {}
+    config["name"] = next_name
+    updated = training_pipeline_storage.update_pipeline(
+        pipeline_id,
+        {
+            "name": next_name,
+            "config": config,
+        },
+    )
+    if not updated:
+        raise FileNotFoundError("Pipeline not found after rename.")
+    return {"success": True, "pipeline": normalise_pipeline_summary(updated)}
+
+
+def delete_workflow_pipeline(pipeline_id: str) -> dict[str, Any]:
+    pipeline = training_pipeline_storage.get_pipeline(pipeline_id)
+    if not pipeline:
+        raise FileNotFoundError("Pipeline not found")
+    if str(pipeline.get("status") or "").lower() == "running":
+        raise ValueError("Cannot delete a running pipeline. Stop it first.")
+
+    deleted = training_pipeline_storage.delete_pipeline(pipeline_id)
+    if not deleted:
+        raise FileNotFoundError("Pipeline not found.")
+    return {"success": True, "pipeline_id": pipeline_id}
+
+
 def get_learning_rows(pipeline_id: str, *, include_hard_cap: bool = False) -> dict[str, Any]:
     return pipeline_learning_rows.collect_pipeline_learning_rows(
         pipeline_id,

@@ -1,5 +1,8 @@
-﻿import { ExternalLink, Workflow } from "lucide-react";
+﻿import { Workflow } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { api } from "../../api/client";
 
 export interface WorkflowPipeline {
   id: string;
@@ -27,6 +30,7 @@ interface PipelineSummaryListProps {
   detailBasePath?: string;
   emptyMessage: string;
   loading: boolean;
+  onChanged?: () => void;
   pipelines: WorkflowPipeline[];
   tone: "blue" | "amber";
   showStageLabel?: boolean;
@@ -101,11 +105,97 @@ export default function PipelineSummaryList({
   detailBasePath = "/workflow/pipelines",
   emptyMessage,
   loading,
+  onChanged,
   pipelines,
   tone,
   showStageLabel = false,
 }: PipelineSummaryListProps) {
   const navigate = useNavigate();
+  const [openMenuPipelineId, setOpenMenuPipelineId] = useState<string | null>(null);
+  const [busyPipelineId, setBusyPipelineId] = useState<string | null>(null);
+  const [pipelineToRename, setPipelineToRename] = useState<WorkflowPipeline | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [pipelineToDelete, setPipelineToDelete] = useState<WorkflowPipeline | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!openMenuPipelineId) return;
+    const close = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest(`[data-pipeline-menu-root="${CSS.escape(openMenuPipelineId)}"]`)) return;
+      setOpenMenuPipelineId(null);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [openMenuPipelineId]);
+
+  const getActionErrorMessage = (err: any, fallback: string) => {
+    const detail = err.response?.data?.detail;
+    if (typeof detail === "string") return detail;
+    if (typeof detail?.message === "string") return detail.message;
+    return fallback;
+  };
+
+  const openRenameModal = (pipeline: WorkflowPipeline) => {
+    setActionError(null);
+    setRenameDraft(pipeline.name);
+    setPipelineToRename(pipeline);
+  };
+
+  const openDeleteModal = (pipeline: WorkflowPipeline) => {
+    setActionError(null);
+    setPipelineToDelete(pipeline);
+  };
+
+  const closeActionModal = () => {
+    if (busyPipelineId) return;
+    setActionError(null);
+    setPipelineToRename(null);
+    setRenameDraft("");
+    setPipelineToDelete(null);
+  };
+
+  const confirmRenamePipeline = async () => {
+    if (!pipelineToRename) return;
+    const cleanName = renameDraft.trim();
+    if (!cleanName) {
+      setActionError("Pipeline name is required.");
+      return;
+    }
+    if (cleanName === pipelineToRename.name) {
+      closeActionModal();
+      return;
+    }
+
+    setBusyPipelineId(pipelineToRename.id);
+    setActionError(null);
+    try {
+      await api.patch(`/api/workflow/pipelines/${encodeURIComponent(pipelineToRename.id)}`, { name: cleanName });
+      setPipelineToRename(null);
+      setRenameDraft("");
+      onChanged?.();
+    } catch (err: any) {
+      setActionError(getActionErrorMessage(err, "Failed to rename pipeline."));
+    } finally {
+      setBusyPipelineId(null);
+    }
+  };
+
+  const confirmDeletePipeline = async () => {
+    if (!pipelineToDelete) return;
+
+    setBusyPipelineId(pipelineToDelete.id);
+    setActionError(null);
+    try {
+      await api.delete(`/api/workflow/pipelines/${encodeURIComponent(pipelineToDelete.id)}`);
+      setPipelineToDelete(null);
+      onChanged?.();
+    } catch (err: any) {
+      setActionError(getActionErrorMessage(err, "Failed to delete pipeline."));
+    } finally {
+      setBusyPipelineId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -124,6 +214,7 @@ export default function PipelineSummaryList({
   }
 
   return (
+    <>
     <div className="space-y-3">
       {pipelines.map((pipeline) => {
         const completion =
@@ -148,9 +239,54 @@ export default function PipelineSummaryList({
           <div
             key={pipeline.id}
             onClick={() => navigate(`${detailBasePath}/${pipeline.id}`)}
-            className="group relative block cursor-pointer overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm transition-all duration-300 hover:border-blue-400 hover:shadow-lg"
+            className="group relative block cursor-pointer overflow-visible rounded-xl border border-slate-300 bg-white shadow-sm transition-all duration-300 hover:border-blue-400 hover:shadow-lg"
           >
-            <div className="flex items-center gap-3 p-3">
+            <div className="absolute right-3 top-3 z-20" data-pipeline-menu-root={pipeline.id}>
+              <button
+                type="button"
+                disabled={busyPipelineId === pipeline.id}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setOpenMenuPipelineId((current) => current === pipeline.id ? null : pipeline.id);
+                }}
+                className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-60"
+                title="Pipeline actions"
+                aria-label={`Open actions for ${pipeline.name}`}
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+              {openMenuPipelineId === pipeline.id && (
+                <div
+                  className="absolute right-0 mt-2 w-36 rounded-lg border border-slate-200 bg-white shadow-lg z-30"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpenMenuPipelineId(null);
+                      openRenameModal(pipeline);
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Rename
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpenMenuPipelineId(null);
+                      openDeleteModal(pipeline);
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 p-3 pr-14">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-md transition-transform duration-300 group-hover:scale-105">
                 <Workflow className="h-6 w-6" />
               </div>
@@ -166,11 +302,10 @@ export default function PipelineSummaryList({
                     </h3>
                     <p className="text-xs text-slate-500">{timingText}</p>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 pr-8">
                     <span className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold ${statusClasses(pipeline.status)}`}>
                       {pipeline.status}
                     </span>
-                    <ExternalLink className="h-4 w-4 text-slate-400 group-hover:text-blue-600" />
                   </div>
                 </div>
 
@@ -225,6 +360,106 @@ export default function PipelineSummaryList({
         );
       })}
     </div>
+    {(pipelineToRename || pipelineToDelete) && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) closeActionModal();
+        }}
+      >
+        <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-2xl">
+          {pipelineToRename && (
+            <form
+              className="space-y-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void confirmRenamePipeline();
+              }}
+            >
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Rename Pipeline</h3>
+                <p className="mt-1 text-sm text-slate-500">Update the display name for this workflow pipeline.</p>
+              </div>
+
+              <label className="block text-sm font-semibold text-slate-700">
+                Pipeline name
+                <input
+                  autoFocus
+                  value={renameDraft}
+                  onChange={(event) => setRenameDraft(event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  disabled={busyPipelineId === pipelineToRename.id}
+                />
+              </label>
+
+              {actionError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {actionError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={closeActionModal}
+                  disabled={busyPipelineId === pipelineToRename.id}
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={busyPipelineId === pipelineToRename.id}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {busyPipelineId === pipelineToRename.id ? "Renaming..." : "Rename"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {pipelineToDelete && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Delete Pipeline</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Delete <span className="font-semibold text-slate-800">{pipelineToDelete.name}</span>? This removes the pipeline record and its pipeline folder.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                This action cannot be undone.
+              </div>
+
+              {actionError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {actionError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={closeActionModal}
+                  disabled={busyPipelineId === pipelineToDelete.id}
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void confirmDeletePipeline()}
+                  disabled={busyPipelineId === pipelineToDelete.id}
+                  className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
+                >
+                  {busyPipelineId === pipelineToDelete.id ? "Deleting..." : "Delete Pipeline"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+    </>
   );
 }
-

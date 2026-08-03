@@ -92,6 +92,7 @@ export default function OfflineDataPreparationPage() {
             detailBasePath="/offline-data-preparation/pipelines"
             emptyMessage="No offline preparation pipelines found yet."
             loading={loading}
+            onChanged={loadPipelines}
             pipelines={preparationPipelines}
             tone="blue"
           />
