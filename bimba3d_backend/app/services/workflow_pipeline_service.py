@@ -79,7 +79,10 @@ def delete_workflow_pipeline(pipeline_id: str) -> dict[str, Any]:
     if str(pipeline.get("status") or "").lower() == "running":
         raise ValueError("Cannot delete a running pipeline. Stop it first.")
 
-    deleted = training_pipeline_storage.delete_pipeline(pipeline_id)
+    try:
+        deleted = training_pipeline_storage.delete_pipeline(pipeline_id)
+    except OSError as exc:
+        raise ValueError(f"Failed to delete the pipeline folder: {exc}") from exc
     if not deleted:
         raise FileNotFoundError("Pipeline not found.")
     return {"success": True, "pipeline_id": pipeline_id}

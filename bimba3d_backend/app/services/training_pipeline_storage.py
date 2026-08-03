@@ -423,51 +423,57 @@ def delete_pipeline(pipeline_id: str) -> bool:
     if not pipeline:
         return False
 
-    # Read pipeline config to get folder path
-    try:
-        pipeline_folder = pipeline.get("config", {}).get("pipeline_folder")
+    pipeline_folder = pipeline.get("config", {}).get("pipeline_folder")
+    folder_path = Path(pipeline_folder) if pipeline_folder else None
 
-        # Delete the pipeline folder if it exists
-        if pipeline_folder:
-            folder_path = Path(pipeline_folder)
-            if folder_path.exists():
+    # Clean project links before removing the pipeline folder, while project
+    # config files are still available for resolving their UUID directories.
+    if folder_path and "projects" in pipeline.get("config", {}):
+        for project in pipeline["config"]["projects"]:
+            project_name = project.get("name")
+            if not project_name:
+                continue
+            candidates = [
+                folder_path / str(project_name).replace(" ", "_"),
+                folder_path / str(project_name),
+            ]
+            for project_dir in candidates:
+                config_file = project_dir / "config.json"
+                if not config_file.exists():
+                    continue
                 try:
-                    shutil.rmtree(folder_path)
-                    logger.info(f"Deleted pipeline folder: {folder_path}")
+                    with open(config_file, "r", encoding="utf-8-sig") as f:
+                        proj_config = json.load(f)
+                    project_id = proj_config.get("id") or proj_config.get("project_id")
+                    if project_id:
+                        _delete_project_link(DATA_DIR / str(project_id), logger)
                 except Exception as e:
-                    logger.error(f"Failed to delete pipeline folder {folder_path}: {e}")
+                    logger.warning(f"Failed to clean up project link for {project_name}: {e}")
+                break
 
-        # Also clean up any symlinks in DATA_DIR for pipeline projects
-        if "projects" in pipeline.get("config", {}):
-            for project in pipeline["config"]["projects"]:
-                project_name = project.get("name")
-                if project_name:
-                    project_dir = Path(pipeline_folder) / project_name if pipeline_folder else None
-                    if project_dir and project_dir.exists():
-                        # Read project config to get UUID
-                        config_file = project_dir / "config.json"
-                        if config_file.exists():
-                            try:
-                                with open(config_file, "r") as f:
-                                    proj_config = json.load(f)
-                                project_id = proj_config.get("id")
-                                if project_id:
-                                    # Remove symlink in DATA_DIR
-                                    symlink = DATA_DIR / project_id
-                                    if symlink.exists():
-                                        try:
-                                            symlink.unlink()
-                                            logger.info(f"Deleted project symlink: {symlink}")
-                                        except Exception as e:
-                                            logger.warning(f"Failed to delete symlink {symlink}: {e}")
-                            except Exception as e:
-                                logger.warning(f"Failed to clean up symlinks for project {project_name}: {e}")
-
-    except Exception as e:
-        logger.error(f"Failed to read pipeline config during deletion: {e}")
+    if folder_path and folder_path.exists():
+        try:
+            shutil.rmtree(folder_path)
+            logger.info(f"Deleted pipeline folder: {folder_path}")
+        except Exception as e:
+            logger.error(f"Failed to delete pipeline folder {folder_path}: {e}")
+            raise
 
     # Delete the pipeline metadata JSON
     if path.exists():
         path.unlink()
     return True
+
+
+def _delete_project_link(path: Path, logger: Any) -> None:
+    if not path.exists():
+        return
+    try:
+        if path.is_symlink() or path.is_file():
+            path.unlink()
+        elif path.is_dir():
+            path.rmdir()
+        logger.info(f"Deleted project link: {path}")
+    except OSError as exc:
+        logger.warning(f"Failed to delete project link {path}: {exc}")
 
