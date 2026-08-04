@@ -318,7 +318,7 @@ The thesis work was carried out with academic support from the Department of Geo
       <img src="bimba3d_frontend/src/assets/logos/eu_co_funded_horizontal.png" alt="Co-funded by the European Union" width="200">
     </td>
     <td align="center" valign="middle" bgcolor="#ffffff" width="120" height="96">
-      <img src="bimba3d_frontend/src/assets/logos/cde_logo_vertical.png" alt="Copernicus Master in Digital Earth" width="92">
+      <img src="bimba3d_frontend/src/assets/logos/cde_logo_vertical.png" alt="Copernicus Master in Digital Earth" width="108">
     </td>
     <td align="center" valign="middle" bgcolor="#1b4965" width="150" height="96">
       <img src="bimba3d_frontend/src/assets/logos/plus_logo_white.png" alt="Paris Lodron University Salzburg" width="120">
