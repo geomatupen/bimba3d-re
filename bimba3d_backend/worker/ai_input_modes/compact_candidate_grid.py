@@ -32,7 +32,7 @@ def normalise_candidate_pairing_mode(value: Any) -> str:
         "full_combination": PAIRING_FULL_COMBINATION,
         "full_combination_grid": PAIRING_FULL_COMBINATION,
     }
-    return aliases.get(mode, PAIRING_LATIN_HYPERCUBE)
+    return aliases.get(mode, PAIRING_FULL_COMBINATION)
 
 
 def build_candidate_combinations(

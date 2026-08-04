@@ -208,7 +208,7 @@ def _normalise_test_candidate_pairing_mode(value: Any) -> str:
         "full_combination": "full_combination_grid",
         "full_combination_grid": "full_combination_grid",
     }
-    return aliases.get(mode, "latin_hypercube_style_candidate_grid")
+    return aliases.get(mode, "full_combination_grid")
 
 
 def _log_interval_values(rng: random.Random, count: int, low: float, high: float) -> list[float]:

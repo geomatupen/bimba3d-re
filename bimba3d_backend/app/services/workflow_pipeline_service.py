@@ -1080,7 +1080,7 @@ def _normalise_test_candidate_pairing_mode(value: Any) -> str:
         "full_combination": "full_combination_grid",
         "full_combination_grid": "full_combination_grid",
     }
-    return aliases.get(mode, "latin_hypercube_style_candidate_grid")
+    return aliases.get(mode, "full_combination_grid")
 
 
 def _calculate_total_runs(config: dict[str, Any]) -> int:

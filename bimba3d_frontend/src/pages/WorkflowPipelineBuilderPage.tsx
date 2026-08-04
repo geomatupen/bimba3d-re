@@ -93,7 +93,7 @@ export default function WorkflowPipelineBuilderPage() {
  const [pipelineType, setPipelineType] = useState<"offline_data" | "test">(lockedPipelineType || "offline_data");
  const [sourceModelIds, setSourceModelIds] = useState<string[]>([]);
  const [availableModels, setAvailableModels] = useState<any[]>([]);
- const [testCandidatePairingMode, setTestCandidatePairingMode] = useState<TestCandidatePairingMode>("latin_hypercube_style_candidate_grid");
+ const [testCandidatePairingMode, setTestCandidatePairingMode] = useState<TestCandidatePairingMode>("full_combination_grid");
 
  // Step 2: Shared Configuration
  const [aiInputMode] = useState("exif_compact_featurewise");

@@ -577,7 +577,9 @@ export default function PipelineLogSpaceValuesPanel({ pipeline, predictionRows =
   const candidateGeneration = displayConfig.test_candidate_generation;
   const candidatePairingMode = displayConfig.test_candidate_pairing_mode === "full_combination_grid"
     ? "full_combination_grid"
-    : "latin_hypercube_style_candidate_grid";
+    : displayConfig.test_candidate_pairing_mode === "latin_hypercube_style_candidate_grid"
+      ? "latin_hypercube_style_candidate_grid"
+      : "full_combination_grid";
   const generatedAt = displayConfig.fixed_log_space_generated_at;
   const boundsSource = displayConfig.fixed_log_space_bounds_source;
   const usingFallbackBounds = boundsSource === "default_bounds_fallback";
