@@ -44,6 +44,10 @@ If `colmap` is not on `PATH`, set `COLMAP_EXE` to the full executable or `.bat` 
 ## Research Outputs
 Large generated research outputs are kept outside this code repository to keep clone size small. The output archive contains final model artifacts, selected training data snapshots, test-pipeline result snapshots, metric tables, and preview images used for thesis/report analysis.
 
+## Project Links
+- Thesis website: [geoinformatics.upol.cz/dprace/magisterske/oli26](https://geoinformatics.upol.cz/dprace/magisterske/oli26/index.html)
+- Results platform: [geomatupen.github.io/Thesis-Results-Platform](https://geomatupen.github.io/Thesis-Results-Platform)
+
 Research outputs repository:
 [geomatupen/Bimba3d-re_research_outputs](https://github.com/geomatupen/Bimba3d-re_research_outputs)
 
