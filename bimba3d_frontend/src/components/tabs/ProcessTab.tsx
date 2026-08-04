@@ -49,11 +49,8 @@ interface ProcessTabProps {
 }
 
 const AI_SELECTOR_STRATEGIES: AiSelectorStrategy[] = [
- "featurewise_ridge_regression",
- "featurewise_mlp",
  "compact_featurewise_ridge_regression",
  "compact_featurewise_mlp",
- "compact_descriptor_mlp",
 ];
 
 const AI_SELECTOR_LABELS: Record<AiSelectorStrategy, string> = {
@@ -66,6 +63,11 @@ const AI_SELECTOR_LABELS: Record<AiSelectorStrategy, string> = {
 
 const isAiSelectorStrategy = (value: unknown): value is AiSelectorStrategy =>
  typeof value === "string" && AI_SELECTOR_STRATEGIES.includes(value as AiSelectorStrategy);
+
+const modelSelectorStrategy = (item: ReusableModelEntry): AiSelectorStrategy | "" => {
+ const family = String(item.model_family || "").trim().toLowerCase();
+ return isAiSelectorStrategy(family) ? family : "";
+};
 
 export default function ProcessTab({ projectId }: ProcessTabProps) {
  const getSharedConfigStorageKey = useCallback(() => `processSharedConfig_${projectId}`, [projectId]);
@@ -157,7 +159,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  : "exif_compact_featurewise"
  );
  const [aiSelectorStrategy, setAiSelectorStrategy] = useState<AiSelectorStrategy>(
- isAiSelectorStrategy(cfg.ai_selector_strategy) ? cfg.ai_selector_strategy : "featurewise_ridge_regression"
+ isAiSelectorStrategy(cfg.ai_selector_strategy) ? cfg.ai_selector_strategy : "compact_featurewise_ridge_regression"
  );
  const [baselineSessionIdForAi, setBaselineSessionIdForAi] = useState<string>(cfg.baseline_session_id ?? "");
  const [warmupAtStart, setWarmupAtStart] = useState<boolean>(cfg.warmup_at_start ?? false);
@@ -237,46 +239,15 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  }
 
  return reusableModels.filter((item) => {
- const profile = item.ai_profile && typeof item.ai_profile === "object" ? item.ai_profile : {};
- const pipelineKind = String(profile.pipeline_kind || "").trim().toLowerCase();
- const modelAiMode = String(profile.ai_input_mode || "").trim().toLowerCase();
- const modelSelector = String(profile.ai_selector_strategy || "").trim().toLowerCase();
+ const modelSelector = modelSelectorStrategy(item);
 
- if (!hasAiInputModeFlow) {
- return pipelineKind === "controller";
- }
-
- // In test mode, show report-trained featurewise/compact models regardless of specific mode.
- if (isSessionTestMode && isAiSelectorStrategy(modelSelector)) {
- return true;
- }
-
- if (!aiInputMode || modelAiMode !== aiInputMode) {
- return false;
- }
-
- // In test mode, allow both report model families for the chosen EXIF mode.
- if (isSessionTestMode) {
- return true;
- }
-
- if (!aiSelectorStrategy) {
- return true;
- }
-
- return modelSelector === aiSelectorStrategy;
+ return isAiSelectorStrategy(modelSelector);
  });
  }, [
  showCoreAiSessionControls,
  reusableModels,
- hasAiInputModeFlow,
- isSessionTestMode,
- aiInputMode,
- aiSelectorStrategy,
  ]);
- const modeModelEmptyLabel = hasAiInputModeFlow
- ? "No reusable models match selected EXIF mode + selector strategy"
- : "No reusable models match controller pipeline";
+ const modeModelEmptyLabel = "No workflow models available";
 
  const densifyScheduleBlocked =
  !showCoreAiSessionControls && (densificationInterval <= 0 || densifyFromIter >= densifyUntilIter);
@@ -513,7 +484,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  setTrendScope(defaults.trend_scope === "phase" ? "phase" : "run");
  setAiInputMode(defaults.ai_input_mode ?? "exif_compact_featurewise");
  setAiSelectorStrategy(
- isAiSelectorStrategy(defaults.ai_selector_strategy) ? defaults.ai_selector_strategy : "featurewise_ridge_regression"
+ isAiSelectorStrategy(defaults.ai_selector_strategy) ? defaults.ai_selector_strategy : "compact_featurewise_ridge_regression"
  );
  setBaselineSessionIdForAi(defaults.baseline_session_id ?? "");
  setWarmupAtStart(defaults.warmup_at_start ?? false);
@@ -767,10 +738,6 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  const items = rawItems.map((item: any) => ({
  ...item,
  created_at: item.created_at || item.trained_at || null,
- ai_profile: item.ai_profile || {
- ai_input_mode: item.model_family || null,
- ai_selector_strategy: null,
- },
  })) as ReusableModelEntry[];
  if (!cancelled) {
  setReusableModels(items);
@@ -4335,6 +4302,38 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  )}
  </div>
  </td>
+ </tr>
+ ))
+ )}
+ </tbody>
+ </table>
+ </div>
+ </div>
+
+ <div>
+ <p className="text-xs font-semibold text-slate-700 mb-2">Selected multipliers used by gsplat</p>
+ <div className="max-h-44 overflow-auto border border-slate-200 rounded-lg bg-white">
+ <table className="w-full text-xs">
+ <thead className="bg-slate-50 text-slate-700">
+ <tr>
+ <th className="text-left px-3 py-2">Field</th>
+ <th className="text-left px-3 py-2">Selected multiplier</th>
+ <th className="text-left px-3 py-2">Final multiplier</th>
+ <th className="text-left px-3 py-2">Actual gsplat value</th>
+ </tr>
+ </thead>
+ <tbody>
+ {((telemetryData.ai_insights.learning_param_rows || telemetryData.learning_param_rows || []).length === 0) ? (
+ <tr>
+ <td className="px-3 py-2 text-slate-500" colSpan={4}>No selected multiplier rows captured.</td>
+ </tr>
+ ) : (
+ (telemetryData.ai_insights.learning_param_rows || telemetryData.learning_param_rows || []).map((row) => (
+ <tr key={`ai-mult-${row.key}`} className="border-t border-slate-100">
+ <td className="px-3 py-2 text-slate-700">{formatTelemetryFieldLabel(String(row.key || ""))}</td>
+ <td className="px-3 py-2 text-slate-900">{formatTelemetryScalar(row.selected_multiplier)}</td>
+ <td className="px-3 py-2 text-slate-900">{formatTelemetryScalar(row.final_multiplier)}</td>
+ <td className="px-3 py-2 text-slate-900">{formatTelemetryScalar(row.actual)}</td>
  </tr>
  ))
  )}

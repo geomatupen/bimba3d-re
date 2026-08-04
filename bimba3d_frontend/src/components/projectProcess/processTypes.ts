@@ -47,6 +47,15 @@ export interface TelemetryEventRow {
   summary?: string | null;
 }
 
+export interface TelemetryLearningParamRow {
+  key?: string | null;
+  actual?: number | string | null;
+  selected_multiplier?: number | string | null;
+  log_multiplier?: number | string | null;
+  final_multiplier?: number | string | null;
+  jitter?: number | string | null;
+}
+
 export interface TelemetryPayload {
   project_id: string;
   project_name?: string | null;
@@ -55,6 +64,7 @@ export interface TelemetryPayload {
   training_rows?: TelemetryTrainingRow[];
   event_rows?: TelemetryEventRow[];
   eval_rows?: TelemetryEvalRow[];
+  learning_param_rows?: TelemetryLearningParamRow[];
   latest_eval?: TelemetryEvalRow | null;
   training_summary?: {
     first_step?: number | null;
@@ -89,6 +99,7 @@ export interface TelemetryPayload {
     score_preset?: string | null;
     feature_source?: string | null;
     initial_params?: Record<string, unknown>;
+    learning_param_rows?: TelemetryLearningParamRow[];
     feature_details?: Record<string, unknown>;
     feature_sources?: Record<string, unknown>;
     missing_flags?: Record<string, unknown>;
@@ -165,14 +176,13 @@ export type StartModelMode = "scratch" | "reuse";
 export interface ReusableModelEntry {
   model_id: string;
   model_name?: string | null;
+  model_family?: AiSelectorStrategy | string | null;
   source_project_id?: string | null;
   source_run_id?: string | null;
   created_at?: string | null;
-  ai_profile?: {
-    pipeline_kind?: "controller" | "input_mode" | null;
-    ai_input_mode?: AiInputMode | null;
-    ai_selector_strategy?: AiSelectorStrategy | null;
-  } | null;
+  trained_at?: string | null;
+  config?: Record<string, unknown> | null;
+  metrics?: Record<string, unknown> | null;
 }
 
 export interface TrainingDataTargetOption {

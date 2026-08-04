@@ -166,7 +166,7 @@ export const getDefaultProcessConfig = () => ({
   tune_scope: "core_ai_optimization" as TuneScope,
   trend_scope: "run" as TrendScope,
   ai_input_mode: "exif_compact_featurewise" as AiInputMode,
-  ai_selector_strategy: "featurewise_ridge_regression" as AiSelectorStrategy,
+  ai_selector_strategy: "compact_featurewise_ridge_regression" as AiSelectorStrategy,
   baseline_session_id: "",
   warmup_at_start: false,
   run_count: 1,

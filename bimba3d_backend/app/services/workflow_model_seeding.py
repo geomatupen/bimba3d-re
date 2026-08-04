@@ -7,12 +7,21 @@ from pathlib import Path
 from bimba3d_backend.app.schemas.workflow_data import WorkflowModelManifest
 from bimba3d_backend.app.services import workflow_model_registry
 
+PROJECT_TEST_MODEL_FAMILIES = {
+    "compact_featurewise_ridge_regression",
+    "compact_featurewise_mlp",
+}
+
 
 def read_workflow_model(model_id: str) -> WorkflowModelManifest | None:
     model_key = str(model_id or "").strip()
     if not model_key:
         return None
     return workflow_model_registry.read_model(model_key)
+
+
+def is_project_test_model_family(model_family: str | None) -> bool:
+    return str(model_family or "").strip().lower() in PROJECT_TEST_MODEL_FAMILIES
 
 
 def seed_workflow_model_into_project(model: WorkflowModelManifest, project_dir: Path) -> Path:
@@ -54,6 +63,8 @@ def seed_workflow_model_into_project(model: WorkflowModelManifest, project_dir: 
 
 
 def model_ai_profile(model: WorkflowModelManifest) -> dict[str, str]:
+    if not is_project_test_model_family(model.model_family):
+        raise ValueError(f"Unsupported workflow model family for project testing: {model.model_family}")
     return {
         "ai_input_mode": "exif_compact_featurewise",
         "ai_selector_strategy": model.model_family,

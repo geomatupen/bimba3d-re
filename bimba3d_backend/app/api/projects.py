@@ -1212,6 +1212,42 @@ def _analytics_ai_insights(run_analytics: dict[str, Any] | None) -> dict[str, An
     insights = ai_block.get("input_mode_insights") if isinstance(ai_block.get("input_mode_insights"), dict) else None
     return insights if isinstance(insights, dict) else None
 
+
+def _extract_learning_param_rows_from_log(lines: list[str]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for line in lines:
+        if "LEARNING_PARAM_ROWS" not in line or "session_mode=test" not in line:
+            continue
+        _, _, raw_rows = line.partition(" rows=")
+        if not raw_rows:
+            continue
+        try:
+            parsed = json.loads(raw_rows.strip())
+        except Exception:
+            continue
+        if not isinstance(parsed, list):
+            continue
+        clean_rows: list[dict[str, Any]] = []
+        for item in parsed:
+            if not isinstance(item, dict):
+                continue
+            key = str(item.get("key") or "").strip()
+            if not key:
+                continue
+            clean_rows.append(
+                {
+                    "key": key,
+                    "selected_multiplier": item.get("selected_multiplier"),
+                    "log_multiplier": item.get("log_multiplier"),
+                    "final_multiplier": item.get("final_multiplier"),
+                    "jitter": item.get("jitter"),
+                }
+            )
+        if clean_rows:
+            rows = clean_rows
+    return rows
+
+
 def _extract_learned_params_from_json(run_analytics: dict | None, run_config: dict | None) -> dict[str, Any]:
     """Extract learned params from canonical analytics JSON only."""
 
@@ -3542,13 +3578,7 @@ def process_project(project_id: str, params: ProcessParams | None = Body(None)):
             "exif_compact_featurewise",
         }
         valid_ai_preset_overrides = {"conservative", "balanced", "geometry_fast", "appearance_fast"}
-        valid_selector_strategies = {
-            "featurewise_ridge_regression",
-            "featurewise_mlp",
-            "compact_featurewise_ridge_regression",
-            "compact_featurewise_mlp",
-            "compact_descriptor_mlp",
-        }
+        valid_selector_strategies = workflow_model_seeding.PROJECT_TEST_MODEL_FAMILIES
         if requested_ai_input_mode and requested_ai_input_mode not in valid_ai_input_modes:
             raise HTTPException(
                 status_code=400,
@@ -3565,8 +3595,8 @@ def process_project(project_id: str, params: ProcessParams | None = Body(None)):
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    "ai_selector_strategy must be one of: featurewise_ridge_regression, featurewise_mlp, "
-                    "compact_featurewise_ridge_regression, compact_featurewise_mlp, compact_descriptor_mlp"
+                    "ai_selector_strategy must be one of: "
+                    "compact_featurewise_ridge_regression, compact_featurewise_mlp"
                 ),
             )
 
@@ -3615,7 +3645,7 @@ def process_project(project_id: str, params: ProcessParams | None = Body(None)):
                     params_payload.pop("baseline_session_id", None)
                 chosen_strategy = requested_selector_strategy or str(params_payload.get("ai_selector_strategy") or "").strip().lower()
                 if chosen_strategy not in valid_selector_strategies:
-                    chosen_strategy = "featurewise_ridge_regression"
+                    chosen_strategy = "compact_featurewise_ridge_regression"
                 params_payload["ai_selector_strategy"] = chosen_strategy
                 if requested_preset_override:
                     params_payload["ai_preset_override"] = requested_preset_override
@@ -3910,7 +3940,7 @@ def process_project(project_id: str, params: ProcessParams | None = Body(None)):
                     or str(params_payload.get("ai_selector_strategy") or "").strip().lower()
                 )
                 if chosen_test_strategy not in valid_selector_strategies:
-                    chosen_test_strategy = "featurewise_ridge_regression"
+                    chosen_test_strategy = "compact_featurewise_ridge_regression"
                 params_payload["ai_selector_strategy"] = chosen_test_strategy
 
                 baseline_session_id_test = str(requested_params.get("baseline_session_id") or "").strip()
@@ -4639,6 +4669,8 @@ def get_project_telemetry(
             eval_rows_json = analytics_eval_rows
 
         text_lines = _read_text_lines(run_log_path, max_lines=log_limit, from_start=bool(from_start))
+        setup_log_lines = _read_text_lines(run_log_path, max_lines=max(log_limit, 5000), from_start=True)
+        applied_learning_param_rows = _extract_learning_param_rows_from_log(setup_log_lines)
         training_rows_log = _extract_training_rows(
             text_lines,
             row_limit=max(log_limit, 1000),
@@ -4754,6 +4786,13 @@ def get_project_telemetry(
 
                 # Update feature_dependencies to reflect project-level source
                 normalized_ai["feature_dependencies"] = _infer_feature_dependencies(raw_features)
+                if applied_learning_param_rows:
+                    applied_by_key = {str(row.get("key")): dict(row) for row in applied_learning_param_rows if row.get("key")}
+                    initial_params = normalized_ai.get("initial_params") if isinstance(normalized_ai.get("initial_params"), dict) else {}
+                    for key, row in applied_by_key.items():
+                        if isinstance(initial_params, dict) and initial_params.get(key) is not None:
+                            row["actual"] = initial_params.get(key)
+                    normalized_ai["learning_param_rows"] = list(applied_by_key.values())
 
                 ai_insights = normalized_ai
 
@@ -4790,6 +4829,7 @@ def get_project_telemetry(
             "event_rows": event_rows,
             "eval_rows": eval_rows,
             "latest_eval": eval_rows[-1] if eval_rows else None,
+            "learning_param_rows": applied_learning_param_rows,
             "training_summary": training_summary,
             "run_analytics": run_analytics,
             "run_config": run_config,
