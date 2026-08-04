@@ -14,8 +14,8 @@ The backend can serve the built frontend directly. If `bimba3d_frontend/dist` ex
 
 Important:
 - `requirements.local.txt` is not a universal install recipe for every platform.
-- On Windows, do not rely on `python -m pip install -r bimba3d_backend\requirements.local.txt` alone for a local training setup.
-- Windows local setup uses a separate install order for PyTorch, `ninja`, and `gsplat`, then installs the remaining backend packages from `requirements.windows.txt`.
+- Do not rely on installing the requirements file alone for a local training setup.
+- Local GPU setup uses a separate install order for PyTorch, `ninja`, and `gsplat`, then installs the remaining backend packages.
 
 ### System install checklist
 Install these before creating the project environment:
@@ -66,14 +66,32 @@ cd bimba3d-re
 
 #### Linux
 
-For Linux host installs, the backend Python dependencies are installed from `requirements.local.txt`.
+For Linux local installs, use the same dependency order as Windows with Linux shell syntax: create the environment, install PyTorch first, install `ninja`, build `gsplat`, then install the remaining backend packages.
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install --index-url https://download.pytorch.org/whl/cu121 torch==2.5.1+cu121 torchvision==0.20.1+cu121 torchaudio==2.5.1+cu121
+python -m pip install --force-reinstall ninja
+```
+
+Then set the CUDA environment and build `gsplat` before installing the remaining backend packages:
+
+```bash
+export CUDA_HOME=/usr/local/cuda-12.5
+export CUDA_PATH=/usr/local/cuda-12.5
+export PATH="$CUDA_HOME/bin:$PATH"
+export LD_LIBRARY_PATH="$CUDA_HOME/lib64:${LD_LIBRARY_PATH:-}"
+
+python -m pip install --force-reinstall --no-deps --no-cache-dir --no-binary=gsplat gsplat==1.5.3 --no-build-isolation -v
 python -m pip install -r bimba3d_backend/requirements.local.txt
 ```
+
+Notes for Linux:
+- Use an NVIDIA driver and CUDA toolkit version compatible with the selected PyTorch wheel.
+- If CUDA is installed in a different location, update `CUDA_HOME` and `CUDA_PATH` accordingly.
+- Install COLMAP through your package manager or from source, then verify `colmap -h`.
 
 #### Windows PowerShell
 
