@@ -287,3 +287,16 @@ Open `http://localhost:5173`.
 ## Notes
 - Use underscore-based Python imports such as `bimba3d_backend.app.main:app`.
 - The frontend API client assumes backend port `8005` during Vite development.
+
+## Acknowledgement
+
+This work was developed as part of the master's thesis of Upendra Oli within the Copernicus Master in Digital Earth programme.
+
+The thesis work was carried out with academic support from the Department of Geoinformatics, University of Salzburg, and the Department of Geoinformatics, Palacky University Olomouc.
+
+<p align="center">
+  <img src="https://geoinformatics.upol.cz/dprace/magisterske/oli26/logos/cde/cde_logo_vertical.png" alt="Copernicus Master in Digital Earth" height="72">
+  <img src="https://geoinformatics.upol.cz/dprace/magisterske/oli26/logos/eu/eu_co_funded_horizontal.png" alt="Co-funded by the European Union" height="72">
+  <img src="https://geoinformatics.upol.cz/dprace/magisterske/oli26/logos/plus/plus_logo_black.png" alt="Paris Lodron University Salzburg" height="72">
+  <img src="https://geoinformatics.upol.cz/dprace/magisterske/oli26/logos/upol/upol_logo_horizontal_en.png" alt="Palacky University Olomouc" height="72">
+</p>
