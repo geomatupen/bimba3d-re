@@ -312,9 +312,19 @@ This work was developed as part of the master's thesis of Upendra Oli within the
 
 The thesis work was carried out with academic support from the Department of Geoinformatics, University of Salzburg, and the Department of Geoinformatics, Palacky University Olomouc.
 
-<p align="center">
-  <img src="https://geoinformatics.upol.cz/dprace/magisterske/oli26/logos/eu/eu_co_funded_horizontal.png" alt="Co-funded by the European Union" width="200">
-  <img src="https://geoinformatics.upol.cz/dprace/magisterske/oli26/logos/cde/cde_logo_vertical.png" alt="Copernicus Master in Digital Earth" width="92">
-  <img src="https://geoinformatics.upol.cz/dprace/magisterske/oli26/logos/plus/plus_logo_black.png" alt="Paris Lodron University Salzburg" width="120">
-  <img src="https://geoinformatics.upol.cz/dprace/magisterske/oli26/logos/upol/upol_logo_horizontal_en.png" alt="Palacky University Olomouc" width="240">
-</p>
+<table align="center">
+  <tr>
+    <td align="center" valign="middle" bgcolor="#ffffff" width="230" height="96">
+      <img src="https://geoinformatics.upol.cz/dprace/magisterske/oli26/logos/eu/eu_co_funded_horizontal.png" alt="Co-funded by the European Union" width="200">
+    </td>
+    <td align="center" valign="middle" bgcolor="#ffffff" width="120" height="96">
+      <img src="https://geoinformatics.upol.cz/dprace/magisterske/oli26/logos/cde/cde_logo_vertical.png" alt="Copernicus Master in Digital Earth" width="92">
+    </td>
+    <td align="center" valign="middle" bgcolor="#ffffff" width="150" height="96">
+      <img src="https://geoinformatics.upol.cz/dprace/magisterske/oli26/logos/plus/plus_logo_black.png" alt="Paris Lodron University Salzburg" width="120">
+    </td>
+    <td align="center" valign="middle" bgcolor="#ffffff" width="270" height="96">
+      <img src="https://geoinformatics.upol.cz/dprace/magisterske/oli26/logos/upol/upol_logo_horizontal_en.png" alt="Palacky University Olomouc" width="240">
+    </td>
+  </tr>
+</table>
