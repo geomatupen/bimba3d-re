@@ -1,7 +1,6 @@
 """Runtime and training helpers for one-model compact Featurewise Ridge."""
 from __future__ import annotations
 
-import itertools
 import json
 import math
 import numpy as np
@@ -9,6 +8,11 @@ from pathlib import Path
 from typing import Any
 
 from .common import clamp_float
+from .compact_candidate_grid import (
+    build_candidate_combinations,
+    build_candidate_score_checks,
+    normalise_candidate_pairing_mode,
+)
 from .compact_featurewise_schema import (
     COMPACT_MODEL_GROUP_KEYS,
     build_compact_feature_scaler,
@@ -86,6 +90,7 @@ def select_compact_featurewise_ridge_multipliers(
         model=model,
         x_features=x_features,
         candidate_log_multipliers_by_group=params.get("candidate_log_multipliers_by_group"),
+        test_candidate_pairing_mode=params.get("test_candidate_pairing_mode"),
     )
     updates = _build_updates(params, selection["selected_multipliers"])
     return {
@@ -101,14 +106,16 @@ def select_compact_ridge_from_model(
     model: dict[str, Any],
     x_features: dict[str, Any],
     candidate_log_multipliers_by_group: dict[str, Any] | None = None,
+    test_candidate_pairing_mode: str | None = None,
 ) -> dict[str, Any]:
     bounds = _bounds_from_model(model)
     candidates_by_group = _candidate_logs_by_group(model, bounds, candidate_log_multipliers_by_group)
+    pairing_mode = normalise_candidate_pairing_mode(test_candidate_pairing_mode)
     scaler = model.get("feature_scaler") if isinstance(model.get("feature_scaler"), dict) else {}
     x = build_compact_vector(x_features, scaler)
     theta = _solve_theta(model)
 
-    combos = list(itertools.product(*(candidates_by_group[group] for group in COMPACT_MODEL_GROUP_KEYS)))
+    combos = build_candidate_combinations(candidates_by_group, pairing_mode)
     scores = []
     for combo in combos:
         phi = build_compact_score_design_vector(x, np.array(combo, dtype=np.float64))
@@ -134,7 +141,7 @@ def select_compact_ridge_from_model(
         group_log_multipliers[group] = float(math.log(max(mult, 1e-9)))
 
     selected_multipliers, selected_log_multipliers = expand_compact_group_multipliers(group_multipliers)
-    candidate_score_checks = _candidate_checks_by_group(candidates_by_group, combos, scores, group_log_multipliers)
+    candidate_score_checks = build_candidate_score_checks(candidates_by_group, combos, scores, group_log_multipliers, pairing_mode)
 
     return {
         "selected_preset": "compact_featurewise_ridge_regression",
@@ -148,6 +155,7 @@ def select_compact_ridge_from_model(
         "selected_score": selected_score,
         "score_spreads": {group: spread for group in COMPACT_MODEL_GROUP_KEYS},
         "candidate_score_checks": candidate_score_checks,
+        "test_candidate_pairing_mode": pairing_mode,
         "candidate_points": int(model.get("candidate_points") or 0),
         "has_signal": has_signal,
         "n_runs": int(model.get("runs") or model.get("n") or 0),

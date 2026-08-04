@@ -1349,6 +1349,7 @@ class PipelineOrchestrator:
             params["candidate_log_multipliers_by_group"] = candidate_logs
             params["test_candidate_seed"] = pipeline_config.get("test_candidate_seed")
             params["test_candidate_count"] = pipeline_config.get("test_candidate_count")
+            params["test_candidate_pairing_mode"] = pipeline_config.get("test_candidate_pairing_mode")
 
         if use_fixed_schedule:
             params["geometry_lr_multiplier"] = geom_mult

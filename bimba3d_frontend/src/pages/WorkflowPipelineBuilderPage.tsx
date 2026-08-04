@@ -26,6 +26,7 @@ const LOG_SPACE_BOUND_PRESETS = {
  densification: [0.95, 1.05],
  },
 } as const;
+type TestCandidatePairingMode = "latin_hypercube_style_candidate_grid" | "full_combination_grid";
 
 interface DatasetInfo {
  name: string;
@@ -92,6 +93,7 @@ export default function WorkflowPipelineBuilderPage() {
  const [pipelineType, setPipelineType] = useState<"offline_data" | "test">(lockedPipelineType || "offline_data");
  const [sourceModelIds, setSourceModelIds] = useState<string[]>([]);
  const [availableModels, setAvailableModels] = useState<any[]>([]);
+ const [testCandidatePairingMode, setTestCandidatePairingMode] = useState<TestCandidatePairingMode>("latin_hypercube_style_candidate_grid");
 
  // Step 2: Shared Configuration
  const [aiInputMode] = useState("exif_compact_featurewise");
@@ -224,6 +226,11 @@ export default function WorkflowPipelineBuilderPage() {
  if (loadedType === "test") {
  const ids = config.source_model_ids || (config.source_model_id ? [config.source_model_id] : []);
  setSourceModelIds(ids);
+ setTestCandidatePairingMode(
+ config.test_candidate_pairing_mode === "full_combination_grid"
+ ? "full_combination_grid"
+ : "latin_hypercube_style_candidate_grid",
+ );
  // Load available models so the checkboxes can render
  axios.get(`${API_BASE}/api/models`).then((res) => {
  const models = res.data?.items || [];
@@ -473,6 +480,7 @@ export default function WorkflowPipelineBuilderPage() {
  base_directory: baseDirectory,
  pipeline_directory: pipelineDirectory || null, // null = use default
  pipeline_type: pipelineType,
+ test_candidate_pairing_mode: pipelineType === "test" ? testCandidatePairingMode : null,
  source_model_id:
  pipelineType === "test"
  ? (validSelectedModelIds[0] || null)
@@ -810,6 +818,27 @@ export default function WorkflowPipelineBuilderPage() {
  </div>
 
  {renderTestModelSelector(true)}
+
+ {pipelineType === "test" && (
+ <div style={{ marginBottom: "15px", padding: "12px", background: "#f8fafc", border: "1px solid #dbe3ef", borderRadius: "4px" }}>
+ <label style={{ display: "block", marginBottom: "6px", fontWeight: 600 }}>
+ Candidate Pairing Mode
+ </label>
+ <select
+ value={testCandidatePairingMode}
+ onChange={(e) => setTestCandidatePairingMode(e.target.value as TestCandidatePairingMode)}
+ style={{ width: "100%", padding: "8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+ >
+ <option value="latin_hypercube_style_candidate_grid">Latin-hypercube-style candidate grid - 30 same-index triplets</option>
+ <option value="full_combination_grid">Full combination grid - all geometry x appearance x densification combinations</option>
+ </select>
+ <div style={{ fontSize: "11px", color: "#555", marginTop: "6px", lineHeight: 1.5 }}>
+ {testCandidatePairingMode === "latin_hypercube_style_candidate_grid"
+ ? "Scores 30 shuffled triplets. Candidate i combines geometry[i], appearance[i], and densification[i], so the selected index is shared across all groups."
+ : "Scores the full Cartesian grid. With 30 values per group this evaluates 27,000 joint combinations; charts show score slices through the selected best combination."}
+ </div>
+ </div>
+ )}
 
  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "15px" }}>
  <div>

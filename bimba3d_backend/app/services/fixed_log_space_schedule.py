@@ -25,6 +25,7 @@ def build_fixed_log_space_config(config: dict[str, Any], *, seed: int | None = N
         "scale_lr": _log_interval_values(rng, count, *bounds["scale_lr"]),
     }
     pipeline_type = str(config.get("pipeline_type") or "").strip().lower()
+    test_candidate_pairing_mode = _normalise_test_candidate_pairing_mode(config.get("test_candidate_pairing_mode"))
     candidate_count = int(_safe_positive_float(shared_config.get("candidate_points"), 30))
     test_candidates = (
         {
@@ -43,6 +44,7 @@ def build_fixed_log_space_config(config: dict[str, Any], *, seed: int | None = N
         "test_candidate_seed": None,
         "test_candidate_count": candidate_count if pipeline_type == "test" else None,
         "test_candidate_generation": "grid_log_space" if pipeline_type == "test" else None,
+        "test_candidate_pairing_mode": test_candidate_pairing_mode if pipeline_type == "test" else None,
         "fixed_log_space_generated_at": _utc_now(),
         "fixed_log_space_mode": mode,
         "fixed_log_space_method": "bounded_log_space_interval_sampling",
@@ -188,6 +190,25 @@ def _safe_positive_float(value: Any, default: float) -> float:
             return default
         return parsed if parsed > 0 else default
     return default
+
+
+def _normalise_test_candidate_pairing_mode(value: Any) -> str:
+    mode = str(value or "").strip().lower()
+    aliases = {
+        "latin": "latin_hypercube_style_candidate_grid",
+        "latin_hypercube": "latin_hypercube_style_candidate_grid",
+        "latin_hypercube_grid": "latin_hypercube_style_candidate_grid",
+        "latin_hypercube_style": "latin_hypercube_style_candidate_grid",
+        "latin_hypercube_style_candidate_grid": "latin_hypercube_style_candidate_grid",
+        "same_index": "latin_hypercube_style_candidate_grid",
+        "same_index_triplets": "latin_hypercube_style_candidate_grid",
+        "cartesian": "full_combination_grid",
+        "cartesian_product": "full_combination_grid",
+        "full_grid": "full_combination_grid",
+        "full_combination": "full_combination_grid",
+        "full_combination_grid": "full_combination_grid",
+    }
+    return aliases.get(mode, "latin_hypercube_style_candidate_grid")
 
 
 def _log_interval_values(rng: random.Random, count: int, low: float, high: float) -> list[float]:

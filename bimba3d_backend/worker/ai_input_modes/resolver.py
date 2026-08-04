@@ -393,6 +393,7 @@ def _persist_retry_snapshot(
         "selected_multipliers_raw": dict(selected_multipliers_raw or {}),
         "selected_log_multipliers": dict(selected_log_multipliers or {}),
         "candidate_score_checks": dict(candidate_score_checks or {}),
+        "test_candidate_pairing_mode": params.get("test_candidate_pairing_mode"),
     }
 
     tmp = snapshot_path.with_suffix(".json.tmp")
@@ -736,6 +737,7 @@ def apply_initial_preset(
         "selected_log_multipliers_raw": dict(selection.get("selected_log_multipliers_raw") or {}),
         "score_spreads": dict(selection.get("score_spreads") or {}),
         "candidate_score_checks": dict(selection.get("candidate_score_checks") or {}),
+        "test_candidate_pairing_mode": selection.get("test_candidate_pairing_mode") or params.get("test_candidate_pairing_mode"),
         "candidate_points": int(selection.get("candidate_points") or 0),
         "has_signal": bool(selection.get("has_signal", True)),
         "n_runs": int(selection.get("n_runs") or 0),

@@ -1,4 +1,4 @@
-import { Hash, Shuffle } from "lucide-react";
+import { Hash, Maximize2, Shuffle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client";
 import SvgChartExportButton from "../common/SvgChartExportButton";
@@ -39,6 +39,18 @@ const numeric = (value: unknown): number | null => (typeof value === "number" &&
 
 const formatBounds = ([min, max]: [number, number]) => `${formatTick(min)} to ${formatTick(max)}`;
 
+const pairingModeLabel = (mode: unknown) => (
+  mode === "latin_hypercube_style_candidate_grid"
+    ? "Latin-hypercube-style candidate grid"
+    : "Full combination grid"
+);
+
+const pairingModeDescription = (mode: unknown, count: number) => (
+  mode === "latin_hypercube_style_candidate_grid"
+    ? `${count || 30} same-index shuffled triplets are scored. Candidate i uses geometry[i], appearance[i], and densification[i].`
+    : `All joint combinations are scored. With ${count || 30} values/group this is ${Math.pow(count || 30, 3).toLocaleString()} combinations; charts show score slices through the selected best combination.`
+);
+
 const formatTick = (value: number): string => {
   if (Math.abs(value) >= 10) return value.toFixed(0);
   if (Math.abs(value) >= 1) return value.toFixed(2);
@@ -46,11 +58,7 @@ const formatTick = (value: number): string => {
 };
 
 function FullscreenChartIcon() {
-  return (
-    <span aria-hidden="true" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 16, lineHeight: "16px" }}>
-      ⛶
-    </span>
-  );
+  return <Maximize2 aria-hidden="true" className="h-4 w-4" />;
 }
 
 const logSpaceTicks = ([min, max]: [number, number], divisions = 4): number[] => {
@@ -567,6 +575,9 @@ export default function PipelineLogSpaceValuesPanel({ pipeline, predictionRows =
   const candidateSeed = displayConfig.test_candidate_seed;
   const candidateCount = displayConfig.test_candidate_count;
   const candidateGeneration = displayConfig.test_candidate_generation;
+  const candidatePairingMode = displayConfig.test_candidate_pairing_mode === "full_combination_grid"
+    ? "full_combination_grid"
+    : "latin_hypercube_style_candidate_grid";
   const generatedAt = displayConfig.fixed_log_space_generated_at;
   const boundsSource = displayConfig.fixed_log_space_bounds_source;
   const usingFallbackBounds = boundsSource === "default_bounds_fallback";
@@ -592,6 +603,7 @@ export default function PipelineLogSpaceValuesPanel({ pipeline, predictionRows =
           group_multipliers: run.group_multipliers || {},
           group_log_multipliers: run.group_log_multipliers || {},
           candidate_score_checks: run.candidate_score_checks,
+          test_candidate_pairing_mode: run.test_candidate_pairing_mode,
           completed_run: true,
         }))
     : [];
@@ -606,6 +618,7 @@ export default function PipelineLogSpaceValuesPanel({ pipeline, predictionRows =
           group_multipliers: (pipeline.active_run as any)?.group_multipliers || {},
           group_log_multipliers: (pipeline.active_run as any)?.group_log_multipliers || {},
           candidate_score_checks: activeCandidateChecks,
+          test_candidate_pairing_mode: (pipeline.active_run as any)?.test_candidate_pairing_mode,
           live: true,
         },
         ...completedRunPredictionRows,
@@ -637,6 +650,11 @@ export default function PipelineLogSpaceValuesPanel({ pipeline, predictionRows =
       ? selectedPredictionRow.candidate_score_checks
       : {}
   ) as Record<string, CandidateScoreCheck[]>;
+  const selectedCandidatePairingMode = selectedPredictionRow?.test_candidate_pairing_mode === "full_combination_grid"
+    ? "full_combination_grid"
+    : selectedPredictionRow?.test_candidate_pairing_mode === "latin_hypercube_style_candidate_grid"
+      ? "latin_hypercube_style_candidate_grid"
+      : candidatePairingMode;
   const selectedGroupMultipliers = (
     selectedPredictionRow?.group_multipliers && typeof selectedPredictionRow.group_multipliers === "object"
       ? selectedPredictionRow.group_multipliers
@@ -743,6 +761,7 @@ export default function PipelineLogSpaceValuesPanel({ pipeline, predictionRows =
             test_candidate_log_multipliers: shuffledMultipliers,
             test_candidate_generation: "grid_log_space",
             test_candidate_count: totalSlots,
+            test_candidate_pairing_mode: candidatePairingMode,
           }
         : {
             pre_generated_log_multipliers: shuffledMultipliers,
@@ -880,6 +899,14 @@ export default function PipelineLogSpaceValuesPanel({ pipeline, predictionRows =
           <div className="font-semibold text-slate-900">Generated</div>
           <div className="font-mono text-[11px]">{generatedAt ? new Date(generatedAt).toLocaleString() : "N/A"}</div>
         </div>
+        {isTestPipeline && (
+          <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2 md:col-span-4">
+            <div className="font-semibold text-slate-900">{pairingModeLabel(selectedCandidatePairingMode)}</div>
+            <div className="mt-0.5 text-[11px] text-slate-600">
+              {pairingModeDescription(selectedCandidatePairingMode, Number(candidateCount || totalSlots || 30))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className={`mb-4 rounded border px-3 py-2 text-xs ${
@@ -909,7 +936,9 @@ export default function PipelineLogSpaceValuesPanel({ pipeline, predictionRows =
         <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
           <label className="mb-1 block text-xs font-semibold text-slate-800">Model candidate score curves</label>
           <p className="mb-2 text-[11px] text-slate-600">
-            These are model-predicted candidate scores, not the final Gaussian Splatting test result.
+            {selectedCandidatePairingMode === "latin_hypercube_style_candidate_grid"
+              ? "These are model-predicted scores for the same-index triplet candidates, not the final Gaussian Splatting test result."
+              : "These are model-predicted score slices through the selected full-grid combination, not the final Gaussian Splatting test result."}
           </p>
           <select
             value={effectivePredictionKey}

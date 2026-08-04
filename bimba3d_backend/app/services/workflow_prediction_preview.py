@@ -40,6 +40,7 @@ async def predict_multipliers(pipeline_id: str, request_payload: dict[str, Any])
         shared_config["candidate_log_multipliers_by_group"] = candidate_logs
         shared_config["test_candidate_seed"] = config.get("test_candidate_seed")
         shared_config["test_candidate_count"] = config.get("test_candidate_count")
+        shared_config["test_candidate_pairing_mode"] = config.get("test_candidate_pairing_mode")
     results: list[dict[str, Any]] = []
 
     for project_cfg in projects:
@@ -207,6 +208,7 @@ def _predict_project_model(
         "candidate_points": int(prediction.get("candidate_points") or 0),
         "score_spreads": prediction.get("score_spreads") or {},
         "candidate_score_checks": prediction.get("candidate_score_checks") or {},
+        "test_candidate_pairing_mode": prediction.get("test_candidate_pairing_mode") or shared_config.get("test_candidate_pairing_mode"),
         "run_jitter_multiplier": float(prediction.get("run_jitter_multiplier") or 1.0),
         "effective_params": prediction.get("effective_params") or {},
         "remarks": prediction.get("remarks"),

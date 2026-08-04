@@ -7,7 +7,6 @@ terms used by compact_featurewise_mlp.
 """
 from __future__ import annotations
 
-import itertools
 import math
 from pathlib import Path
 from typing import Any
@@ -23,6 +22,11 @@ except ImportError:  # pragma: no cover - optional runtime dependency
     HAS_TORCH = False
 
 from .common import clamp_float
+from .compact_candidate_grid import (
+    build_candidate_combinations,
+    build_candidate_score_checks,
+    normalise_candidate_pairing_mode,
+)
 from .compact_featurewise_schema import (
     COMPACT_MODEL_GROUP_KEYS,
     build_compact_feature_scaler,
@@ -320,6 +324,7 @@ def predict_compact_descriptor_mlp_multipliers(
         checkpoint=checkpoint,
         features=features,
         candidate_log_multipliers_by_group=(params or {}).get("candidate_log_multipliers_by_group"),
+        test_candidate_pairing_mode=(params or {}).get("test_candidate_pairing_mode"),
     )
 
 
@@ -328,6 +333,7 @@ def predict_compact_descriptor_mlp_from_checkpoint(
     checkpoint: dict[str, Any],
     features: dict[str, Any],
     candidate_log_multipliers_by_group: dict[str, Any] | None = None,
+    test_candidate_pairing_mode: str | None = None,
 ) -> dict[str, Any]:
     if str(checkpoint.get("model_type") or "") != "compact_descriptor_mlp":
         raise RuntimeError("Checkpoint is not a compact_descriptor_mlp model.")
@@ -345,7 +351,8 @@ def predict_compact_descriptor_mlp_from_checkpoint(
         bounds=bounds,
         source=candidate_log_multipliers_by_group,
     )
-    combos = list(itertools.product(*(candidates_by_group[group] for group in COMPACT_MODEL_GROUP_KEYS)))
+    pairing_mode = normalise_candidate_pairing_mode(test_candidate_pairing_mode)
+    combos = build_candidate_combinations(candidates_by_group, pairing_mode)
     feature_scaler = checkpoint.get("feature_scaler")
     if not isinstance(feature_scaler, dict):
         raise RuntimeError("compact_descriptor_mlp checkpoint is missing feature_scaler.")
@@ -371,7 +378,7 @@ def predict_compact_descriptor_mlp_from_checkpoint(
         group_log_multipliers[group] = float(math.log(max(mult, 1e-9)))
 
     selected_multipliers, selected_log_multipliers = expand_compact_group_multipliers(group_multipliers)
-    candidate_score_checks = _candidate_checks_by_group(candidates_by_group, combos, scores, group_log_multipliers)
+    candidate_score_checks = build_candidate_score_checks(candidates_by_group, combos, scores, group_log_multipliers, pairing_mode)
     return {
         "selected_preset": "compact_descriptor_mlp",
         "yhat_scores": selected_multipliers,
@@ -387,6 +394,7 @@ def predict_compact_descriptor_mlp_from_checkpoint(
         "has_signal": has_signal,
         "score_spreads": {group: spread for group in COMPACT_MODEL_GROUP_KEYS},
         "candidate_score_checks": candidate_score_checks,
+        "test_candidate_pairing_mode": pairing_mode,
         "n_runs": int((checkpoint.get("training_samples") or 0) or 0),
     }
 

@@ -362,6 +362,7 @@ def _prepare_pipeline_config(config: dict[str, Any], *, preserve_existing_schedu
         raise ValueError(f"Unsupported pipeline type: {pipeline_type}")
 
     prepared["pipeline_type"] = pipeline_type
+    prepared["test_candidate_pairing_mode"] = _normalise_test_candidate_pairing_mode(prepared.get("test_candidate_pairing_mode"))
     _canonicalise_model_selection(prepared)
     _set_restart_metadata(prepared)
     if preserve_existing_schedule and prepared.get("pre_generated_log_multipliers"):
@@ -786,6 +787,7 @@ def normalise_pipeline_detail(pipeline: dict[str, Any]) -> dict[str, Any]:
                 "test_candidate_seed": config.get("test_candidate_seed"),
                 "test_candidate_count": config.get("test_candidate_count"),
                 "test_candidate_generation": config.get("test_candidate_generation"),
+                "test_candidate_pairing_mode": config.get("test_candidate_pairing_mode"),
                 "fixed_log_space_bounds": config.get("fixed_log_space_bounds"),
                 "fixed_log_space_bounds_source": config.get("fixed_log_space_bounds_source"),
                 "restart_version": int(config.get("restart_version") or 0),
@@ -840,6 +842,7 @@ def _with_selection_snapshot(run: dict[str, Any], config: dict[str, Any]) -> dic
         "selected_multipliers_raw",
         "selected_log_multipliers",
         "candidate_score_checks",
+        "test_candidate_pairing_mode",
         "initial_params",
     ):
         value = snapshot.get(key)
@@ -977,6 +980,7 @@ def _validate_fixed_log_space_schedule(schedule: dict[str, Any]) -> dict[str, An
         "test_candidate_seed": schedule.get("test_candidate_seed"),
         "test_candidate_count": schedule.get("test_candidate_count"),
         "test_candidate_generation": schedule.get("test_candidate_generation"),
+        "test_candidate_pairing_mode": _normalise_test_candidate_pairing_mode(schedule.get("test_candidate_pairing_mode")),
         "fixed_log_space_generated_at": schedule.get("fixed_log_space_generated_at"),
         "fixed_log_space_mode": schedule.get("fixed_log_space_mode"),
         "fixed_log_space_method": schedule.get("fixed_log_space_method"),
@@ -1058,6 +1062,25 @@ def _preserve_existing_pipeline_state(new_config: dict[str, Any], old_config: di
     if old_config.get("pre_generated_log_multipliers"):
         new_config["pre_generated_log_multipliers"] = old_config.get("pre_generated_log_multipliers")
     new_config["multiplier_current_index"] = int(old_config.get("multiplier_current_index") or 0)
+
+
+def _normalise_test_candidate_pairing_mode(value: Any) -> str:
+    mode = str(value or "").strip().lower()
+    aliases = {
+        "latin": "latin_hypercube_style_candidate_grid",
+        "latin_hypercube": "latin_hypercube_style_candidate_grid",
+        "latin_hypercube_grid": "latin_hypercube_style_candidate_grid",
+        "latin_hypercube_style": "latin_hypercube_style_candidate_grid",
+        "latin_hypercube_style_candidate_grid": "latin_hypercube_style_candidate_grid",
+        "same_index": "latin_hypercube_style_candidate_grid",
+        "same_index_triplets": "latin_hypercube_style_candidate_grid",
+        "cartesian": "full_combination_grid",
+        "cartesian_product": "full_combination_grid",
+        "full_grid": "full_combination_grid",
+        "full_combination": "full_combination_grid",
+        "full_combination_grid": "full_combination_grid",
+    }
+    return aliases.get(mode, "latin_hypercube_style_candidate_grid")
 
 
 def _calculate_total_runs(config: dict[str, Any]) -> int:
