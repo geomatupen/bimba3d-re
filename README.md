@@ -2,6 +2,82 @@
 
 **Bimba3D** is named after the Nepali word **Bimba** (बिम्ब), derived from Sanskrit, meaning an image, form, or original object. In classical Sanskrit philosophy, **bimba** represents the original entity, while **pratibimba** (प्रतिबिम्ब) is its reflection or mirror image. The name symbolizes the platform's purpose of creating digital 3D representations of the physical world. The suffix **-re** denotes the research edition of the platform.
 
+## Platform Capabilities
+
+Bimba3D-re supports individual drone-image projects and multi-project research workflows for 3D Gaussian Splatting.
+
+### Projects
+
+The Projects section supports processing and managing individual drone-image project datasets. Users can:
+
+- create a project and add drone images;
+- prepare and resize the input images;
+- run COLMAP Structure-from-Motion processing;
+- create 3DGS reconstructions using gsplat;
+- use default, manually selected, or model-selected settings;
+- store several reconstruction runs within the same project; and
+- review processing status, configurations, logs, metrics, Gaussian counts, previews, and reconstruction outputs.
+
+### Research Workflow
+
+The Research Workflow manages several projects through a shared pipeline. It contains four main stages:
+
+1. **Project Descriptor Extraction and SfM Processing**
+   - extracts project descriptors from images, metadata, and SfM results;
+   - prepares camera poses and sparse point clouds for later 3DGS processing.
+
+2. **Training Data Preparation**
+   - runs baseline and controlled exploration reconstructions across several projects;
+   - builds training rows from project descriptors, tested multiplier combinations, and reconstruction-quality results;
+   - allows the prepared training data to be inspected, rebuilt, and exported.
+
+3. **Scoring Model Training**
+   - trains Ridge Regression and MLP scoring models;
+   - stores trained models and their configurations for later testing and reuse.
+
+4. **Model Testing and Evaluation**
+   - generates and scores joint geometry, appearance, and densification multiplier combinations;
+   - selects the combination with the highest predicted quality score;
+   - runs the selected settings on unseen projects and compares them with the default baseline.
+
+### Comparison and Monitoring
+
+The platform provides live progress, processing messages, logs, and run status. Pipelines can be paused, resumed, stopped, restarted, or used to retry unsuccessful runs.
+
+Completed runs can be compared using PSNR, SSIM, LPIPS, loss curves, runtime, Gaussian count, rendered-image previews, and interactive 3D Gaussian Splatting views.
+
+## Platform Screenshots
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <a href="./bimba3d_frontend/src/assets/platform_homepage.png">
+        <img
+          src="./bimba3d_frontend/src/assets/platform_homepage.png"
+          alt="Bimba3D-re homepage"
+          width="100%">
+      </a>
+      <br>
+      <sub><b>Platform Homepage</b></sub>
+    </td>
+    <td align="center" width="50%">
+      <a href="./bimba3d_frontend/src/assets/platform_research_workflow.png">
+        <img
+          src="./bimba3d_frontend/src/assets/platform_research_workflow.png"
+          alt="Bimba3D-re Research Workflow"
+          width="100%">
+      </a>
+      <br>
+      <sub><b>Research Workflow</b></sub>
+    </td>
+  </tr>
+</table>
+
+<p align="center">
+  <em>Click a screenshot to view it in full size.</em>
+</p>
+
+## Repository
 This repository contains:
 - `bimba3d_backend`: FastAPI API, project processing, model training, and pipeline workflow services.
 - `bimba3d_frontend`: React + Vite frontend.
@@ -299,9 +375,27 @@ Open `http://localhost:5173`.
 - Use underscore-based Python imports such as `bimba3d_backend.app.main:app`.
 - The frontend API client assumes backend port `8005` during Vite development.
 
-## Acknowledgement
 
-This work was developed as part of the master's thesis of Upendra Oli within the Copernicus Master in Digital Earth programme.
+## Acknowledgements
+
+Bimba3D-re builds on the following open-source software and research:
+
+- [COLMAP](https://colmap.github.io/) and
+  [PyCOLMAP](https://colmap.github.io/pycolmap/index.html) for
+  Structure-from-Motion processing, camera-pose estimation, and sparse
+  reconstruction.
+
+- [gsplat](https://github.com/nerfstudio-project/gsplat) for 3D Gaussian
+  Splatting training and rendering. The related publication is available
+  [here](https://jmlr.org/papers/v26/24-1476.html).
+
+- The original 3D Gaussian Splatting method introduced by Kerbl et al. (2023):
+  [paper and project page](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/)
+  and [official implementation](https://github.com/graphdeco-inria/gaussian-splatting).
+
+Users applying Bimba3D-re in academic research are encouraged to cite the original publications of the tools and methods used.
+
+Furthermore, this work was developed as part of the master's thesis of Upendra Oli within the Copernicus Master in Digital Earth programme.
 
 The thesis work was carried out with academic support from the Department of Geoinformatics, University of Salzburg, and the Department of Geoinformatics, Palacky University Olomouc.
 
