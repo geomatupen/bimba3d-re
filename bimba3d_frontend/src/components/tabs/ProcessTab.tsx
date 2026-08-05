@@ -144,6 +144,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  const cfgSaveBestSplat = typeof cfgLegacy["save_best_splat"] === "boolean" ? cfgLegacy["save_best_splat"] : undefined;
  const cfgReplaceEvalImages = typeof cfgLegacy["replace_eval_images"] === "boolean" ? cfgLegacy["replace_eval_images"] : undefined;
  const cfgReplaceCheckpoints = typeof cfgLegacy["replace_checkpoints"] === "boolean" ? cfgLegacy["replace_checkpoints"] : undefined;
+ const cfgGaussianHardCap = typeof cfgLegacy["gaussian_hard_cap"] === "number" ? cfgLegacy["gaussian_hard_cap"] : undefined;
  const cfgBestSplatStartStep = typeof cfgLegacy["best_splat_start_step"] === "number" ? cfgLegacy["best_splat_start_step"] : undefined;
  const cfgSaveInterval = typeof cfgLegacy["save_interval"] === "number" ? cfgLegacy["save_interval"] : undefined;
  const [mode, setMode] = useState<"baseline" | "modified">(cfg.mode ?? "baseline");
@@ -180,6 +181,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  const [reusableModelsError, setReusableModelsError] = useState<string | null>(null);
  const [engine] = useState<TrainingEngine>("gsplat");
  const [maxSteps, setMaxSteps] = useState<number>(cfgMaxSteps ?? cfg.maxSteps ?? 15000);
+ const [gaussianHardCap, setGaussianHardCap] = useState<number>(cfgGaussianHardCap ?? cfg.gaussianHardCap ?? 6000000);
  const [logInterval, setLogInterval] = useState<number>(cfgLogInterval ?? cfg.logInterval ?? 100);
  const [splatInterval, setSplatInterval] = useState<number>(cfgSplatExportInterval ?? cfg.splatInterval ?? 31000);
  const [bestSplatInterval, setBestSplatInterval] = useState<number>(cfgBestSplatInterval ?? cfg.bestSplatInterval ?? 100);
@@ -311,6 +313,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  source_model_id: 'Optional global elevated model for warm-start. Leave empty to reuse the latest checkpoint from the active project-scoped model series.',
  // --- ORIGINAL KERBL PARAMETERS ---
  maxSteps: 'Total training iterations. This value is sent from frontend in both baseline and modified modes. [original]',
+ gaussian_hard_cap: 'Maximum Gaussian count allowed for one gsplat run. If the run exceeds this value, it stops as partially completed with the hard-cap penalty. [custom]',
  logInterval: 'How often (in steps) to print consolidated training snapshots in worker logs. Lower values are more verbose. [custom]',
  splatInterval: 'How often (in steps) to export intermediate .splat/.ply files during training. [original]',
  bestSplatInterval: 'How often (in steps) to evaluate and update best.splat using measured training loss. Final export cadence remains controlled by Splat export interval. [custom]',
@@ -499,6 +502,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  setProjectModelName(defaults.project_model_name ?? "");
  setSourceModelId(defaults.source_model_id ?? "");
  setMaxSteps(defaults.maxSteps);
+ setGaussianHardCap(defaults.gaussianHardCap ?? 6000000);
  setLogInterval(defaults.logInterval ?? 100);
  setSplatInterval(defaults.splatInterval);
  setBestSplatInterval(defaults.bestSplatInterval ?? 100);
@@ -577,6 +581,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  if (typeof resolved.project_model_name === "string") setProjectModelName(resolved.project_model_name);
  if (typeof resolved.source_model_id === "string") setSourceModelId(resolved.source_model_id);
  if (typeof resolved.max_steps === "number") setMaxSteps(resolved.max_steps);
+ if (typeof resolved.gaussian_hard_cap === "number") setGaussianHardCap(resolved.gaussian_hard_cap);
  if (typeof resolved.log_interval === "number") setLogInterval(resolved.log_interval);
  if (typeof resolved.splat_export_interval === "number") setSplatInterval(resolved.splat_export_interval);
  if (typeof resolved.best_splat_interval === "number") setBestSplatInterval(resolved.best_splat_interval);
@@ -638,6 +643,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  }
  if (typeof normalized.trend_scope !== "string" && typeof raw.trendScope === "string") normalized.trend_scope = raw.trendScope;
  if (typeof normalized.max_steps !== "number" && typeof raw.maxSteps === "number") normalized.max_steps = raw.maxSteps;
+ if (typeof normalized.gaussian_hard_cap !== "number" && typeof raw.gaussianHardCap === "number") normalized.gaussian_hard_cap = raw.gaussianHardCap;
  if (typeof normalized.log_interval !== "number" && typeof raw.logInterval === "number") normalized.log_interval = raw.logInterval;
  if (typeof normalized.splat_export_interval !== "number" && typeof raw.splatInterval === "number") normalized.splat_export_interval = raw.splatInterval;
  if (typeof normalized.best_splat_interval !== "number" && typeof raw.bestSplatInterval === "number") normalized.best_splat_interval = raw.bestSplatInterval;
@@ -705,6 +711,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  update_training_data: shouldUpdateTrainingData,
  training_data_target_id: shouldUpdateTrainingData ? trainingDataTargetId : "",
  max_steps: maxSteps,
+ gaussian_hard_cap: gaussianHardCap,
  log_interval: logInterval,
  splat_export_interval: splatInterval,
  best_splat_interval: bestSplatInterval,
@@ -725,7 +732,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  lambda_dssim: lambdaDssim,
  };
  localStorage.setItem(getTrainingConfigStorageKey(selectedRunId), JSON.stringify(config));
- }, [mode, tuneStartStep, tuneMinImprovement, tuneEndStep, tuneInterval, tuneScope, trendScope, aiInputMode, baselineSessionIdForAi, warmupAtStart, runCount, runJitterMode, runJitterFactor, runJitterMin, runJitterMax, continueOnFailure, sessionExecutionMode, startModelMode, projectModelName, sourceModelId, engine, shouldUpdateTrainingData, trainingDataTargetId, maxSteps, logInterval, splatInterval, bestSplatInterval, bestSplatStartStep, saveBestSplat, replaceEvalImages, replaceCheckpoints, pngInterval, evalInterval, saveInterval, sparsePreference, sparseMergeSelection, densifyFromIter, densifyUntilIter, densificationInterval, densifyGradThreshold, opacityThreshold, lambdaDssim, selectedRunId, getTrainingConfigStorageKey]);
+ }, [mode, tuneStartStep, tuneMinImprovement, tuneEndStep, tuneInterval, tuneScope, trendScope, aiInputMode, baselineSessionIdForAi, warmupAtStart, runCount, runJitterMode, runJitterFactor, runJitterMin, runJitterMax, continueOnFailure, sessionExecutionMode, startModelMode, projectModelName, sourceModelId, engine, shouldUpdateTrainingData, trainingDataTargetId, maxSteps, gaussianHardCap, logInterval, splatInterval, bestSplatInterval, bestSplatStartStep, saveBestSplat, replaceEvalImages, replaceCheckpoints, pngInterval, evalInterval, saveInterval, sparsePreference, sparseMergeSelection, densifyFromIter, densifyUntilIter, densificationInterval, densifyGradThreshold, opacityThreshold, lambdaDssim, selectedRunId, getTrainingConfigStorageKey]);
 
  useEffect(() => {
  let cancelled = false;
@@ -2420,6 +2427,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  update_training_data: shouldUpdateTrainingData,
  training_data_target_id: shouldUpdateTrainingData ? trainingDataTargetId : undefined,
  max_steps: maxSteps,
+ gaussian_hard_cap: gaussianHardCap,
  log_interval: logInterval,
  splat_export_interval: splatInterval,
  best_splat_interval: bestSplatInterval,
@@ -2579,6 +2587,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  update_training_data: shouldUpdateTrainingData,
  training_data_target_id: shouldUpdateTrainingData ? trainingDataTargetId : undefined,
  max_steps: maxSteps,
+ gaussian_hard_cap: gaussianHardCap,
  log_interval: logInterval,
  splat_export_interval: splatInterval,
  best_splat_interval: bestSplatInterval,
@@ -2713,6 +2722,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  update_training_data: shouldUpdateTrainingData,
  training_data_target_id: shouldUpdateTrainingData ? trainingDataTargetId : undefined,
  max_steps: maxSteps,
+ gaussian_hard_cap: gaussianHardCap,
  log_interval: logInterval,
  splat_export_interval: splatInterval,
  best_splat_interval: bestSplatInterval,
@@ -2763,6 +2773,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  update_training_data: shouldUpdateTrainingData,
  training_data_target_id: shouldUpdateTrainingData ? trainingDataTargetId : "",
  max_steps: maxSteps,
+ gaussian_hard_cap: gaussianHardCap,
  log_interval: logInterval,
  splat_export_interval: splatInterval,
  best_splat_interval: bestSplatInterval,
@@ -2946,6 +2957,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  update_training_data: defaults.update_training_data,
  training_data_target_id: defaults.update_training_data ? defaults.training_data_target_id : undefined,
  max_steps: defaults.maxSteps,
+ gaussian_hard_cap: defaults.gaussianHardCap,
  log_interval: defaults.logInterval,
  splat_export_interval: defaults.splatInterval,
  best_splat_interval: defaults.bestSplatInterval,
@@ -5229,6 +5241,20 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  min={100}
  max={50000}
  step={100}
+ />
+ </div>
+ <div>
+ <label className="flex items-center justify-between text-[11px] font-medium text-slate-600 mb-0.5">
+ <span>Gaussian hard cap</span>
+ <button onClick={() => setSelectedInfoKey("gaussian_hard_cap")} className="p-1 text-slate-400 hover:text-slate-600"><Info /></button>
+ </label>
+ <input
+ type="number"
+ value={gaussianHardCap}
+ onChange={(e) => setGaussianHardCap(Math.max(1, parseInt(e.target.value) || 6000000))}
+ className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded-md"
+ min={1}
+ step={100000}
  />
  </div>
  <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-0.5">
