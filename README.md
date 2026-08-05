@@ -1,5 +1,6 @@
 # Bimba3d-re
-The name of the platform comes from the word Bimba. In Nepali (derived from Sanskrit), the word bimba (बिम्ब) means an image, shadow, reflection, or idol/statue. It is also commonly used in literature and philosophy to describe an original object or form that casts a reflection (pratibimba)
+
+**Bimba3D** is named after the Nepali word **Bimba** (बिम्ब), derived from Sanskrit, meaning an image, form, or original object. In classical Sanskrit philosophy, **bimba** represents the original entity, while **pratibimba** (प्रतिबिम्ब) is its reflection or mirror image. The name symbolizes the platform's purpose of creating digital 3D representations of the physical world. The suffix **-re** denotes the research edition of the platform.
 
 This repository contains:
 - `bimba3d_backend`: FastAPI API, project processing, model training, and pipeline workflow services.
