@@ -19,13 +19,6 @@ Important:
 - Do not rely on installing the requirements file alone for a local training setup.
 - Local GPU setup uses a separate install order for PyTorch, `ninja`, and `gsplat`, then installs the remaining backend packages.
 
-### System install checklist
-Install these before creating the project environment:
-- Python 3.12 or newer
-- Node.js 18 or newer
-- COLMAP on the host machine
-- Optional on Windows for local GPU training: Visual Studio Build Tools, CUDA Toolkit, and NVIDIA drivers
-
 Quick verification commands:
 
 ```bash
@@ -52,8 +45,6 @@ Large generated research outputs are kept outside this code repository to keep c
 
 Research outputs repository:
 [geomatupen/Bimba3d-re_research_outputs](https://github.com/geomatupen/Bimba3d-re_research_outputs)
-
-The local `outputs/` folder is intentionally ignored by this repository. If you need the archived outputs, clone or download the separate outputs repository and place/use it independently from the application code.
 
 ## Install
 
@@ -199,23 +190,23 @@ Build the frontend once, then start the backend on port `8005`:
 #### Linux
 
 ```bash
+source .venv/bin/activate
+python -m uvicorn bimba3d_backend.app.main:app --reload --port 8005
+
 cd bimba3d_frontend
 npm run build
 cd ..
-
-source .venv/bin/activate
-python -m uvicorn bimba3d_backend.app.main:app --reload --port 8005
 ```
 
 #### Windows PowerShell
 
 ```powershell
+.\.venv\Scripts\Activate.ps1
+python -m uvicorn bimba3d_backend.app.main:app --reload --port 8005
+
 cd bimba3d_frontend
 npm run build
 cd ..
-
-.\.venv\Scripts\Activate.ps1
-python -m uvicorn bimba3d_backend.app.main:app --reload --port 8005
 ```
 
 Open `http://localhost:8005`.
