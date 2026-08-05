@@ -1,4 +1,4 @@
-# Bimba3d Monorepo
+# Bimba3d-re
 
 This repository contains:
 - `bimba3d_backend`: FastAPI API, project processing, model training, and pipeline workflow services.
