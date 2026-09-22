@@ -126,6 +126,8 @@ class ProcessParams(BaseModel):
     ai_selector_strategy: Optional[str] = None  # featurewise_* | compact_featurewise_*
     # --- ORIGINAL KERBL PARAMETERS ---
     max_steps: Optional[int] = None  # [original]
+    gaussian_hard_cap: Optional[int] = None  # [custom]
+    freeze_densification_at_gaussian_cap: Optional[bool] = None  # [custom]
     log_interval: Optional[int] = None  # [custom]
     batch_size: Optional[int] = None  # [original]
     eval_interval: Optional[int] = None  # [original]

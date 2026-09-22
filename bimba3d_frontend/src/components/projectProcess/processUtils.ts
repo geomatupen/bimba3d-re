@@ -181,6 +181,7 @@ export const getDefaultProcessConfig = () => ({
   engine: "gsplat" as TrainingEngine,
   maxSteps: 15000,
   gaussianHardCap: 6000000,
+  freezeDensificationAtGaussianCap: false,
   logInterval: 100,
   splatInterval: 31000,
   bestSplatInterval: 100,

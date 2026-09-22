@@ -341,6 +341,16 @@ def run_training(
         gaussian_hard_cap = max(1, int(p.get("gaussian_hard_cap", 6_000_000)))
     except Exception:
         gaussian_hard_cap = 6_000_000
+    freeze_densification_at_gaussian_cap_raw = p.get("freeze_densification_at_gaussian_cap", False)
+    if isinstance(freeze_densification_at_gaussian_cap_raw, str):
+        freeze_densification_at_gaussian_cap = freeze_densification_at_gaussian_cap_raw.strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+    else:
+        freeze_densification_at_gaussian_cap = bool(freeze_densification_at_gaussian_cap_raw)
     raw_tune_start_step = p.get("tune_start_step", 100)
     try:
         modified_tune_start_step = max(1, int(raw_tune_start_step))
@@ -469,7 +479,9 @@ def run_training(
         "best_splat": {"step": None, "loss": None, "path": None},
         "input_mode_preset": preset_summary,
         "gaussian_hard_cap": int(gaussian_hard_cap),
+        "freeze_densification_at_gaussian_cap": bool(freeze_densification_at_gaussian_cap),
         "gaussian_cap_reached": False,
+        "gaussian_cap_freeze_applied": False,
         "gaussian_cap_step": None,
         "gaussian_cap_count": None,
         "early_stop": {
@@ -612,6 +624,14 @@ def run_training(
             "status": live_status,
             "mode": mode,
             "engine": "gsplat",
+            "gaussian_hard_cap": int(gaussian_hard_cap),
+            "freeze_densification_at_gaussian_cap": bool(freeze_densification_at_gaussian_cap),
+            "gaussian_cap_reached": bool(tuning_state.get("gaussian_cap_reached")),
+            "gaussian_cap_freeze_applied": bool(tuning_state.get("gaussian_cap_freeze_applied")),
+            "gaussian_cap_step": tuning_state.get("gaussian_cap_step"),
+            "gaussian_cap_count": tuning_state.get("gaussian_cap_count"),
+            "strategy_frozen": bool(tuning_state.get("strategy_frozen")),
+            "strategy_frozen_reason": tuning_state.get("strategy_frozen_reason"),
             "metrics": {
                 "final_loss_step": latest_step,
                 "final_loss": latest_loss,
@@ -1469,7 +1489,7 @@ def run_training(
         tuning_state["last_callback_step"] = int(step)
         tuning_state["last_callback_elapsed"] = float(elapsed)
 
-        if not bool(tuning_state.get("gaussian_cap_reached")):
+        if not bool(tuning_state.get("gaussian_cap_reached")) and not bool(tuning_state.get("gaussian_cap_freeze_applied")):
             runner_obj = runner_ref.get("runner")
             if runner_obj is not None:
                 try:
@@ -1480,19 +1500,33 @@ def run_training(
                         else 0
                     )
                     if gaussians >= int(gaussian_hard_cap) and not stop_flag.exists():
-                        tuning_state["gaussian_cap_reached"] = True
                         tuning_state["gaussian_cap_step"] = int(step)
                         tuning_state["gaussian_cap_count"] = int(gaussians)
-                        stop_flag.write_text(
-                            f"gaussian_hard_cap_reached:{int(gaussians)}:{int(gaussian_hard_cap)}:{int(step)}",
-                            encoding="utf-8",
-                        )
-                        logger.warning(
-                            "Gaussian hard cap reached at step %d: gaussians=%d cap=%d",
-                            int(step),
-                            int(gaussians),
-                            int(gaussian_hard_cap),
-                        )
+                        if freeze_densification_at_gaussian_cap:
+                            tuning_state["gaussian_cap_freeze_applied"] = True
+                            # progress_callback receives one-based steps while DefaultStrategy uses zero-based steps.
+                            freeze_stop_iter = max(0, int(step) - 1)
+                            strategy.refine_stop_iter = min(int(getattr(strategy, "refine_stop_iter", freeze_stop_iter)), freeze_stop_iter)
+                            tuning_state["strategy_frozen"] = True
+                            tuning_state["strategy_frozen_reason"] = "gaussian_hard_cap_reached"
+                            logger.warning(
+                                "Gaussian hard cap reached at step %d: gaussians=%d cap=%d; densification frozen and training continues",
+                                int(step),
+                                int(gaussians),
+                                int(gaussian_hard_cap),
+                            )
+                        else:
+                            tuning_state["gaussian_cap_reached"] = True
+                            stop_flag.write_text(
+                                f"gaussian_hard_cap_reached:{int(gaussians)}:{int(gaussian_hard_cap)}:{int(step)}",
+                                encoding="utf-8",
+                            )
+                            logger.warning(
+                                "Gaussian hard cap reached at step %d: gaussians=%d cap=%d",
+                                int(step),
+                                int(gaussians),
+                                int(gaussian_hard_cap),
+                            )
                 except Exception as exc:
                     logger.debug("Failed gaussian hard-cap check at step %s: %s", step, exc)
 
@@ -1508,7 +1542,15 @@ def run_training(
             timing["eta"] = eta
 
         gaussian_cap_reached = bool(tuning_state.get("gaussian_cap_reached"))
-        if gaussian_cap_reached:
+        gaussian_cap_freeze_applied = bool(tuning_state.get("gaussian_cap_freeze_applied"))
+        if gaussian_cap_freeze_applied:
+            cap_count = tuning_state.get("gaussian_cap_count")
+            cap_step = tuning_state.get("gaussian_cap_step")
+            message = (
+                f" Gaussian hard cap reached ({cap_count}/{int(gaussian_hard_cap)}) at step {cap_step}. "
+                f"Densification is frozen; training continues to step {max_steps_local}."
+            )
+        elif gaussian_cap_reached:
             cap_count = tuning_state.get("gaussian_cap_count")
             message = (
                 f" Gaussian hard cap reached ({cap_count}/{int(gaussian_hard_cap)}). "
@@ -1535,6 +1577,14 @@ def run_training(
             stage_progress=int(progress_fraction * 100),
             message=message,
             timing=timing,
+            gaussian_hard_cap=int(gaussian_hard_cap),
+            freeze_densification_at_gaussian_cap=bool(freeze_densification_at_gaussian_cap),
+            gaussian_cap_reached=gaussian_cap_reached,
+            gaussian_cap_freeze_applied=gaussian_cap_freeze_applied,
+            gaussian_cap_step=tuning_state.get("gaussian_cap_step"),
+            gaussian_cap_count=tuning_state.get("gaussian_cap_count"),
+            strategy_frozen=bool(tuning_state.get("strategy_frozen")),
+            strategy_frozen_reason=tuning_state.get("strategy_frozen_reason"),
             early_stop=(
                 {
                     "candidate": bool(early_state.get("candidate")),
@@ -1718,6 +1768,7 @@ def run_training(
     progress_every = max(1, int(log_interval))
     if mode == "modified":
         progress_every = min(progress_every, max(1, int(modified_tune_interval)))
+    progress_every = min(progress_every, max(1, int(p.get("densification_interval", 100) or 100)))
     progress_every = min(progress_every, best_splat_interval)
     cfg.progress_every = progress_every
     if cfg.disable_tqdm:
@@ -2416,9 +2467,13 @@ def run_training(
         metadata["num_gaussians"] = final_gaussian_count
         metadata["final_gaussian_count"] = final_gaussian_count
         metadata["gaussian_hard_cap"] = int(gaussian_hard_cap)
+        metadata["freeze_densification_at_gaussian_cap"] = bool(freeze_densification_at_gaussian_cap)
         metadata["gaussian_cap_reached"] = bool(tuning_state.get("gaussian_cap_reached"))
+        metadata["gaussian_cap_freeze_applied"] = bool(tuning_state.get("gaussian_cap_freeze_applied"))
         metadata["gaussian_cap_step"] = tuning_state.get("gaussian_cap_step")
         metadata["gaussian_cap_count"] = tuning_state.get("gaussian_cap_count")
+        metadata["strategy_frozen"] = bool(tuning_state.get("strategy_frozen"))
+        metadata["strategy_frozen_reason"] = tuning_state.get("strategy_frozen_reason")
         metadata["mode"] = mode
         metadata["tune_scope"] = tune_scope if mode == "modified" else None
         metadata["best_splat"] = tuning_state.get("best_splat")
@@ -2521,9 +2576,13 @@ def run_training(
             "mode": mode,
             "engine": "gsplat",
             "gaussian_hard_cap": int(gaussian_hard_cap),
+            "freeze_densification_at_gaussian_cap": bool(freeze_densification_at_gaussian_cap),
             "gaussian_cap_reached": bool(tuning_state.get("gaussian_cap_reached")),
+            "gaussian_cap_freeze_applied": bool(tuning_state.get("gaussian_cap_freeze_applied")),
             "gaussian_cap_step": tuning_state.get("gaussian_cap_step"),
             "gaussian_cap_count": tuning_state.get("gaussian_cap_count"),
+            "strategy_frozen": bool(tuning_state.get("strategy_frozen")),
+            "strategy_frozen_reason": tuning_state.get("strategy_frozen_reason"),
             "final_gaussian_count": final_gaussian_count,
             "metrics": {
                 "convergence_speed": final_eval.get("convergence_speed"),

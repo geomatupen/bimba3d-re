@@ -145,6 +145,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  const cfgReplaceEvalImages = typeof cfgLegacy["replace_eval_images"] === "boolean" ? cfgLegacy["replace_eval_images"] : undefined;
  const cfgReplaceCheckpoints = typeof cfgLegacy["replace_checkpoints"] === "boolean" ? cfgLegacy["replace_checkpoints"] : undefined;
  const cfgGaussianHardCap = typeof cfgLegacy["gaussian_hard_cap"] === "number" ? cfgLegacy["gaussian_hard_cap"] : undefined;
+ const cfgFreezeDensificationAtGaussianCap = typeof cfgLegacy["freeze_densification_at_gaussian_cap"] === "boolean" ? cfgLegacy["freeze_densification_at_gaussian_cap"] : undefined;
  const cfgBestSplatStartStep = typeof cfgLegacy["best_splat_start_step"] === "number" ? cfgLegacy["best_splat_start_step"] : undefined;
  const cfgSaveInterval = typeof cfgLegacy["save_interval"] === "number" ? cfgLegacy["save_interval"] : undefined;
  const [mode, setMode] = useState<"baseline" | "modified">(cfg.mode ?? "baseline");
@@ -182,6 +183,9 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  const [engine] = useState<TrainingEngine>("gsplat");
  const [maxSteps, setMaxSteps] = useState<number>(cfgMaxSteps ?? cfg.maxSteps ?? 15000);
  const [gaussianHardCap, setGaussianHardCap] = useState<number>(cfgGaussianHardCap ?? cfg.gaussianHardCap ?? 6000000);
+ const [freezeDensificationAtGaussianCap, setFreezeDensificationAtGaussianCap] = useState<boolean>(
+ cfgFreezeDensificationAtGaussianCap ?? cfg.freezeDensificationAtGaussianCap ?? false
+ );
  const [logInterval, setLogInterval] = useState<number>(cfgLogInterval ?? cfg.logInterval ?? 100);
  const [splatInterval, setSplatInterval] = useState<number>(cfgSplatExportInterval ?? cfg.splatInterval ?? 31000);
  const [bestSplatInterval, setBestSplatInterval] = useState<number>(cfgBestSplatInterval ?? cfg.bestSplatInterval ?? 100);
@@ -314,6 +318,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  // --- ORIGINAL KERBL PARAMETERS ---
  maxSteps: 'Total training iterations. This value is sent from frontend in both baseline and modified modes. [original]',
  gaussian_hard_cap: 'Maximum Gaussian count allowed for one gsplat run. If the run exceeds this value, it stops as partially completed with the hard-cap penalty. [custom]',
+ freeze_densification_at_gaussian_cap: 'When enabled, reaching the Gaussian hard cap freezes gsplat densification/refinement and continues optimizing the existing Gaussians to the configured max step. [custom]',
  logInterval: 'How often (in steps) to print consolidated training snapshots in worker logs. Lower values are more verbose. [custom]',
  splatInterval: 'How often (in steps) to export intermediate .splat/.ply files during training. [original]',
  bestSplatInterval: 'How often (in steps) to evaluate and update best.splat using measured training loss. Final export cadence remains controlled by Splat export interval. [custom]',
@@ -503,6 +508,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  setSourceModelId(defaults.source_model_id ?? "");
  setMaxSteps(defaults.maxSteps);
  setGaussianHardCap(defaults.gaussianHardCap ?? 6000000);
+ setFreezeDensificationAtGaussianCap(defaults.freezeDensificationAtGaussianCap ?? false);
  setLogInterval(defaults.logInterval ?? 100);
  setSplatInterval(defaults.splatInterval);
  setBestSplatInterval(defaults.bestSplatInterval ?? 100);
@@ -582,6 +588,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  if (typeof resolved.source_model_id === "string") setSourceModelId(resolved.source_model_id);
  if (typeof resolved.max_steps === "number") setMaxSteps(resolved.max_steps);
  if (typeof resolved.gaussian_hard_cap === "number") setGaussianHardCap(resolved.gaussian_hard_cap);
+ if (typeof resolved.freeze_densification_at_gaussian_cap === "boolean") setFreezeDensificationAtGaussianCap(resolved.freeze_densification_at_gaussian_cap);
  if (typeof resolved.log_interval === "number") setLogInterval(resolved.log_interval);
  if (typeof resolved.splat_export_interval === "number") setSplatInterval(resolved.splat_export_interval);
  if (typeof resolved.best_splat_interval === "number") setBestSplatInterval(resolved.best_splat_interval);
@@ -644,6 +651,9 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  if (typeof normalized.trend_scope !== "string" && typeof raw.trendScope === "string") normalized.trend_scope = raw.trendScope;
  if (typeof normalized.max_steps !== "number" && typeof raw.maxSteps === "number") normalized.max_steps = raw.maxSteps;
  if (typeof normalized.gaussian_hard_cap !== "number" && typeof raw.gaussianHardCap === "number") normalized.gaussian_hard_cap = raw.gaussianHardCap;
+ if (typeof normalized.freeze_densification_at_gaussian_cap !== "boolean" && typeof raw.freezeDensificationAtGaussianCap === "boolean") {
+ normalized.freeze_densification_at_gaussian_cap = raw.freezeDensificationAtGaussianCap;
+ }
  if (typeof normalized.log_interval !== "number" && typeof raw.logInterval === "number") normalized.log_interval = raw.logInterval;
  if (typeof normalized.splat_export_interval !== "number" && typeof raw.splatInterval === "number") normalized.splat_export_interval = raw.splatInterval;
  if (typeof normalized.best_splat_interval !== "number" && typeof raw.bestSplatInterval === "number") normalized.best_splat_interval = raw.bestSplatInterval;
@@ -712,6 +722,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  training_data_target_id: shouldUpdateTrainingData ? trainingDataTargetId : "",
  max_steps: maxSteps,
  gaussian_hard_cap: gaussianHardCap,
+ freeze_densification_at_gaussian_cap: freezeDensificationAtGaussianCap,
  log_interval: logInterval,
  splat_export_interval: splatInterval,
  best_splat_interval: bestSplatInterval,
@@ -732,7 +743,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  lambda_dssim: lambdaDssim,
  };
  localStorage.setItem(getTrainingConfigStorageKey(selectedRunId), JSON.stringify(config));
- }, [mode, tuneStartStep, tuneMinImprovement, tuneEndStep, tuneInterval, tuneScope, trendScope, aiInputMode, baselineSessionIdForAi, warmupAtStart, runCount, runJitterMode, runJitterFactor, runJitterMin, runJitterMax, continueOnFailure, sessionExecutionMode, startModelMode, projectModelName, sourceModelId, engine, shouldUpdateTrainingData, trainingDataTargetId, maxSteps, gaussianHardCap, logInterval, splatInterval, bestSplatInterval, bestSplatStartStep, saveBestSplat, replaceEvalImages, replaceCheckpoints, pngInterval, evalInterval, saveInterval, sparsePreference, sparseMergeSelection, densifyFromIter, densifyUntilIter, densificationInterval, densifyGradThreshold, opacityThreshold, lambdaDssim, selectedRunId, getTrainingConfigStorageKey]);
+ }, [mode, tuneStartStep, tuneMinImprovement, tuneEndStep, tuneInterval, tuneScope, trendScope, aiInputMode, baselineSessionIdForAi, warmupAtStart, runCount, runJitterMode, runJitterFactor, runJitterMin, runJitterMax, continueOnFailure, sessionExecutionMode, startModelMode, projectModelName, sourceModelId, engine, shouldUpdateTrainingData, trainingDataTargetId, maxSteps, gaussianHardCap, freezeDensificationAtGaussianCap, logInterval, splatInterval, bestSplatInterval, bestSplatStartStep, saveBestSplat, replaceEvalImages, replaceCheckpoints, pngInterval, evalInterval, saveInterval, sparsePreference, sparseMergeSelection, densifyFromIter, densifyUntilIter, densificationInterval, densifyGradThreshold, opacityThreshold, lambdaDssim, selectedRunId, getTrainingConfigStorageKey]);
 
  useEffect(() => {
  let cancelled = false;
@@ -2428,6 +2439,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  training_data_target_id: shouldUpdateTrainingData ? trainingDataTargetId : undefined,
  max_steps: maxSteps,
  gaussian_hard_cap: gaussianHardCap,
+ freeze_densification_at_gaussian_cap: freezeDensificationAtGaussianCap,
  log_interval: logInterval,
  splat_export_interval: splatInterval,
  best_splat_interval: bestSplatInterval,
@@ -2588,6 +2600,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  training_data_target_id: shouldUpdateTrainingData ? trainingDataTargetId : undefined,
  max_steps: maxSteps,
  gaussian_hard_cap: gaussianHardCap,
+ freeze_densification_at_gaussian_cap: freezeDensificationAtGaussianCap,
  log_interval: logInterval,
  splat_export_interval: splatInterval,
  best_splat_interval: bestSplatInterval,
@@ -2723,6 +2736,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  training_data_target_id: shouldUpdateTrainingData ? trainingDataTargetId : undefined,
  max_steps: maxSteps,
  gaussian_hard_cap: gaussianHardCap,
+ freeze_densification_at_gaussian_cap: freezeDensificationAtGaussianCap,
  log_interval: logInterval,
  splat_export_interval: splatInterval,
  best_splat_interval: bestSplatInterval,
@@ -2774,6 +2788,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  training_data_target_id: shouldUpdateTrainingData ? trainingDataTargetId : "",
  max_steps: maxSteps,
  gaussian_hard_cap: gaussianHardCap,
+ freeze_densification_at_gaussian_cap: freezeDensificationAtGaussianCap,
  log_interval: logInterval,
  splat_export_interval: splatInterval,
  best_splat_interval: bestSplatInterval,
@@ -2958,6 +2973,7 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  training_data_target_id: defaults.update_training_data ? defaults.training_data_target_id : undefined,
  max_steps: defaults.maxSteps,
  gaussian_hard_cap: defaults.gaussianHardCap,
+ freeze_densification_at_gaussian_cap: defaults.freezeDensificationAtGaussianCap,
  log_interval: defaults.logInterval,
  splat_export_interval: defaults.splatInterval,
  best_splat_interval: defaults.bestSplatInterval,
@@ -3278,6 +3294,14 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  addKeyValue("Stage", telemetryPayload.status.stage || "-");
  addKeyValue("Step", telemetryPayload.status.currentStep ? `${telemetryPayload.status.currentStep.toLocaleString()} / ${telemetryPayload.status.maxSteps ? telemetryPayload.status.maxSteps.toLocaleString() : "?"}` : "-");
  addKeyValue("Current Loss", typeof telemetryPayload.status.current_loss === "number" ? telemetryPayload.status.current_loss.toFixed(6) : "-");
+ addKeyValue("Gaussian Hard Cap", typeof telemetryPayload.status.gaussian_hard_cap === "number" ? telemetryPayload.status.gaussian_hard_cap.toLocaleString() : "-");
+ addKeyValue("Freeze Densification At Cap", formatConfigValue(telemetryPayload.status.freeze_densification_at_gaussian_cap));
+ addKeyValue("Hard Cap Stop Reached", formatConfigValue(telemetryPayload.status.gaussian_cap_reached));
+ addKeyValue("Hard Cap Freeze Applied", formatConfigValue(telemetryPayload.status.gaussian_cap_freeze_applied));
+ addKeyValue("Hard Cap Step", typeof telemetryPayload.status.gaussian_cap_step === "number" ? telemetryPayload.status.gaussian_cap_step.toLocaleString() : "-");
+ addKeyValue("Hard Cap Gaussian Count", typeof telemetryPayload.status.gaussian_cap_count === "number" ? telemetryPayload.status.gaussian_cap_count.toLocaleString() : "-");
+ addKeyValue("Strategy Frozen", formatConfigValue(telemetryPayload.status.strategy_frozen));
+ addKeyValue("Strategy Frozen Reason", telemetryPayload.status.strategy_frozen_reason || "-");
  addKeyValue("Message", telemetryPayload.status.message || "-");
  yPos += 2;
  }
@@ -3318,6 +3342,8 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  ["tune_scope", resolvedConfig.tune_scope],
  ["trend_scope", resolvedConfig.trend_scope],
  ["max_steps", resolvedConfig.max_steps],
+ ["gaussian_hard_cap", resolvedConfig.gaussian_hard_cap],
+ ["freeze_densification_at_gaussian_cap", resolvedConfig.freeze_densification_at_gaussian_cap],
  ["log_interval", resolvedConfig.log_interval],
  ["eval_interval", resolvedConfig.eval_interval],
  ["save_interval", resolvedConfig.save_interval],
@@ -3339,6 +3365,8 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  ["engine", requestedConfig.engine],
  ["stage", requestedConfig.stage],
  ["trend_scope", requestedConfig.trend_scope],
+ ["gaussian_hard_cap", requestedConfig.gaussian_hard_cap],
+ ["freeze_densification_at_gaussian_cap", requestedConfig.freeze_densification_at_gaussian_cap],
  ["tune_interval", requestedConfig.tune_interval],
  ["tune_min_improvement", requestedConfig.tune_min_improvement],
  ]);
@@ -4266,6 +4294,16 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  <div>Best tracking starts: <span className="font-semibold">{typeof telemetryBestTrackingStartStep === "number" ? telemetryBestTrackingStartStep.toLocaleString() : "-"}</span></div>
  <div>Best loss step: <span className="font-semibold">{typeof telemetryBestLoss.bestStep === "number" ? telemetryBestLoss.bestStep.toLocaleString() : "-"}</span></div>
  <div>Best loss value: <span className="font-semibold">{typeof telemetryBestLoss.bestLoss === "number" ? telemetryBestLoss.bestLoss.toFixed(6) : "-"}</span></div>
+ </div>
+ <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-2 border-t border-slate-200 pt-2 text-xs text-slate-700">
+ <div>Gaussian cap: <span className="font-semibold">{typeof telemetryData.status.gaussian_hard_cap === "number" ? telemetryData.status.gaussian_hard_cap.toLocaleString() : "-"}</span></div>
+ <div>Freeze option: <span className="font-semibold">{formatTelemetryScalar(telemetryData.status.freeze_densification_at_gaussian_cap)}</span></div>
+ <div>Hard-cap stop: <span className="font-semibold">{formatTelemetryScalar(telemetryData.status.gaussian_cap_reached)}</span></div>
+ <div>Freeze applied: <span className="font-semibold">{formatTelemetryScalar(telemetryData.status.gaussian_cap_freeze_applied)}</span></div>
+ <div>Cap step: <span className="font-semibold">{typeof telemetryData.status.gaussian_cap_step === "number" ? telemetryData.status.gaussian_cap_step.toLocaleString() : "-"}</span></div>
+ <div>Cap count: <span className="font-semibold">{typeof telemetryData.status.gaussian_cap_count === "number" ? telemetryData.status.gaussian_cap_count.toLocaleString() : "-"}</span></div>
+ <div>Strategy frozen: <span className="font-semibold">{formatTelemetryScalar(telemetryData.status.strategy_frozen)}</span></div>
+ <div className="md:col-span-2">Freeze reason: <span className="font-semibold">{telemetryData.status.strategy_frozen_reason || "-"}</span></div>
  </div>
  </div>
  )}
@@ -5257,6 +5295,32 @@ export default function ProcessTab({ projectId }: ProcessTabProps) {
  step={100000}
  />
  </div>
+ <label className="flex items-start gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-2 text-xs text-slate-700">
+ <input
+ type="checkbox"
+ checked={freezeDensificationAtGaussianCap}
+ onChange={(e) => setFreezeDensificationAtGaussianCap(e.target.checked)}
+ className="mt-0.5"
+ />
+ <span className="flex-1">
+ <span className="flex items-center justify-between gap-2 font-semibold text-slate-700">
+ <span>Freeze densification at Gaussian cap</span>
+ <button
+ type="button"
+ onClick={(e) => {
+ e.preventDefault();
+ setSelectedInfoKey("freeze_densification_at_gaussian_cap");
+ }}
+ className="p-0.5 text-slate-400 hover:text-slate-600"
+ >
+ <Info size={14} />
+ </button>
+ </span>
+ <span className="mt-1 block text-[11px] leading-4 text-slate-500">
+ Continue training after the cap by freezing gsplat refinement.
+ </span>
+ </span>
+ </label>
  <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-0.5">
  {engine === "gsplat" && (
  <>

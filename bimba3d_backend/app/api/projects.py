@@ -3512,6 +3512,8 @@ def process_project(project_id: str, params: ProcessParams | None = Body(None)):
         # Repro defaults for provided COLMAP pipelines.
         params_payload.setdefault("stage", "train_only")
         params_payload.setdefault("max_steps", 15000)
+        params_payload.setdefault("gaussian_hard_cap", 6_000_000)
+        params_payload.setdefault("freeze_densification_at_gaussian_cap", False)
         params_payload.setdefault("log_interval", 100)
         params_payload.setdefault("save_interval", 31000)
         params_payload.setdefault("splat_export_interval", 31000)

@@ -111,6 +111,14 @@ export interface TelemetryPayload {
     currentStep?: number | null;
     maxSteps?: number | null;
     current_loss?: number | null;
+    gaussian_hard_cap?: number | null;
+    freeze_densification_at_gaussian_cap?: boolean | null;
+    gaussian_cap_reached?: boolean | null;
+    gaussian_cap_freeze_applied?: boolean | null;
+    gaussian_cap_step?: number | null;
+    gaussian_cap_count?: number | null;
+    strategy_frozen?: boolean | null;
+    strategy_frozen_reason?: string | null;
   };
 }
 
