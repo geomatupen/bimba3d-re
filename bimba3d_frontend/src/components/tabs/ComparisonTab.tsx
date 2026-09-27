@@ -17,6 +17,8 @@ interface ComparisonTabProps {
 interface ProjectListItem {
   project_id: string;
   name?: string | null;
+  pipeline_id?: string | null;
+  pipeline_name?: string | null;
   status: string;
 }
 
@@ -357,6 +359,7 @@ function nearestPointValue(points: GraphPoint[], step: number): number | null {
 
 export default function ComparisonTab({ currentProjectId = "" }: ComparisonTabProps) {
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
+  const [selectedPipelineId, setSelectedPipelineId] = useState<string>("");
   const [leftId, setLeftId] = useState<string>(currentProjectId);
   const [rightId, setRightId] = useState<string>("");
   const [leftRuns, setLeftRuns] = useState<ProjectRunInfo[]>([]);
@@ -420,17 +423,18 @@ export default function ComparisonTab({ currentProjectId = "" }: ComparisonTabPr
         if (!mounted) return;
         const items = (res.data || []) as ProjectListItem[];
         setProjects(items);
+        const availableItems = items.filter((project) => !project.pipeline_id);
         if (!leftId) {
           const candidate = currentProjectId
-            ? items.find((p) => p.project_id === currentProjectId)
-            : items[0];
+            ? availableItems.find((p) => p.project_id === currentProjectId)
+            : availableItems[0];
           if (candidate) setLeftId(candidate.project_id);
         }
         if (!rightId) {
           const candidate =
-            (currentProjectId ? items.find((p) => p.project_id !== currentProjectId) : items[1]) ||
-            items.find((p) => p.project_id === currentProjectId) ||
-            items[0];
+            (currentProjectId ? availableItems.find((p) => p.project_id !== currentProjectId) : availableItems[1]) ||
+            availableItems.find((p) => p.project_id === currentProjectId) ||
+            availableItems[0];
           if (candidate) setRightId(candidate.project_id);
         }
       } catch (err) {
@@ -632,10 +636,42 @@ export default function ComparisonTab({ currentProjectId = "" }: ComparisonTabPr
     setBottomSwipePercent(Math.max(0, Math.min(100, raw)));
   };
 
-  const options = projects.map((project) => ({
+  const pipelineOptions = useMemo(() => {
+    const labels = new Map<string, string>();
+    projects.forEach((project) => {
+      const id = String(project.pipeline_id || "").trim();
+      if (!id) return;
+      labels.set(id, String(project.pipeline_name || id));
+    });
+    return Array.from(labels, ([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base", numeric: true }));
+  }, [projects]);
+
+  const filteredProjects = useMemo(
+    () => projects.filter((project) =>
+      selectedPipelineId ? project.pipeline_id === selectedPipelineId : !project.pipeline_id,
+    ),
+    [projects, selectedPipelineId],
+  );
+
+  const options = filteredProjects.map((project) => ({
     value: project.project_id,
     label: `${project.name || project.project_id.slice(0, 8)} (${project.status})`,
   }));
+
+  const changePipeline = (pipelineId: string) => {
+    beginRefreshWithStableLayout();
+    setSelectedPipelineId(pipelineId);
+    const availableProjects = projects.filter((project) =>
+      pipelineId ? project.pipeline_id === pipelineId : !project.pipeline_id,
+    );
+    const nextLeftId = availableProjects[0]?.project_id || "";
+    const nextRightId = availableProjects.find((project) => project.project_id !== nextLeftId)?.project_id || nextLeftId;
+    setLeftId(nextLeftId);
+    setRightId(nextRightId);
+    setLeftRunId("");
+    setRightRunId("");
+  };
 
   const milestoneKeys = useMemo(() => {
     const keySet = new Set<string>();
@@ -1256,6 +1292,19 @@ export default function ComparisonTab({ currentProjectId = "" }: ComparisonTabPr
           </button>
         </div>
         <p className="text-sm text-slate-600 mb-3">Pick two projects and compare metrics, tuning values, and preview snapshots side-by-side.</p>
+        <div className="mb-3 max-w-md">
+          <label className="block text-xs font-semibold text-slate-600 mb-1">Pipeline</label>
+          <select
+            value={selectedPipelineId}
+            onChange={(event) => changePipeline(event.target.value)}
+            className="w-full px-3 py-1.5 border border-slate-300 rounded-lg"
+          >
+            <option value="">None</option>
+            {pipelineOptions.map((pipeline) => (
+              <option key={pipeline.value} value={pipeline.value}>{pipeline.label}</option>
+            ))}
+          </select>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Left project</label>
@@ -1267,6 +1316,7 @@ export default function ComparisonTab({ currentProjectId = "" }: ComparisonTabPr
               }}
               className="w-full px-3 py-1.5 border border-slate-300 rounded-lg"
             >
+              {options.length === 0 && <option value="">No projects available</option>}
               {options.map((option) => (
                 <option key={`left-${option.value}`} value={option.value}>{option.label}</option>
               ))}
