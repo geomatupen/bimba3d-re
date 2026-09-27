@@ -53,6 +53,11 @@ async def restart_pipeline(
 
     projects = config.get("projects") if isinstance(config.get("projects"), list) else []
     config["projects"] = _sync_project_ids_after_restart(projects, deleted_summary, keep_baseline=keep_baseline)
+    experiments = config.get("additional_experiments")
+    if isinstance(experiments, dict):
+        for options in experiments.values():
+            if isinstance(options, dict):
+                options["source_run_ids"] = {}
     config["restart_version"] = int(config.get("restart_version") or 0) + 1
     config["restart_token"] = uuid.uuid4().hex
     config["last_restart_at"] = _utc_now()

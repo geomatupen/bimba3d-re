@@ -104,6 +104,47 @@ def test_collect_pipeline_learning_rows_reports_missing_pipeline(monkeypatch):
         raise AssertionError("Expected FileNotFoundError")
 
 
+def test_collect_pipeline_learning_rows_uses_pipeline_metadata_for_controlled_runs(monkeypatch, tmp_path: Path):
+    pipeline_root = tmp_path / "pipeline"
+    project_dir = pipeline_root / "project_one"
+    run_dir = project_dir / "runs" / "controlled_run"
+
+    write_json(project_dir / "config.json", {"id": "project_1", "name": "Project One"})
+    write_json(
+        run_dir / "analytics" / "run_analytics_v1.json",
+        {
+            "summary": {
+                "mode": "baseline",
+                "metrics": {"final_loss": 0.3},
+                "major_params": {"total_steps_completed": 5000},
+            }
+        },
+    )
+    monkeypatch.setattr(
+        pipeline_learning_rows.training_pipeline_storage,
+        "get_pipeline",
+        lambda pipeline_id: {
+            "id": pipeline_id,
+            "name": "Test Pipeline",
+            "config": {"pipeline_folder": str(pipeline_root)},
+            "runs": [
+                {
+                    "run_id": "controlled_run",
+                    "status": "success",
+                    "controlled_experiment": "time_constrained_test",
+                    "test_model_id": "ridge_model",
+                }
+            ],
+        },
+    )
+
+    row = pipeline_learning_rows.collect_pipeline_learning_rows("pipeline_123")["rows"][0]
+
+    assert row["controlled_experiment"] == "time_constrained_test"
+    assert row["model_id"] == "ridge_model"
+    assert row["is_baseline_row"] is False
+
+
 def test_learning_run_ids_keep_one_hard_cap_attempt_per_slot():
     runs = [
         {

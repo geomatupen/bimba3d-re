@@ -36,12 +36,21 @@ def collect_pipeline_learning_rows(pipeline_id: str, *, include_hard_cap: bool =
     if not pipeline_folder.exists():
         raise FileNotFoundError("Pipeline folder not found")
 
+    pipeline_runs = pipeline.get("runs", []) if isinstance(pipeline.get("runs"), list) else []
     known_run_ids = _learning_run_ids_from_pipeline_runs(
-        pipeline.get("runs", []),
+        pipeline_runs,
         include_hard_cap=include_hard_cap,
     )
+    run_metadata_by_id = {
+        str(run.get("run_id")): run
+        for run in pipeline_runs if isinstance(run, dict) and run.get("run_id")
+    }
 
-    rows = _collect_rows_from_folder(pipeline_folder, known_run_ids=known_run_ids or None)
+    rows = _collect_rows_from_folder(
+        pipeline_folder,
+        known_run_ids=known_run_ids or None,
+        run_metadata_by_id=run_metadata_by_id,
+    )
     rows = _dedupe_rows(rows)
     rows.sort(key=lambda row: (row.get("project_name", ""), row.get("run_id", "")))
     _augment_rows_with_visual_scores(
@@ -158,7 +167,12 @@ def _safe_positive_float(value: Any, default: float) -> float:
     return default
 
 
-def _collect_rows_from_folder(pipeline_folder: Path, *, known_run_ids: set[str] | None = None) -> list[dict[str, Any]]:
+def _collect_rows_from_folder(
+    pipeline_folder: Path,
+    *,
+    known_run_ids: set[str] | None = None,
+    run_metadata_by_id: dict[str, dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
     from bimba3d_backend.app.api.projects import (
         _build_learning_param_rows,
         _analytics_metrics,
@@ -189,6 +203,7 @@ def _collect_rows_from_folder(pipeline_folder: Path, *, known_run_ids: set[str] 
                     project_dir=project_dir,
                     project_config=project_config,
                     run_dir=run_dir,
+                    pipeline_run=(run_metadata_by_id or {}).get(run_dir.name),
                     analytics_metrics=_analytics_metrics,
                     build_learning_param_rows=_build_learning_param_rows,
                     read_json_if_exists=_read_json_if_exists,
@@ -320,6 +335,7 @@ def _build_row(
     project_dir: Path,
     project_config: dict[str, Any],
     run_dir: Path,
+    pipeline_run: dict[str, Any] | None,
     analytics_metrics,
     build_learning_param_rows,
     read_json_if_exists,
@@ -349,7 +365,10 @@ def _build_row(
     baseline_cmp = _read_baseline_comparison(learning_data)
     penalty_row = _is_gaussian_cap_penalty(learning_data, analytics_data)
     eval_summary = analytics_metrics(analytics_data)
-    is_baseline = summary.get("mode") == "baseline"
+    controlled_experiment = (
+        run_config.get("controlled_experiment") if isinstance(run_config, dict) else None
+    ) or (pipeline_run or {}).get("controlled_experiment")
+    is_baseline = summary.get("mode") == "baseline" and not controlled_experiment
     stored_learning_rows = _normalise_stored_learning_param_rows(learning_data)
     score_reference_step = _score_reference_step(baseline_cmp, run_config, summary, learning_data)
     loss_at_reference_step_run = _baseline_loss_value(baseline_cmp, "run", score_reference_step)
@@ -377,16 +396,18 @@ def _build_row(
     if not isinstance(initial_params, dict):
         initial_params = {}
     run_config_model_id = run_config.get("test_model_id") if isinstance(run_config, dict) else None
+    pipeline_model_id = (pipeline_run or {}).get("test_model_id") or (pipeline_run or {}).get("source_model_id")
 
     row = {
         "project_id": project_config.get("id") or project_config.get("project_id") or project_dir.name,
         "project_name": project_config.get("name") or project_dir.name,
         "run_id": run_dir.name,
         "run_name": summary.get("run_name") or run_dir.name,
+        "controlled_experiment": controlled_experiment,
         "ai_input_mode": ai_insights.get("ai_input_mode") or learning_data.get("mode"),
         "ai_selector_strategy": project_config.get("ai_selector_strategy"),
         "baseline_run_id": learning_data.get("baseline_run_id") or ai_insights.get("baseline_session_id"),
-        "model_id": ai_insights.get("model_id") or learning_data.get("model_id") or run_config_model_id,
+        "model_id": ai_insights.get("model_id") or learning_data.get("model_id") or run_config_model_id or pipeline_model_id,
         "selected_preset": ai_insights.get("selected_preset") or learning_data.get("selected_preset") or retry_snapshot.get("selected_preset"),
         "phase": learning_data.get("phase") or (run_config.get("phase") if isinstance(run_config, dict) else None),
         "is_baseline_row": is_baseline,

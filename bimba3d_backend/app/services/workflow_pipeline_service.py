@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from bimba3d_backend.app.config import DATA_DIR
+from bimba3d_backend.app.services import controlled_experiments
 from bimba3d_backend.app.services.fixed_log_space_schedule import build_fixed_log_space_config
 from bimba3d_backend.app.services import pipeline_learning_rows
 from bimba3d_backend.app.services import workflow_test_export
@@ -241,14 +242,35 @@ def create_workflow_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     return normalise_pipeline_detail(pipeline)
 
 
-def update_workflow_pipeline_config(pipeline_id: str, config: dict[str, Any]) -> dict[str, Any]:
+def update_workflow_pipeline_config(
+    pipeline_id: str,
+    config: dict[str, Any],
+    *,
+    override_controlled_kinds: list[str] | None = None,
+) -> dict[str, Any]:
     pipeline = _require_pipeline(pipeline_id)
     if pipeline.get("status") == "running":
         raise ValueError("Cannot update configuration while pipeline is running. Please stop the pipeline first.")
 
     old_config = pipeline.get("config", {}) if isinstance(pipeline.get("config"), dict) else {}
     new_config = _prepare_pipeline_config(config, preserve_existing_schedule=False)
+    old_controls = old_config.get("additional_experiments") or {}
+    new_controls = new_config.get("additional_experiments") or {}
+    runs = [run for run in pipeline.get("runs", []) if isinstance(run, dict)]
+    affected_kinds = [
+        kind for kind in controlled_experiments.KINDS
+        if any(run.get("controlled_experiment") == kind for run in runs)
+        and controlled_experiments.settings_signature(old_controls.get(kind), kind) != controlled_experiments.settings_signature(new_controls.get(kind), kind)
+    ]
+    confirmed_kinds = set(override_controlled_kinds or [])
+    if confirmed_kinds != set(affected_kinds):
+        if affected_kinds:
+            raise ValueError(f"Confirm override of existing {', '.join(affected_kinds)} runs before saving changed experiment settings.")
+        raise ValueError("No changed controlled runs require overriding. Reload the pipeline and try again.")
     _preserve_existing_pipeline_state(new_config, old_config)
+
+    overridden_runs = [run for run in runs if run.get("controlled_experiment") in affected_kinds]
+    remaining_runs = [run for run in runs if run.get("controlled_experiment") not in affected_kinds]
 
     total_runs = _calculate_total_runs(new_config)
     updates = {
@@ -257,11 +279,19 @@ def update_workflow_pipeline_config(pipeline_id: str, config: dict[str, Any]) ->
         "total_runs": total_runs,
         "current_test_model_id": None,
     }
+    if overridden_runs:
+        updates["runs"] = remaining_runs
     old_total_runs = int(pipeline.get("total_runs") or 0)
-    updated = training_pipeline_storage.update_pipeline(pipeline_id, updates)
-    if not updated:
-        raise FileNotFoundError("Pipeline not found")
+    pipeline_folder, moved_run_dirs = _stage_controlled_run_folders(pipeline, overridden_runs)
+    try:
+        updated = training_pipeline_storage.update_pipeline(pipeline_id, updates)
+        if not updated:
+            raise FileNotFoundError("Pipeline not found")
+    except Exception:
+        _restore_staged_controlled_runs(moved_run_dirs)
+        raise
     updated = training_pipeline_storage.refresh_pipeline_counters(pipeline_id) or updated
+    _finish_controlled_run_removal(pipeline_folder, moved_run_dirs, overridden_runs, remaining_runs)
 
     resumable_changes = False
     terminal_statuses = {"completed", "completed_with_failures", "completed_with_hard_caps"}
@@ -270,6 +300,7 @@ def update_workflow_pipeline_config(pipeline_id: str, config: dict[str, Any]) ->
             total_runs > old_total_runs
             or _runs_increased(old_config.get("phases") or [], new_config.get("phases") or [])
             or _model_slots_increased(old_config, new_config)
+            or bool(overridden_runs)
         )
         has_pending_slots = int(updated.get("pending_runs") or 0) > 0
         if resumable_changes and has_pending_slots:
@@ -285,17 +316,136 @@ def update_workflow_pipeline_config(pipeline_id: str, config: dict[str, Any]) ->
     return {
         "success": True,
         "message": (
-            "New test run slots were added - pipeline is now stopped. Click Resume to run only the pending runs."
+            "Changed controlled runs were overridden. Click Resume to run the pending experiments."
+            if overridden_runs and int(updated.get("pending_runs") or 0) > 0
+            else "New test run slots were added - pipeline is now stopped. Click Resume to run only the pending runs."
             if resumable_changes and int(updated.get("pending_runs") or 0) > 0
             else "Configuration updated. Changes to projects, phases structure, or other settings require a Restart to take effect."
         ),
         "pipeline_id": pipeline_id,
         "total_runs": total_runs,
         "resumable": bool(resumable_changes and int(updated.get("pending_runs") or 0) > 0),
+        "overridden_control_kinds": affected_kinds,
+        "overridden_run_count": len(overridden_runs),
         "applied_source_model_id": new_config.get("source_model_id"),
         "applied_source_model_ids": new_config.get("source_model_ids") or [],
         "pipeline": normalise_pipeline_detail(updated),
     }
+
+
+def remove_additional_experiment_runs(pipeline_id: str, kind: str) -> dict[str, Any]:
+    if kind not in controlled_experiments.KINDS:
+        raise ValueError("Only Time or Gaussian controlled runs can be removed.")
+    pipeline = _require_pipeline(pipeline_id)
+    if str(pipeline.get("status") or "").lower() == "running":
+        raise ValueError("Stop the pipeline before removing additional experiment runs.")
+
+    config = pipeline.get("config", {}) if isinstance(pipeline.get("config"), dict) else {}
+    if str(config.get("pipeline_type") or "").lower() != "test":
+        raise ValueError("Additional experiment runs are only available in test pipelines.")
+    runs = [run for run in pipeline.get("runs", []) if isinstance(run, dict)]
+    controlled_runs = [run for run in runs if run.get("controlled_experiment") == kind]
+    if not controlled_runs:
+        raise ValueError(f"There are no {kind} runs to remove.")
+
+    remaining_runs = [run for run in runs if run not in controlled_runs]
+    pipeline_folder, moved_run_dirs = _stage_controlled_run_folders(pipeline, controlled_runs)
+    enabled_kinds = {kind for kind, _ in controlled_experiments.enabled(config)}
+    rerun_available = any(run.get("controlled_experiment") in enabled_kinds for run in controlled_runs)
+    updates: dict[str, Any] = {
+        "runs": remaining_runs,
+        "total_runs": _calculate_total_runs(config),
+        "active_run": None,
+    }
+    if rerun_available:
+        updates.update({"status": "stopped", "completed_at": None})
+    try:
+        updated = training_pipeline_storage.update_pipeline(pipeline_id, updates)
+        if not updated:
+            raise FileNotFoundError("Pipeline not found")
+    except Exception:
+        _restore_staged_controlled_runs(moved_run_dirs)
+        raise
+    updated = training_pipeline_storage.refresh_pipeline_counters(pipeline_id) or updated
+    _finish_controlled_run_removal(pipeline_folder, moved_run_dirs, controlled_runs, remaining_runs)
+    return {
+        "success": True,
+        "message": f"{kind} runs removed. Click Resume to run them again." if rerun_available else f"{kind} runs removed.",
+        "removed_run_count": len(controlled_runs),
+        "resumable": rerun_available and int(updated.get("pending_runs") or 0) > 0,
+        "pipeline": normalise_pipeline_detail(updated),
+    }
+
+
+def _stage_controlled_run_folders(
+    pipeline: dict[str, Any], runs: list[dict[str, Any]]
+) -> tuple[Path | None, list[tuple[Path, Path]]]:
+    if not runs:
+        return None, []
+    config = pipeline.get("config", {}) if isinstance(pipeline.get("config"), dict) else {}
+    folder_value = str(config.get("pipeline_folder") or pipeline.get("pipeline_folder") or "").strip()
+    if not folder_value:
+        raise FileNotFoundError("Pipeline folder not found for controlled-run override.")
+    pipeline_folder = Path(folder_value).resolve()
+    if not pipeline_folder.is_dir():
+        raise FileNotFoundError("Pipeline folder not found for controlled-run override.")
+
+    run_dirs: list[Path] = []
+    for run in runs:
+        kind = run.get("controlled_experiment")
+        if kind not in controlled_experiments.KINDS or _safe_int(run.get("phase"), -1) != controlled_experiments.PHASES[kind]:
+            raise ValueError("Only Time and Gaussian controlled runs can be removed by this action.")
+        project_name = str(run.get("project_name") or "").strip()
+        run_id = str(run.get("run_id") or "").strip()
+        if not project_name or not run_id:
+            raise ValueError("Controlled run project and ID are required for removal.")
+        run_dir = _pipeline_run_dir(pipeline_folder, run)
+        if run_dir is None:
+            raise FileNotFoundError(f"Controlled run folder not found: {run.get('run_id')}")
+        try:
+            run_dir.relative_to(pipeline_folder)
+        except ValueError as exc:
+            raise ValueError("Controlled run folder is outside the pipeline folder.") from exc
+        if run_dir.name != run_id or run_dir.parent.name != "runs" or run_dir.parent.parent.name not in {project_name, project_name.replace(" ", "_")}:
+            raise ValueError("Controlled run folder does not match its project and run ID.")
+        run_dirs.append(run_dir)
+
+    moved: list[tuple[Path, Path]] = []
+    try:
+        for run_dir in run_dirs:
+            staged_dir = run_dir.with_name(f".override_pending_{uuid.uuid4().hex}_{run_dir.name}")
+            try:
+                staged_dir.resolve(strict=False).relative_to(pipeline_folder)
+            except ValueError as exc:
+                raise ValueError("Staged controlled run folder is outside the pipeline folder.") from exc
+            run_dir.rename(staged_dir)
+            moved.append((run_dir, staged_dir))
+    except Exception:
+        _restore_staged_controlled_runs(moved)
+        raise
+    return pipeline_folder, moved
+
+
+def _restore_staged_controlled_runs(moved: list[tuple[Path, Path]]) -> None:
+    for original, staged in reversed(moved):
+        if staged.exists():
+            staged.rename(original)
+
+
+def _finish_controlled_run_removal(
+    pipeline_folder: Path | None,
+    moved: list[tuple[Path, Path]],
+    deleted_runs: list[dict[str, Any]],
+    remaining_runs: list[dict[str, Any]],
+) -> None:
+    for _, staged in moved:
+        try:
+            shutil.rmtree(staged)
+        except OSError as exc:
+            logger.warning("Could not remove staged controlled run %s: %s", staged, exc)
+    if pipeline_folder is not None:
+        for run in deleted_runs:
+            _repair_project_status_after_run_delete(pipeline_folder, run, remaining_runs)
 
 
 def preview_fixed_log_space_schedule(pipeline_id: str, *, group: str | None = None) -> dict[str, Any]:
@@ -364,6 +514,7 @@ def _prepare_pipeline_config(config: dict[str, Any], *, preserve_existing_schedu
     prepared["pipeline_type"] = pipeline_type
     prepared["test_candidate_pairing_mode"] = _normalise_test_candidate_pairing_mode(prepared.get("test_candidate_pairing_mode"))
     _canonicalise_model_selection(prepared)
+    controlled_experiments.validate(prepared)
     _set_restart_metadata(prepared)
     if preserve_existing_schedule and prepared.get("pre_generated_log_multipliers"):
         prepared["multiplier_current_index"] = int(prepared.get("multiplier_current_index") or 0)
@@ -670,7 +821,8 @@ def delete_pipeline_run(pipeline_id: str, run_id: str) -> dict[str, Any]:
         target_phase = int(target.get("phase") or 0)
     except (TypeError, ValueError):
         target_phase = 0
-    is_baseline = target_phase == 1 or str(target.get("run_name") or "").lower().find("baseline") >= 0
+    is_control = bool(target.get("controlled_experiment"))
+    is_baseline = not is_control and (target_phase == 1 or str(target.get("run_name") or "").lower().find("baseline") >= 0)
     if is_baseline:
         raise ValueError("Baseline runs cannot be deleted from the pipeline runs table.")
 
@@ -696,8 +848,11 @@ def delete_pipeline_run(pipeline_id: str, run_id: str) -> dict[str, Any]:
     remaining_runs = [run for run in runs if str(run.get("run_id") or "") != run_id]
     updates: dict[str, Any] = {
         "runs": remaining_runs,
-        "total_runs": len(remaining_runs),
+        "total_runs": _calculate_total_runs(config) if is_control else len(remaining_runs),
     }
+    if is_control and controlled_experiments.enabled(config):
+        updates["status"] = "stopped"
+        updates["completed_at"] = None
 
     updated = training_pipeline_storage.update_pipeline(pipeline_id, updates)
     if not updated:
@@ -774,6 +929,7 @@ def normalise_pipeline_detail(pipeline: dict[str, Any]) -> dict[str, Any]:
     runs = pipeline.get("runs", [])
     if str(config.get("pipeline_type") or "").strip().lower() == "test":
         runs = _with_run_selection_snapshots(runs, config)
+        runs = _with_control_measurements(runs, config)
     detail.update(
         {
             "config": config,
@@ -809,10 +965,68 @@ def _with_run_selection_snapshots(runs: Any, config: dict[str, Any]) -> list[Any
             enriched_runs.append(run)
             continue
         phase = _safe_int(run.get("phase") or run.get("phase_number"), 1)
-        if phase <= 1:
+        enriched = _with_selection_snapshot(run, config) if phase > 1 else dict(run)
+        if phase in {1, 2} and run.get("status") in {"success", "hard_cap_reached"}:
+            folder = str(config.get("pipeline_folder") or "").strip()
+            project_name = str(run.get("project_name") or "").strip()
+            run_id = str(run.get("run_id") or "").strip()
+            if folder and project_name and run_id:
+                try:
+                    project_dir = Path(folder) / project_name.replace(" ", "_")
+                    reference = controlled_experiments.source_summary(project_dir, run_id)
+                    enriched["reference_time_seconds"] = reference.get("time_seconds")
+                    enriched["reference_training_loop_seconds"] = reference.get("training_loop_seconds")
+                    enriched["reference_gaussians"] = reference.get("gaussians")
+                except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                    pass
+        enriched_runs.append(enriched)
+    return enriched_runs
+
+
+def _with_control_measurements(runs: list[Any], config: dict[str, Any]) -> list[Any]:
+    folder = str(config.get("pipeline_folder") or "").strip()
+    if not folder:
+        return runs
+    enriched_runs: list[Any] = []
+    for run in runs:
+        if not isinstance(run, dict) or run.get("controlled_experiment") not in controlled_experiments.KINDS or run.get("status") != "success":
             enriched_runs.append(run)
             continue
-        enriched_runs.append(_with_selection_snapshot(run, config))
+        project_name = str(run.get("project_name") or "").strip()
+        run_id = str(run.get("run_id") or "").strip()
+        if not project_name or not run_id:
+            enriched_runs.append(run)
+            continue
+        try:
+            project_dir = Path(folder) / project_name.replace(" ", "_")
+            measured = controlled_experiments.source_summary(project_dir, run_id)
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            enriched_runs.append(run)
+            continue
+        row = dict(run)
+        row.update({
+            "actual_time_seconds": measured.get("time_seconds"),
+            "actual_training_loop_seconds": measured.get("training_loop_seconds"),
+            "actual_gaussians": measured.get("gaussians"),
+            "actual_step": measured.get("step"),
+            "gaussian_cap_freeze_applied": measured.get("gaussian_cap_freeze_applied"),
+            "gaussian_cap_step": measured.get("gaussian_cap_step"),
+            "psnr": measured.get("psnr"),
+            "ssim": measured.get("ssim"),
+            "lpips": measured.get("lpips"),
+        })
+        reference_id = str(run.get("reference_model_run_id") or "").strip()
+        if reference_id:
+            try:
+                reference = controlled_experiments.source_summary(project_dir, reference_id)
+                row["reference_model_metrics"] = {
+                    **(run.get("reference_model_metrics") or {}),
+                    "reported_total_seconds": reference.get("reported_total_seconds"),
+                    "training_loop_seconds": reference.get("training_loop_seconds"),
+                }
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                pass
+        enriched_runs.append(row)
     return enriched_runs
 
 
@@ -1098,6 +1312,7 @@ def _calculate_total_runs(config: dict[str, Any]) -> int:
         if pipeline_type == "test" and int(phase.get("phase_number", 1) or 1) > 1 and model_count > 1:
             phase_runs *= model_count
         total_runs += phase_runs
+    total_runs += len(projects) * len(controlled_experiments.enabled(config))
     return total_runs
 
 

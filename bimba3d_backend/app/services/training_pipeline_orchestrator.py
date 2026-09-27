@@ -16,6 +16,7 @@ from typing import Any, Optional
 from bimba3d_backend.app.config import DATA_DIR
 from bimba3d_backend.app.services import status as project_status
 from bimba3d_backend.app.services import training_pipeline_storage
+from bimba3d_backend.app.services import controlled_experiments
 from bimba3d_backend.app.services.training_pipeline_storage import phase_run_count
 
 logger = logging.getLogger(__name__)
@@ -93,7 +94,18 @@ class PipelineOrchestrator:
                 return
 
             config = pipeline["config"]
-            phases = config["phases"]
+            phases = list(config["phases"])
+            for kind, options in controlled_experiments.enabled(config):
+                phases.append({
+                    "phase_number": controlled_experiments.PHASES[kind],
+                    "name": kind,
+                    "controlled_experiment": kind,
+                    "control_model_id": options["model_id"],
+                    "exploration_runs_per_project": 1,
+                    "update_model": False,
+                    "context_jitter": False,
+                    "session_execution_mode": "test",
+                })
             projects = config["projects"]
             thermal = config.get("thermal_management", {})
 
@@ -166,12 +178,28 @@ class PipelineOrchestrator:
                         config = pipeline.get("config", {})
                         pipeline_type = config.get("pipeline_type", "offline_data")
                         if pipeline_type == "test" and phase.get("phase_number") != 1:
-                            baseline_ready = self._ensure_baseline_before_test_run(pipeline, project)
+                            if phase.get("controlled_experiment"):
+                                project_dir = self._get_or_create_project_dir(pipeline, project)
+                                baseline_id = str(project.get("baseline_run_id") or "").strip()
+                                baseline_ready = bool(baseline_id) and self._is_successful_run_dir(project_dir / "runs" / baseline_id)
+                            else:
+                                baseline_ready = self._ensure_baseline_before_test_run(pipeline, project)
                             if not baseline_ready:
                                 logger.error(
                                     f"Pipeline {self.pipeline_id}: Baseline is missing/failed for {project.get('name')}; "
                                     "skipping test run"
                                 )
+                                if phase.get("controlled_experiment"):
+                                    training_pipeline_storage.add_run_result(self.pipeline_id, {
+                                        "project_name": project.get("name"),
+                                        "phase": phase["phase_number"],
+                                        "run": phase_run_idx + 1,
+                                        "run_id": None,
+                                        "status": "failed",
+                                        "test_model_id": phase.get("control_model_id"),
+                                        "controlled_experiment": phase["controlled_experiment"],
+                                        "error": "Completed baseline required",
+                                    })
                                 continue
                             # Reload pipeline/project after potential baseline creation.
                             pipeline = training_pipeline_storage.get_pipeline(self.pipeline_id)
@@ -186,7 +214,11 @@ class PipelineOrchestrator:
                         # Execute training run â€” for test pipelines with multiple models: run once per model
                         config = pipeline.get("config", {})
                         pipeline_type = config.get("pipeline_type", "offline_data")
-                        source_model_ids = config.get("source_model_ids") or []
+                        source_model_ids = (
+                            [phase["control_model_id"]]
+                            if phase.get("controlled_experiment")
+                            else config.get("source_model_ids") or []
+                        )
                         if not source_model_ids and config.get("source_model_id"):
                             source_model_ids = [config["source_model_id"]]
 
@@ -614,7 +646,7 @@ class PipelineOrchestrator:
                     or (isinstance(retry_fixed.get(legacy_slot_key), dict) and bool(retry_fixed.get(legacy_slot_key)))
                 )
             )
-            if pipeline_type == "test" and phase.get("phase_number") != 1:
+            if pipeline_type == "test" and phase.get("phase_number") != 1 and not phase.get("controlled_experiment"):
                 # Use specific model if provided (multi-model test), otherwise fall back to config
                 model_to_seed = test_model_id or config.get("source_model_id")
                 if model_to_seed:
@@ -753,6 +785,11 @@ class PipelineOrchestrator:
                         "phase": phase["phase_number"],
                         "run": run_number,
                         "test_model_id": test_model_id,
+                        "controlled_experiment": run_config.get("controlled_experiment"),
+                        "reference_model_run_id": run_config.get("reference_model_run_id"),
+                        "target_time_seconds": run_config.get("training_time_limit_seconds"),
+                        "target_gaussians": run_config.get("target_gaussians"),
+                        "time_budget_basis": run_config.get("time_budget_basis"),
                         "status": "running",
                         "started_at": datetime.utcnow().isoformat() + "Z",
                     }
@@ -803,6 +840,32 @@ class PipelineOrchestrator:
                 "completed_at": datetime.utcnow().isoformat() + "Z",
                 "timestamp": datetime.utcnow().isoformat() + "Z",
             }
+            if phase.get("controlled_experiment"):
+                run_result.update({
+                    "controlled_experiment": phase["controlled_experiment"],
+                    "reference_model_run_id": run_config.get("reference_model_run_id"),
+                    "reference_model_hard_cap": run_config.get("reference_model_hard_cap"),
+                    "reference_model_metrics": run_config.get("reference_model_metrics"),
+                    "reference_baseline_metrics": run_config.get("reference_baseline_metrics"),
+                    "baseline_run_id": run_config.get("baseline_session_id"),
+                    "target_time_seconds": run_config.get("training_time_limit_seconds"),
+                    "target_gaussians": run_config.get("target_gaussians"),
+                    "time_budget_basis": run_config.get("time_budget_basis"),
+                    "max_steps_ceiling": run_config.get("max_steps"),
+                })
+                if success:
+                    try:
+                        achieved = controlled_experiments.source_summary(project_dir, run_id)
+                        run_result["actual_time_seconds"] = achieved["time_seconds"]
+                        run_result["actual_training_loop_seconds"] = achieved["training_loop_seconds"]
+                        run_result["actual_gaussians"] = achieved["gaussians"]
+                        run_result["actual_step"] = achieved["step"]
+                        run_result["gaussian_cap_freeze_applied"] = achieved["gaussian_cap_freeze_applied"]
+                        run_result["gaussian_cap_step"] = achieved["gaussian_cap_step"]
+                        for metric in ("psnr", "ssim", "lpips"):
+                            run_result[metric] = achieved[metric]
+                    except Exception as exc:
+                        logger.warning("Could not read controlled-run measurements for %s: %s", run_id, exc)
 
             training_pipeline_storage.add_run_result(self.pipeline_id, run_result)
             self._clear_retry_slot_entry(
@@ -854,6 +917,8 @@ class PipelineOrchestrator:
                     "run_id": run_id,
                     "status": "failed",
                     "score": None,
+                    "test_model_id": test_model_id,
+                    "controlled_experiment": phase.get("controlled_experiment"),
                     "error": str(e),
                     "timestamp": datetime.utcnow().isoformat() + "Z",
                 },
@@ -1217,6 +1282,76 @@ class PipelineOrchestrator:
         run_config["phase_runs_total"] = phase_run_count(phase)
         run_config["test_model_id"] = test_model_id
 
+        kind = phase.get("controlled_experiment")
+        if kind:
+            options = config["additional_experiments"][kind]
+            project_dir = self._get_or_create_project_dir(pipeline, project)
+            sparse_dir = project_dir / "outputs" / "sparse" / "0"
+            if not all((sparse_dir / name).is_file() for name in ("cameras.bin", "images.bin", "points3D.bin")):
+                raise ValueError(f"{project['name']} needs a complete sparse reconstruction for {kind}.")
+            baseline_id = str(project.get("baseline_run_id") or "").strip()
+            if not baseline_id:
+                raise ValueError(f"{project['name']} has no completed baseline for {kind}.")
+            baseline = controlled_experiments.source_summary(project_dir, baseline_id)
+            if not isinstance(baseline.get("gaussians"), (int, float)):
+                raise ValueError(f"{project['name']} baseline has no final Gaussian count.")
+            pinned_ids = options.get("source_run_ids") if isinstance(options.get("source_run_ids"), dict) else {}
+            pinned_id = str(pinned_ids.get(project["name"]) or "").strip()
+            completed_model_runs = [
+                row for row in reversed(pipeline.get("runs", []))
+                if row.get("project_name") == project.get("name")
+                and int(row.get("phase") or 0) == 2
+                and str(row.get("test_model_id") or "") == str(test_model_id or "")
+                and row.get("status") in {"success", "hard_cap_reached"}
+            ]
+            if not completed_model_runs:
+                raise ValueError(f"{project['name']} needs a completed run of the selected model for {kind}.")
+            if pinned_id:
+                reference_run = next((row for row in completed_model_runs if str(row.get("run_id") or "") == pinned_id), None)
+                if not reference_run:
+                    raise ValueError(f"{project['name']} has no completed selected-model run {pinned_id} for {kind}.")
+                reference_id = str(reference_run["run_id"])
+            elif "source_run_number" in options and not pinned_id:
+                source_run_number = int(options["source_run_number"])
+                reference_run = next((row for row in completed_model_runs if int(row.get("run") or 0) == source_run_number), None)
+                if not reference_run:
+                    raise ValueError(f"{project['name']} has no completed selected-model run {source_run_number} for {kind}.")
+                reference_id = str(reference_run["run_id"])
+            else:
+                reference_id = str(completed_model_runs[0]["run_id"])
+            model = controlled_experiments.source_summary(project_dir, reference_id)
+            run_config.update({
+                "controlled_experiment": kind,
+                "reference_model_run_id": reference_id,
+                "reference_model_hard_cap": bool(model["hard_cap"]),
+                "reference_model_metrics": {key: model.get(key) for key in ("psnr", "ssim", "lpips", "time_seconds", "reported_total_seconds", "training_loop_seconds", "gaussians", "step")},
+                "reference_baseline_metrics": {key: baseline.get(key) for key in ("psnr", "ssim", "lpips", "time_seconds", "gaussians", "step")},
+                "ai_input_mode": None,
+                "ai_selector_strategy": None,
+                "tune_scope": None,
+                "preset_override": None,
+                "update_model": False,
+                "session_execution_mode": "test",
+            })
+            if kind == controlled_experiments.TIME:
+                target = model.get("training_loop_seconds")
+                if not isinstance(target, (int, float)) or target <= 0:
+                    raise ValueError(f"{project['name']} model run has no final pre-evaluation training-loop time.")
+                run_config["training_time_limit_seconds"] = float(target)
+                run_config["time_budget_basis"] = "training_loop_pre_eval" if model.get("training_loop_time_source") == "train_step_stats" else "legacy_total"
+                run_config["learning_rate_schedule_steps"] = int(shared_config["max_steps"])
+                run_config["max_steps"] = int(options.get("max_steps_ceiling", 12_000))
+            else:
+                target = model.get("gaussians")
+                if not isinstance(target, (int, float)) or target <= 0:
+                    raise ValueError(f"{project['name']} model run has no final Gaussian count.")
+                run_config["target_gaussians"] = int(target)
+                run_config["gaussian_hard_cap"] = min(int(target), int(shared_config.get("gaussian_hard_cap", 6_000_000)))
+                run_config["freeze_densification_at_gaussian_cap"] = True
+                run_config["gaussian_post_cap_steps"] = 1000
+                run_config["learning_rate_schedule_steps"] = int(shared_config["max_steps"])
+                run_config["max_steps"] = int(options.get("max_steps_ceiling", 15_000))
+                run_config["densify_until_iter"] = run_config["max_steps"]
         return run_config
 
     def _execute_training_run(
@@ -1285,9 +1420,10 @@ class PipelineOrchestrator:
         params = {
             "run_id": run_id,
             "stage": stage,
-            "mode": "baseline" if phase_num == 1 else "modified",
+            "mode": "baseline" if phase_num == 1 or run_config.get("controlled_experiment") else "modified",
             "max_steps": int(max_steps_value),
             "gaussian_hard_cap": int(run_config.get("gaussian_hard_cap", 6_000_000)),
+            "freeze_densification_at_gaussian_cap": bool(run_config.get("freeze_densification_at_gaussian_cap", False)),
             "eval_interval": run_config.get("eval_interval", 1000),
             "log_interval": run_config.get("log_interval", 100),
             "densify_until_iter": run_config.get("densify_until_iter", 4000),
@@ -1308,6 +1444,13 @@ class PipelineOrchestrator:
             "phase_run": run_config.get("phase_run", 1),
             "phase_runs_total": run_config.get("phase_runs_total", 1),
         }
+        if run_config.get("controlled_experiment"):
+            params["controlled_experiment"] = run_config["controlled_experiment"]
+            params["reference_model_run_id"] = run_config["reference_model_run_id"]
+            params["target_gaussians"] = run_config.get("target_gaussians")
+            params["training_time_limit_seconds"] = run_config.get("training_time_limit_seconds")
+            params["learning_rate_schedule_steps"] = run_config.get("learning_rate_schedule_steps")
+            params["gaussian_post_cap_steps"] = run_config.get("gaussian_post_cap_steps")
 
         # Apply pre-generated log space multipliers from pipeline config.
         # Training pipelines no longer use legacy per-run jitter generation.

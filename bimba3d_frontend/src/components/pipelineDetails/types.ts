@@ -31,6 +31,11 @@
     phase?: number | null;
     run?: number | null;
     test_model_id?: string | null;
+    controlled_experiment?: string | null;
+    reference_model_run_id?: string | null;
+    target_time_seconds?: number | null;
+    target_gaussians?: number | null;
+    time_budget_basis?: string | null;
     status?: string | null;
     started_at?: string | null;
     selected_preset?: string | null;
@@ -48,4 +53,3 @@ export interface DetailTab {
   id: string;
   label: string;
 }
-

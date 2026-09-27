@@ -589,7 +589,7 @@ export default function PipelineLogSpaceValuesPanel({ pipeline, predictionRows =
     && Object.values(activeCandidateChecks).some((checks) => Array.isArray(checks) && checks.length > 0);
   const completedRunPredictionRows = Array.isArray(pipeline.runs)
     ? pipeline.runs
-        .filter((run: any) => Number(run?.phase || run?.phase_number || 0) > 1)
+        .filter((run: any) => !run?.controlled_experiment && Number(run?.phase || run?.phase_number || 0) > 1)
         .filter((run: any) => {
           const checks = run?.candidate_score_checks;
           return checks && typeof checks === "object" && Object.values(checks).some((items) => Array.isArray(items) && items.length > 0);

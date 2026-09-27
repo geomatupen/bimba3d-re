@@ -1734,7 +1734,10 @@ def _collect_eval_history(engine_output_dir: Path, params: dict, mode: str, elap
     loss_by_step = loss_by_step or {}
 
     eval_history: list[dict] = []
-    for stats_file in sorted(stats_dir.glob("val_step*.json")):
+    for stats_file in sorted(
+        stats_dir.glob("val_step*.json"),
+        key=lambda path: _parse_step_from_name(path.stem, "val_step") or -1,
+    ):
         step_zero = _parse_step_from_name(stats_file.stem, "val_step")
         if step_zero is None:
             continue

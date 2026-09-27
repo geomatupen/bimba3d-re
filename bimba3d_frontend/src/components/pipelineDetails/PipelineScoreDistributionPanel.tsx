@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client";
 import SvgChartExportButton from "../common/SvgChartExportButton";
+import { controlledExperimentLabel, parseModelSelectionId } from "./modelSelection";
 interface PipelineScoreDistributionPanelProps {
   pipelineId: string;
   refreshKey?: string | number | null;
@@ -10,6 +11,7 @@ interface PipelineScoreDistributionPanelProps {
 
 interface ScoreRow {
   candidate_score_checks?: Record<string, unknown> | null;
+  controlled_experiment?: string | null;
   final_loss?: number | null;
   final_lpips?: number | null;
   final_psnr?: number | null;
@@ -1019,18 +1021,28 @@ export default function PipelineScoreDistributionPanel({
   useEffect(() => { void loadRows(); }, [loadRows, refreshKey]);
 
   const displayRows = useMemo(() => {
-    if (!selectedModelId) return rows;
+    const selection = parseModelSelectionId(selectedModelId);
+    if (!selection.modelId) return rows.filter((row) => !row.controlled_experiment);
+    const isSelectedResult = (row: ScoreRow) => {
+      if (row.is_baseline_row || modelKey(row) !== selection.modelId) return false;
+      return selection.controlledExperiment
+        ? row.controlled_experiment === selection.controlledExperiment
+        : !row.controlled_experiment;
+    };
     const projectsWithSelectedModel = new Set(
       rows
-        .filter((row) => !row.is_baseline_row && modelKey(row) === selectedModelId)
+        .filter(isSelectedResult)
         .map(projectKey)
         .filter(Boolean),
     );
     return rows.filter((row) => {
-      if (row.is_baseline_row) return projectsWithSelectedModel.has(projectKey(row));
-      return modelKey(row) === selectedModelId;
+      if (row.is_baseline_row && !row.controlled_experiment) {
+        return projectsWithSelectedModel.has(projectKey(row));
+      }
+      return isSelectedResult(row);
     });
   }, [rows, selectedModelId]);
+  const selectedModel = useMemo(() => parseModelSelectionId(selectedModelId), [selectedModelId]);
 
   const projectOrder = useMemo(() => configuredProjectOrder(pipelineDetail), [pipelineDetail]);
   const projectSorter = useMemo(() => sortByProjectOrder(projectOrder), [projectOrder]);
@@ -1129,7 +1141,12 @@ export default function PipelineScoreDistributionPanel({
           </p>
           {selectedModelId && (
             <p className="mt-1 text-xs text-amber-700">
-              Filtered: <span className="font-mono">{selectedModelId}</span>
+              Filtered: <span className="font-mono">{selectedModel.modelId}</span>
+              {selectedModel.controlledExperiment && (
+                <span className="ml-2 rounded bg-teal-100 px-1.5 py-0.5 font-sans font-semibold text-teal-800">
+                  {controlledExperimentLabel(selectedModel.controlledExperiment)} baseline
+                </span>
+              )}
             </p>
           )}
         </div>

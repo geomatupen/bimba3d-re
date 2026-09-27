@@ -248,6 +248,7 @@ export default function PipelineOverviewPanel({ pipeline, variant }: PipelineOve
           timestamp: activeRun.started_at,
           is_active: true,
           test_model_id: activeRun.test_model_id,
+          controlled_experiment: activeRun.controlled_experiment,
         },
         ...runs.filter((run: any) => run?.run_id !== activeRun.run_id),
     ]
@@ -281,6 +282,7 @@ export default function PipelineOverviewPanel({ pipeline, variant }: PipelineOve
         <>
           <span className="font-medium">{run.project_name || run.project || "Project"}</span> - {run.run_name || `Phase ${run.phase ?? "-"}, Run ${run.run ?? index + 1}`}
           {run.phase === 1 && <span className="ml-2 rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-700">Baseline</span>}
+          {run.controlled_experiment && <span className="ml-2 rounded bg-teal-100 px-2 py-0.5 text-xs font-medium text-teal-800">{run.controlled_experiment === "time_constrained_test" ? "Time control" : "Gaussian control"}</span>}
           {run.status && (
             <span
               className={`ml-2 rounded px-2 py-0.5 text-xs ${runStatusClass(run.status)}`}
@@ -289,7 +291,7 @@ export default function PipelineOverviewPanel({ pipeline, variant }: PipelineOve
             </span>
           )}
           {run.run_id && <span className="ml-2 font-mono text-[10px] text-gray-500">{run.run_id}</span>}
-          {run.test_model_id && <span className="ml-2 text-xs text-amber-700">Model: {run.test_model_id}</span>}
+          {run.test_model_id && <span className="ml-2 text-xs text-amber-700">{run.controlled_experiment ? "Reference model" : "Model"}: {run.test_model_id}</span>}
           {typeof run.score === "number" && <span className="ml-2 text-xs text-gray-600">Score: {run.score.toFixed(4)}</span>}
           {run.group_multipliers && Object.keys(run.group_multipliers).length > 0 && (
             <span className="ml-2 rounded bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] text-indigo-700" title="Per-group log-space multipliers applied">
@@ -422,9 +424,9 @@ export default function PipelineOverviewPanel({ pipeline, variant }: PipelineOve
       {variant === "test" && (pipeline.active_run?.test_model_id || pipeline.current_test_model_id || pipeline.config?.source_model_id) && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 shadow-sm">
           <div className="flex items-center gap-2">
-            <span className="rounded bg-amber-200 px-2 py-0.5 text-xs font-bold text-amber-800">TEST PIPELINE</span>
+            <span className="rounded bg-amber-200 px-2 py-0.5 text-xs font-bold text-amber-800">{pipeline.active_run?.controlled_experiment === "time_constrained_test" ? "TIME CONTROL" : pipeline.active_run?.controlled_experiment === "gaussian_constrained_test" ? "GAUSSIAN CONTROL" : "TEST PIPELINE"}</span>
             <span className="text-sm text-amber-900">
-              Model: <strong>{pipeline.active_run?.test_model_id || pipeline.current_test_model_id || pipeline.config?.source_model_id}</strong>
+              {pipeline.active_run?.controlled_experiment ? "Reference model" : "Model"}: <strong>{pipeline.active_run?.test_model_id || pipeline.current_test_model_id || pipeline.config?.source_model_id}</strong>
             </span>
           </div>
         </div>
@@ -570,6 +572,12 @@ export default function PipelineOverviewPanel({ pipeline, variant }: PipelineOve
                   <span className="text-gray-600">Phase / Run:</span>
                   <span className="font-medium text-gray-900">{displayedPhase} / {displayedRun}</span>
                 </div>
+                {activeRun?.controlled_experiment === "time_constrained_test" && typeof activeRun.target_time_seconds === "number" && (
+                  <div className="flex justify-between gap-2"><span className="text-gray-600">Training loop:</span><span className="font-medium text-gray-900">{formatSeconds(numberFromObject(liveMetrics, "training_loop_elapsed_seconds"))} / {formatSeconds(activeRun.target_time_seconds)}{typeof liveMetrics.training_loop_elapsed_seconds === "number" ? ` (${formatSeconds(Math.max(0, activeRun.target_time_seconds - liveMetrics.training_loop_elapsed_seconds))} remaining)` : ""}</span></div>
+                )}
+                {activeRun?.controlled_experiment === "gaussian_constrained_test" && typeof activeRun.target_gaussians === "number" && (
+                  <div className="flex justify-between gap-2"><span className="text-gray-600">Gaussians:</span><span className="font-medium text-gray-900">{typeof liveMetrics.num_gaussians === "number" ? liveMetrics.num_gaussians.toLocaleString() : "Waiting"} / {activeRun.target_gaussians.toLocaleString()}</span></div>
+                )}
               </div>
             </div>
 

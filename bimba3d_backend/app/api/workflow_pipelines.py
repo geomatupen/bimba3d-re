@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
@@ -16,6 +16,10 @@ from bimba3d_backend.app.services.workflow_summaries import (
 router = APIRouter()
 
 
+class RemoveAdditionalRunsRequest(BaseModel):
+    kind: Literal["time_constrained_test", "gaussian_constrained_test"]
+
+
 class WorkflowPipelineListResponse(BaseModel):
     items: list[dict[str, Any]]
     total: int
@@ -23,6 +27,8 @@ class WorkflowPipelineListResponse(BaseModel):
 
 class CreateWorkflowPipelineRequest(BaseModel):
     model_config = ConfigDict(extra="allow")
+
+    override_controlled_kinds: list[str] = Field(default_factory=list)
 
     name: str
     workflow_stage: str | None = None
@@ -121,7 +127,7 @@ def batch_create_workflow_projects(request: BatchCreateWorkflowProjectsRequest) 
 @router.post("")
 def create_workflow_pipeline(request: CreateWorkflowPipelineRequest) -> dict[str, Any]:
     try:
-        return workflow_pipeline_service.create_workflow_pipeline(request.model_dump())
+        return workflow_pipeline_service.create_workflow_pipeline(request.model_dump(exclude={"override_controlled_kinds"}))
     except ValueError as exc:
         raise HTTPException(
             status_code=400,
@@ -169,7 +175,21 @@ def update_workflow_pipeline_config(
     request: CreateWorkflowPipelineRequest,
 ) -> dict[str, Any]:
     try:
-        return workflow_pipeline_service.update_workflow_pipeline_config(pipeline_id, request.model_dump())
+        return workflow_pipeline_service.update_workflow_pipeline_config(
+            pipeline_id,
+            request.model_dump(exclude={"override_controlled_kinds"}),
+            override_controlled_kinds=request.override_controlled_kinds,
+        )
+    except FileNotFoundError as exc:
+        raise _not_found(pipeline_id, exc) from exc
+    except ValueError as exc:
+        raise _invalid_action(pipeline_id, exc) from exc
+
+
+@router.post("/{pipeline_id}/additional-experiments/remove-runs")
+def remove_additional_experiment_runs(pipeline_id: str, request: RemoveAdditionalRunsRequest) -> dict[str, Any]:
+    try:
+        return workflow_pipeline_service.remove_additional_experiment_runs(pipeline_id, request.kind)
     except FileNotFoundError as exc:
         raise _not_found(pipeline_id, exc) from exc
     except ValueError as exc:

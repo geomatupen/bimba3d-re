@@ -1,12 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { BrainCircuit } from "lucide-react";
 import { api } from "../../api/client";
+import {
+  CONTROLLED_EXPERIMENTS,
+  controlledExperimentLabel,
+  makeModelSelectionId,
+  type ControlledExperiment,
+} from "./modelSelection";
 import type { PipelineDetail } from "./types";
 
 interface TestingModelsPanelProps {
   onSelectModel?: (modelId: string | null) => void;
   pipeline: PipelineDetail;
   selectedModelId?: string | null;
+}
+
+interface ModelSelectionEntry {
+  controlledExperiment: ControlledExperiment | null;
+  modelId: string;
+  selectionId: string;
 }
 
 const doneStatuses = new Set(["completed", "success", "done", "ok"]);
@@ -73,25 +85,47 @@ const collectConfiguredModelLabels = (pipeline: PipelineDetail): Map<string, str
   return labels;
 };
 
-const getModelProgress = (pipeline: PipelineDetail, modelId: string) => {
+const getModelProgress = (pipeline: PipelineDetail, modelId: string, controlledExperiment: ControlledExperiment | null = null) => {
   const runs = Array.isArray(pipeline.runs) ? pipeline.runs : [];
-  // Only count phase > 1 runs (exclude baseline) for model progress
   const modelRuns = runs.filter(
-    (run: any) => runModelKey(run) === modelId && Number(run.phase || run.phase_number || 0) > 1,
+    (run: any) =>
+      (controlledExperiment ? run.controlled_experiment === controlledExperiment : !run.controlled_experiment) &&
+      runModelKey(run) === modelId &&
+      Number(run.phase || run.phase_number || 0) > 1,
   );
   const done = modelRuns.filter((run: any) => doneStatuses.has(String(run.status || "").toLowerCase())).length;
-  const total = Math.max(expectedRunsPerModel(pipeline), modelRuns.length);
+  const configuredProjects = Array.isArray(pipeline.config?.projects) ? pipeline.config.projects.length : 0;
+  const expected = controlledExperiment ? configuredProjects : expectedRunsPerModel(pipeline);
+  const total = Math.max(expected, modelRuns.length);
   return { done, total };
 };
 
 export default function TestingModelsPanel({ onSelectModel, pipeline, selectedModelId }: TestingModelsPanelProps) {
   const [registryLabels, setRegistryLabels] = useState<Map<string, string>>(new Map());
-  const configuredModels = Array.isArray(pipeline.config?.source_model_ids)
-    ? pipeline.config.source_model_ids.filter(Boolean)
+  const configuredModels: string[] = Array.isArray(pipeline.config?.source_model_ids)
+    ? pipeline.config.source_model_ids.filter(Boolean).map(String)
     : pipeline.config?.source_model_id
-      ? [pipeline.config.source_model_id]
+      ? [String(pipeline.config.source_model_id)]
       : [];
   const configLabels = useMemo(() => collectConfiguredModelLabels(pipeline), [pipeline]);
+  const modelEntries = useMemo<ModelSelectionEntry[]>(() => {
+    const runs = Array.isArray(pipeline.runs) ? pipeline.runs : [];
+    const experimentConfig = pipeline.config?.additional_experiments || {};
+    return configuredModels.flatMap((modelId: string) => {
+      const entries: ModelSelectionEntry[] = [
+        { controlledExperiment: null, modelId, selectionId: modelId },
+      ];
+      CONTROLLED_EXPERIMENTS.forEach((kind) => {
+        const options = experimentConfig[kind] || {};
+        const configured = options.enabled === true && String(options.model_id || "") === modelId;
+        const hasRuns = runs.some((run: any) => run.controlled_experiment === kind && runModelKey(run) === modelId);
+        if (configured || hasRuns) {
+          entries.push({ controlledExperiment: kind, modelId, selectionId: makeModelSelectionId(modelId, kind) });
+        }
+      });
+      return entries;
+    });
+  }, [configuredModels, pipeline.config?.additional_experiments, pipeline.runs]);
   const activeModel = pipeline.active_run?.test_model_id || pipeline.current_test_model_id || configuredModels[0] || null;
   const selectedModel = selectedModelId || null;
   const allSelected = !selectedModelId;
@@ -147,17 +181,20 @@ export default function TestingModelsPanel({ onSelectModel, pipeline, selectedMo
               </div>
             </button>
           )}
-          {configuredModels.map((modelId: string) => {
-            const progress = getModelProgress(pipeline, modelId);
+          {modelEntries.map(({ controlledExperiment, modelId, selectionId }) => {
+            const progress = getModelProgress(pipeline, modelId, controlledExperiment);
             const progressLabel = progress.total > 0 ? `${progress.done}/${progress.total} done` : "No runs yet";
-            const selected = selectedModel === modelId;
-            const modelName = registryLabels.get(modelId) || configLabels.get(modelId) || modelId;
+            const selected = selectedModel === selectionId;
+            const baseModelName = registryLabels.get(modelId) || configLabels.get(modelId) || modelId;
+            const modelName = controlledExperiment
+              ? `${baseModelName} - ${controlledExperimentLabel(controlledExperiment)}`
+              : baseModelName;
             const showIdLine = modelName !== modelId;
             return (
             <button
-              key={modelId}
+              key={selectionId}
               type="button"
-              onClick={() => onSelectModel?.(modelId)}
+              onClick={() => onSelectModel?.(selectionId)}
               aria-pressed={selected}
               className={`relative overflow-hidden rounded-lg border p-4 pr-28 text-left transition ${
                 selected
@@ -186,16 +223,19 @@ export default function TestingModelsPanel({ onSelectModel, pipeline, selectedMo
                       ID: {modelId}
                     </div>
                   )}
+                  {controlledExperiment && (
+                    <div className="mt-2 text-[11px] font-semibold uppercase text-teal-700">Additional experiment</div>
+                  )}
                   <div className="mt-2 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200">
                     {progressLabel}
                   </div>
                 </div>
               </div>
               <div className="absolute right-4 top-5">
-                {activeModel === modelId && (
+                {!controlledExperiment && activeModel === modelId && (
                   <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">Active</span>
                 )}
-                {selected && activeModel !== modelId && (
+                {selected && (controlledExperiment || activeModel !== modelId) && (
                   <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">Selected</span>
                 )}
               </div>

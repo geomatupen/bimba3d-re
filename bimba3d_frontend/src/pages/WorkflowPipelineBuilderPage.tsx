@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
+import { Info, Trash2 } from "lucide-react";
 import ConfirmModal from "../components/ConfirmModal";
 import PipelineEditWarning from "../components/pipelineBuilder/PipelineEditWarning";
 import PipelineBuilderHeader from "../components/pipelineBuilder/PipelineBuilderHeader";
 import PipelineStepIndicator from "../components/pipelineBuilder/PipelineStepIndicator";
 
-const API_BASE = "http://localhost:8005";
+const API_BASE = ["5173", "5174"].includes(window.location.port) ? "http://localhost:8005" : window.location.origin;
 const DEFAULT_PIPELINE_MAX_STEPS = 7000;
 const DEFAULT_GAUSSIAN_HARD_CAP = 6000000;
 const LOG_SPACE_BOUND_PRESETS = {
@@ -94,6 +95,14 @@ export default function WorkflowPipelineBuilderPage() {
  const [sourceModelIds, setSourceModelIds] = useState<string[]>([]);
  const [availableModels, setAvailableModels] = useState<any[]>([]);
  const [testCandidatePairingMode, setTestCandidatePairingMode] = useState<TestCandidatePairingMode>("full_combination_grid");
+ const [step2Tab, setStep2Tab] = useState<"standard" | "experiments">("standard");
+ const [timeControlEnabled, setTimeControlEnabled] = useState(false);
+ const [gaussianControlEnabled, setGaussianControlEnabled] = useState(false);
+ const [timeControlModelId, setTimeControlModelId] = useState("");
+ const [gaussianControlModelId, setGaussianControlModelId] = useState("");
+ const [timeControlMaxSteps, setTimeControlMaxSteps] = useState(12000);
+ const [gaussianControlMaxSteps, setGaussianControlMaxSteps] = useState(15000);
+ const [referenceRuns, setReferenceRuns] = useState<any[]>([]);
 
  // Step 2: Shared Configuration
  const [aiInputMode] = useState("exif_compact_featurewise");
@@ -155,6 +164,13 @@ export default function WorkflowPipelineBuilderPage() {
  // UI State
  const [currentStep, setCurrentStep] = useState(1);
  const [showCreateConfirm, setShowCreateConfirm] = useState(false);
+ const [overrideStage, setOverrideStage] = useState<0 | 1 | 2>(0);
+ const [pendingOverrideKinds, setPendingOverrideKinds] = useState<string[]>([]);
+ const [loadedControls, setLoadedControls] = useState<Record<string, any>>({});
+ const [controlRunCounts, setControlRunCounts] = useState<Record<string, number>>({});
+ const [removeRunsStage, setRemoveRunsStage] = useState<0 | 1 | 2>(0);
+ const [removeRunsKind, setRemoveRunsKind] = useState<"time_constrained_test" | "gaussian_constrained_test" | null>(null);
+ const [removingAdditionalRuns, setRemovingAdditionalRuns] = useState(false);
  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
  const showToast = (message: string, type: "success" | "error" = "success") => {
@@ -217,6 +233,7 @@ export default function WorkflowPipelineBuilderPage() {
  // Load configuration
  setPipelineName(pipeline.name);
  setLoadedPipelineStatus(pipeline.status || null);
+ setReferenceRuns((pipeline.runs || []).filter((run: any) => [1, 2].includes(Number(run.phase))));
  setBaseDirectory(config.base_directory || "");
  setPipelineDirectory(config.pipeline_directory || "");
 
@@ -226,6 +243,18 @@ export default function WorkflowPipelineBuilderPage() {
  if (loadedType === "test") {
  const ids = config.source_model_ids || (config.source_model_id ? [config.source_model_id] : []);
  setSourceModelIds(ids);
+ const experiments = config.additional_experiments || {};
+ setLoadedControls(experiments);
+ setControlRunCounts((pipeline.runs || []).reduce((counts: Record<string, number>, run: any) => {
+ if (run.controlled_experiment) counts[run.controlled_experiment] = (counts[run.controlled_experiment] || 0) + 1;
+ return counts;
+ }, {}));
+ setTimeControlEnabled(experiments.time_constrained_test?.enabled === true);
+ setGaussianControlEnabled(experiments.gaussian_constrained_test?.enabled === true);
+ setTimeControlModelId(experiments.time_constrained_test?.model_id || "");
+ setGaussianControlModelId(experiments.gaussian_constrained_test?.model_id || "");
+ setTimeControlMaxSteps(Number(experiments.time_constrained_test?.max_steps_ceiling ?? 12000));
+ setGaussianControlMaxSteps(Number(experiments.gaussian_constrained_test?.max_steps_ceiling ?? 15000));
  setTestCandidatePairingMode(
  config.test_candidate_pairing_mode === "full_combination_grid"
  ? "full_combination_grid"
@@ -371,6 +400,7 @@ export default function WorkflowPipelineBuilderPage() {
  total += phase.exploration_runs_per_project * selectedCount;
  }
  }
+ if (pipelineType === "test") total += selectedCount * Number(timeControlEnabled) + selectedCount * Number(gaussianControlEnabled);
  return total;
  };
 
@@ -394,6 +424,20 @@ export default function WorkflowPipelineBuilderPage() {
  if (family.includes("ridge")) return "Featurewise Ridge";
  return "Workflow model";
  };
+
+ const renderReferenceRuns = (
+ metric: "time" | "gaussians",
+ modelId: string,
+ ) => (
+ <div style={{ display: "grid", gap: "8px" }}>
+ {datasets.filter((d) => d.selected).map((dataset) => {
+ const candidates = referenceRuns.filter((run) => run.project_name === dataset.name && Number(run.phase) === 2 && run.test_model_id === modelId && ['success', 'hard_cap_reached'].includes(run.status));
+ const selected = candidates[candidates.length - 1];
+ const budget = (run: any) => metric === "time" && typeof run.reference_training_loop_seconds === "number" ? `, ${Math.round(run.reference_training_loop_seconds)} s training loop` : metric === "gaussians" && typeof run.reference_gaussians === "number" ? `, ${run.reference_gaussians.toLocaleString()} Gaussians` : "";
+ return <div key={dataset.name} style={{ fontSize: 12, color: '#475569' }}>{dataset.name}: {selected ? `Run ${selected.run} (${selected.run_id})${budget(selected)}` : 'latest completed model run when available'}</div>;
+ })}
+ </div>
+ );
 
  const renderTestModelSelector = (compact = false) => {
  if (pipelineType !== "test") return null;
@@ -461,13 +505,35 @@ export default function WorkflowPipelineBuilderPage() {
  alert("Please select at least one trained workflow model to test.");
  return;
  }
+ if (pipelineType === "test" && ((timeControlEnabled && !visibleSelectedModelIds.includes(timeControlModelId)) || (gaussianControlEnabled && !visibleSelectedModelIds.includes(gaussianControlModelId)))) {
+ alert("Choose a selected test model for each additional experiment.");
+ return;
+ }
+ if (pipelineType === "test" && ((timeControlEnabled && (timeControlMaxSteps <= maxSteps || timeControlMaxSteps > 100000)) || (gaussianControlEnabled && (gaussianControlMaxSteps < maxSteps + 1000 || gaussianControlMaxSteps > 100000)))) {
+ alert("Check the maximum steps for each additional experiment. Time needs more than the main run; Gaussian needs at least 1,000 extra steps.");
+ return;
+ }
 
+ const signature = (options: any, kind: string) => options?.enabled === true
+ ? JSON.stringify([true, String(options.model_id || "").trim(), Number(options.max_steps_ceiling ?? (kind === "gaussian_constrained_test" ? 15000 : 12000))])
+ : "disabled";
+ const currentControls: Record<string, any> = {
+ time_constrained_test: { enabled: timeControlEnabled, model_id: timeControlModelId, max_steps_ceiling: timeControlMaxSteps },
+ gaussian_constrained_test: { enabled: gaussianControlEnabled, model_id: gaussianControlModelId, max_steps_ceiling: gaussianControlMaxSteps },
+ };
+ const changedKinds = isEditMode ? Object.keys(currentControls).filter((kind) => controlRunCounts[kind] > 0 && signature(loadedControls[kind], kind) !== signature(currentControls[kind], kind)) : [];
+ if (changedKinds.length > 0) {
+ setPendingOverrideKinds(changedKinds);
+ setOverrideStage(1);
+ return;
+ }
  setShowCreateConfirm(true);
  };
 
  // Create pipeline (after confirmation)
- const handleCreatePipeline = async () => {
+ const handleCreatePipeline = async (overrideKinds: string[] = []) => {
  setShowCreateConfirm(false);
+ setOverrideStage(0);
  setCreating(true);
  try {
  const selectedDatasets = datasets.filter((d) => d.selected);
@@ -489,6 +555,10 @@ export default function WorkflowPipelineBuilderPage() {
  pipelineType === "test"
  ? (validSelectedModelIds.length > 0 ? validSelectedModelIds : null)
  : null,
+ additional_experiments: pipelineType === "test" ? {
+ time_constrained_test: { enabled: timeControlEnabled, model_id: timeControlModelId, max_steps_ceiling: timeControlMaxSteps },
+ gaussian_constrained_test: { enabled: gaussianControlEnabled, model_id: gaussianControlModelId, max_steps_ceiling: gaussianControlMaxSteps },
+ } : {},
  contribute_to_training: false, // Test pipelines never update model; use project-level test for that
  projects: selectedDatasets.map((d) => ({
  name: d.name,
@@ -537,7 +607,7 @@ export default function WorkflowPipelineBuilderPage() {
 
  // Create or update pipeline
  if (isEditMode && editPipelineId) {
- const res = await axios.put(`${API_BASE}/api/workflow/pipelines/${editPipelineId}/config`, config);
+ const res = await axios.put(`${API_BASE}/api/workflow/pipelines/${editPipelineId}/config`, { ...config, override_controlled_kinds: overrideKinds });
  const responseMessage = typeof res.data?.message === "string" ? res.data.message : "Configuration updated.";
  showToast(`Pipeline "${pipelineName}" updated successfully! ${responseMessage}`, "success");
  setTimeout(() => {
@@ -559,6 +629,24 @@ export default function WorkflowPipelineBuilderPage() {
  );
  } finally {
  setCreating(false);
+ }
+ };
+
+ const handleRemoveAdditionalRuns = async () => {
+ if (!editPipelineId || !removeRunsKind) return;
+ setRemovingAdditionalRuns(true);
+ try {
+ const response = await axios.post(`${API_BASE}/api/workflow/pipelines/${editPipelineId}/additional-experiments/remove-runs`, { kind: removeRunsKind });
+ setRemoveRunsStage(0);
+ setRemoveRunsKind(null);
+ showToast(response.data?.message || "Additional experiment runs removed.", "success");
+ window.setTimeout(() => navigate(`/workflow/pipelines/${editPipelineId}`), 700);
+ } catch (error: any) {
+ setRemoveRunsStage(0);
+ setRemoveRunsKind(null);
+ showToast(`Failed to remove additional runs: ${errorMessage(error, "Request failed")}`, "error");
+ } finally {
+ setRemovingAdditionalRuns(false);
  }
  };
 
@@ -807,6 +895,17 @@ export default function WorkflowPipelineBuilderPage() {
  {currentStep === 2 && (
  <div style={{ border: "1px solid #ddd", padding: "20px", borderRadius: "4px", marginBottom: "20px" }}>
  <h2>Step 2: Shared {pipelineType === "test" ? "Testing" : "Preparation"} Run Configuration</h2>
+ {pipelineType === "test" && (
+ <div role="tablist" style={{ display: "flex", borderBottom: "1px solid #cbd5e1", margin: "12px 0 18px" }}>
+ {(["standard", "experiments"] as const).map((tab) => (
+ <button key={tab} role="tab" aria-selected={step2Tab === tab} onClick={() => setStep2Tab(tab)}
+ style={{ padding: "8px 12px", borderBottom: step2Tab === tab ? "2px solid #2563eb" : "2px solid transparent", fontWeight: step2Tab === tab ? 600 : 400 }}>
+ {tab === "standard" ? "Main test" : "Additional Experiments"}
+ </button>
+ ))}
+ </div>
+ )}
+ {(pipelineType !== "test" || step2Tab === "standard") && <>
 
  <div style={{ marginBottom: "15px", padding: "10px", background: "#f0f4ff", border: "1px solid #b3c2f0", borderRadius: "4px", fontSize: "13px" }}>
  <strong>Selector Strategy:</strong> {pipelineType === "test" ? "Model-specific AI profile" : "Featurewise Ridge Regression by default"}
@@ -993,6 +1092,50 @@ export default function WorkflowPipelineBuilderPage() {
  </label>
  </div>
  </div>
+
+ </>}
+ {pipelineType === "test" && step2Tab === "experiments" && (
+ <div style={{ maxWidth: "620px", display: "grid", gap: "18px" }}>
+ <div>
+ <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 600 }}>
+ <input type="checkbox" checked={timeControlEnabled} onChange={(e) => setTimeControlEnabled(e.target.checked)} />
+ Time constrained test
+ <span title="Runs baseline settings until the selected model run's pre-evaluation training-loop duration is reached, then evaluates the final step. Maximum steps is a safety limit."><Info size={15} aria-label="Time control information" /></span>
+ </label>
+ {timeControlEnabled && <div style={{ margin: "10px 0 0 24px", display: "grid", gap: "8px" }}>
+ <label>Model result to match
+ <select value={timeControlModelId} onChange={(e) => setTimeControlModelId(e.target.value)} style={{ width: "100%", padding: "7px" }}>
+ <option value="">Select model</option>
+ {visibleSelectedModelIds.map((id) => <option key={id} value={id}>{availableModels.find((m: any) => m.model_id === id)?.model_name || id}</option>)}
+ </select></label>
+ {renderReferenceRuns("time", timeControlModelId)}
+ <label>Maximum steps <input type="number" min={maxSteps + 1} max={100000} step={1000} value={timeControlMaxSteps} onChange={(e) => setTimeControlMaxSteps(Number(e.target.value))} style={{ width: "100%", padding: "7px" }} /></label>
+ </div>}
+ {isEditMode && controlRunCounts.time_constrained_test > 0 && <button type="button" disabled={loadedPipelineStatus?.toLowerCase() === "running"} onClick={() => { setRemoveRunsKind("time_constrained_test"); setRemoveRunsStage(1); }} className="mt-2 inline-flex items-center gap-2 rounded border border-rose-300 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50" title={loadedPipelineStatus?.toLowerCase() === "running" ? "Stop the pipeline before removing runs" : "Remove only saved Time control runs"}>
+ <Trash2 size={16} /> Remove Time runs ({controlRunCounts.time_constrained_test})
+ </button>}
+ </div>
+ <div>
+ <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 600 }}>
+ <input type="checkbox" checked={gaussianControlEnabled} onChange={(e) => setGaussianControlEnabled(e.target.checked)} />
+ Gaussian constrained test
+ <span title="Uses baseline thresholds, extends densification until the selected model run's Gaussian count is reached, then trains 1,000 more steps and evaluates. Maximum steps is a safety limit; final count and runtime may differ."><Info size={15} aria-label="Gaussian control information" /></span>
+ </label>
+ {gaussianControlEnabled && <div style={{ margin: "10px 0 0 24px", display: "grid", gap: "8px" }}>
+ <label>Model result to match
+ <select value={gaussianControlModelId} onChange={(e) => setGaussianControlModelId(e.target.value)} style={{ width: "100%", padding: "7px" }}>
+ <option value="">Select model</option>
+ {visibleSelectedModelIds.map((id) => <option key={id} value={id}>{availableModels.find((m: any) => m.model_id === id)?.model_name || id}</option>)}
+ </select></label>
+ {renderReferenceRuns("gaussians", gaussianControlModelId)}
+ <label>Maximum steps <input type="number" min={maxSteps + 1000} max={100000} step={1000} value={gaussianControlMaxSteps} onChange={(e) => setGaussianControlMaxSteps(Number(e.target.value))} style={{ width: "100%", padding: "7px" }} /></label>
+ </div>}
+ {isEditMode && controlRunCounts.gaussian_constrained_test > 0 && <button type="button" disabled={loadedPipelineStatus?.toLowerCase() === "running"} onClick={() => { setRemoveRunsKind("gaussian_constrained_test"); setRemoveRunsStage(1); }} className="mt-2 inline-flex items-center gap-2 rounded border border-rose-300 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50" title={loadedPipelineStatus?.toLowerCase() === "running" ? "Stop the pipeline before removing runs" : "Remove only saved Gaussian control runs"}>
+ <Trash2 size={16} /> Remove Gaussian runs ({controlRunCounts.gaussian_constrained_test})
+ </button>}
+ </div>
+ </div>
+ )}
 
  <div style={{ marginTop: "20px", display: "flex", justifyContent: "space-between" }}>
  <button onClick={() => setCurrentStep(1)} style={{ padding: "8px 24px" }}>
@@ -1304,10 +1447,10 @@ export default function WorkflowPipelineBuilderPage() {
  <li><strong>~{calculateEstimatedTime().hours}h {calculateEstimatedTime().minutes}m</strong> estimated duration</li>
  </ul>
  <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
- <strong> Only increasing exploration runs?</strong> The pipeline will be set to <em>stopped</em> automatically click <strong>Resume</strong> to run the additional runs without losing previous results.
+ <strong>Adding runs or experiments?</strong> The pipeline will be set to <em>stopped</em>. Click <strong>Resume</strong> to run the new slots without losing previous results.
  </div>
  <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
- <strong> Changed projects, phases structure, or other settings?</strong> Those changes require a full <strong>Restart</strong> to take effect.
+ <strong>Changing existing run settings?</strong> Completed runs keep their saved settings. Use their Override action to repeat a controlled run, or Restart for a full rerun.
  </div>
  </>
  ) : (
@@ -1329,8 +1472,47 @@ export default function WorkflowPipelineBuilderPage() {
  cancelLabel="Cancel"
  tone="default"
  busy={creating}
- onConfirm={handleCreatePipeline}
+ onConfirm={() => void handleCreatePipeline()}
  onCancel={() => setShowCreateConfirm(false)}
+ />
+
+ <ConfirmModal
+ open={overrideStage === 1}
+ title="Override controlled runs?"
+ message={<>The changed settings affect {pendingOverrideKinds.map((kind) => kind === "time_constrained_test" ? "Time control" : "Gaussian control").join(" and ")}. Saving will remove {pendingOverrideKinds.reduce((total, kind) => total + (controlRunCounts[kind] || 0), 0)} existing controlled run result(s) and their folders. Other runs will be kept.</>}
+ confirmLabel="Continue"
+ tone="danger"
+ onConfirm={() => setOverrideStage(2)}
+ onCancel={() => { setOverrideStage(0); setPendingOverrideKinds([]); }}
+ />
+ <ConfirmModal
+ open={overrideStage === 2}
+ title="Are you sure?"
+ message="This will permanently remove only the affected controlled runs and save the new configuration. Resume the pipeline afterward to run those experiments again."
+ confirmLabel="Override and save"
+ tone="danger"
+ busy={creating}
+ onConfirm={() => void handleCreatePipeline(pendingOverrideKinds)}
+ onCancel={() => { setOverrideStage(0); setPendingOverrideKinds([]); }}
+ />
+ <ConfirmModal
+ open={removeRunsStage === 1}
+ title={`Remove ${removeRunsKind === "time_constrained_test" ? "Time" : "Gaussian"} runs?`}
+ message={<>This will remove {removeRunsKind ? controlRunCounts[removeRunsKind] : 0} saved {removeRunsKind === "time_constrained_test" ? "Time" : "Gaussian"} control run(s) and their result folders. All other runs stay. Unsaved changes on this page will not be saved.</>}
+ confirmLabel="Continue"
+ tone="danger"
+ onConfirm={() => setRemoveRunsStage(2)}
+ onCancel={() => { setRemoveRunsStage(0); setRemoveRunsKind(null); }}
+ />
+ <ConfirmModal
+ open={removeRunsStage === 2}
+ title="Are you sure?"
+ message={`This cannot be undone. Only ${removeRunsKind === "time_constrained_test" ? "Time" : "Gaussian"} control runs will be removed. Return to the pipeline and click Resume to run them again.`}
+ confirmLabel={`Remove ${removeRunsKind === "time_constrained_test" ? "Time" : "Gaussian"} runs`}
+ tone="danger"
+ busy={removingAdditionalRuns}
+ onConfirm={() => void handleRemoveAdditionalRuns()}
+ onCancel={() => { setRemoveRunsStage(0); setRemoveRunsKind(null); }}
  />
 
  {/* Toast Notification */}

@@ -13,6 +13,7 @@ import PipelineScoreDistributionPanel from "../../components/pipelineDetails/Pip
 import TestingModelsPanel from "../../components/pipelineDetails/TestingModelsPanel";
 import TestingPredictionsPanel from "../../components/pipelineDetails/TestingPredictionsPanel";
 import TestingResultsPanel from "../../components/pipelineDetails/TestingResultsPanel";
+import { parseModelSelectionId } from "../../components/pipelineDetails/modelSelection";
 import TestingOverviewSection from "../../components/pipelineOverview/TestingOverviewSection";
 import PipelineActionControls from "../../components/workflow/PipelineActionControls";
 import type { DetailTab, PipelineDetail } from "../../components/pipelineDetails/types";
@@ -96,6 +97,8 @@ export default function TestingPipelineDetailPage({
     return value && configuredModelIds.includes(value) ? value : configuredModelIds[0] || null;
   }, [configuredModelIds, pipeline.active_run?.test_model_id, pipeline.config?.source_model_id, pipeline.current_test_model_id]);
   const [selectedModelId, setSelectedModelId] = useState<string | null>(() => activeModelId);
+  const selectedModel = useMemo(() => parseModelSelectionId(selectedModelId), [selectedModelId]);
+  const selectedSourceModelId = selectedModel.modelId;
   const [exporting, setExporting] = useState(false);
   const [exportMessage, setExportMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const latestPreviewKey = String(pipeline.latest_prediction_preview_key || "").trim();
@@ -118,8 +121,8 @@ export default function TestingPipelineDetailPage({
     const previewRows = predictionRows.filter(hasCandidateScoreChecks).map((row: any) => asTestingOverviewRow(row));
     return dedupeTestingRows([...activeRunRows, ...completedRunRows, ...previewRows]);
   }, [pipeline.active_run, pipeline.runs, predictionRows]);
-  const modelFilteredTestingOverviewRows = selectedModelId
-    ? testingOverviewRows.filter((row: any) => rowModelId(row) === selectedModelId)
+  const modelFilteredTestingOverviewRows = selectedSourceModelId
+    ? testingOverviewRows.filter((row: any) => rowModelId(row) === selectedSourceModelId)
     : testingOverviewRows;
   const previewGeneratedAt = typeof latestPreview?.generated_at === "string" ? latestPreview.generated_at : null;
   const restartVersion = Number.isFinite(Number(pipeline.config?.restart_version)) ? Number(pipeline.config?.restart_version) : 0;
@@ -136,7 +139,10 @@ export default function TestingPipelineDetailPage({
       setSelectedModelId(null);
       return;
     }
-    setSelectedModelId((current) => current && configuredModelIds.includes(current) ? current : activeModelId);
+    setSelectedModelId((current) => {
+      const currentModelId = parseModelSelectionId(current).modelId;
+      return currentModelId && configuredModelIds.includes(currentModelId) ? current : activeModelId;
+    });
   }, [activeModelId, configuredModelIds]);
 
   const exportCurrentTest = async () => {
@@ -224,25 +230,29 @@ export default function TestingPipelineDetailPage({
             pipeline={pipeline}
             selectedModelId={selectedModelId}
           />
-          <PipelineLogSpaceValuesPanel
-            pipeline={pipeline}
-            predictionRows={predictionRows}
-            selectedModelId={selectedModelId}
-          />
-          <TestingOverviewSection
-            rows={modelFilteredTestingOverviewRows}
-            loading={false}
-            restartVersion={restartVersion}
-            restartToken={restartToken}
-            lastRestartAt={lastRestartAt}
-            previewGeneratedAt={previewGeneratedAt}
-          />
+          {!selectedModel.controlledExperiment && (
+            <>
+              <PipelineLogSpaceValuesPanel
+                pipeline={pipeline}
+                predictionRows={predictionRows}
+                selectedModelId={selectedSourceModelId}
+              />
+              <TestingOverviewSection
+                rows={modelFilteredTestingOverviewRows}
+                loading={false}
+                restartVersion={restartVersion}
+                restartToken={restartToken}
+                lastRestartAt={lastRestartAt}
+                previewGeneratedAt={previewGeneratedAt}
+              />
+            </>
+          )}
           <PipelineScoreDistributionPanel pipelineId={pipeline.id} refreshKey={pipeline.updated_at} selectedModelId={selectedModelId} title="Observed Test Score Distribution" />
         </div>
       )}
       {activeTab === "projects" && <PipelineProjectsRunsPanel pipeline={pipeline} onRunDeleted={onRefresh} />}
       {activeTab === "models" && <TestingModelsPanel pipeline={pipeline} />}
-      {activeTab === "predictions" && <TestingPredictionsPanel pipeline={pipeline} selectedModelId={selectedModelId} />}
+      {activeTab === "predictions" && <TestingPredictionsPanel pipeline={pipeline} selectedModelId={selectedSourceModelId} />}
       {activeTab === "results" && <TestingResultsPanel pipeline={pipeline} />}
       {activeTab === "logs" && <PipelineLogsPanel pipelineId={pipeline.id} />}
       {activeTab === "configuration" && <PipelineConfigPanel pipeline={pipeline} />}

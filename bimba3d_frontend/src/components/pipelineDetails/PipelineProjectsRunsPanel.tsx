@@ -284,7 +284,7 @@ export default function PipelineProjectsRunsPanel({ pipeline, onRunDeleted }: Pi
                           .join(" | ")
                       : "";
                     const notes = run.error || run.last_error || run.remarks || "";
-                    const isBaseline = run.phase === 1 || run.is_baseline_row || String(run.run_name || "").toLowerCase().includes("baseline");
+                    const isBaseline = !run.controlled_experiment && (run.phase === 1 || run.is_baseline_row || String(run.run_name || "").toLowerCase().includes("baseline"));
                     const projectName = run.project_name || run.project || "-";
                     const previousRun = filteredRuns[index - 1];
                     const previousProjectName = previousRun?.project_name || previousRun?.project || "-";
@@ -310,6 +310,7 @@ export default function PipelineProjectsRunsPanel({ pipeline, onRunDeleted }: Pi
                         <td className="max-w-[220px] border-b border-slate-100 px-1.5 py-1 font-medium text-slate-900">
                           <div className="truncate" title={run.run_name || run.run_id || run.id || "-"}>{run.run_name || run.run_id || run.id || "-"}</div>
                           {isBaseline && <span className="mt-1 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">Baseline</span>}
+                          {run.controlled_experiment && <span className="mt-1 inline-block rounded bg-teal-100 px-1.5 py-0.5 text-[10px] font-medium text-teal-800">{run.controlled_experiment === "time_constrained_test" ? "Time control" : "Gaussian control"}</span>}
                         </td>
                         <td className="border-b border-slate-100 px-1.5 py-1 text-slate-700">{run.phase ?? "-"}</td>
                         <td className="border-b border-slate-100 px-1.5 py-1 text-slate-700">{run.run ?? "-"}</td>
@@ -367,7 +368,7 @@ export default function PipelineProjectsRunsPanel({ pipeline, onRunDeleted }: Pi
                                   }
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
-                                  Delete run
+                                  {run.controlled_experiment ? "Override run" : "Delete run"}
                                 </button>
                               </div>
                             )}
@@ -387,9 +388,11 @@ export default function PipelineProjectsRunsPanel({ pipeline, onRunDeleted }: Pi
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
           <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-xl">
             <div className="border-b border-slate-200 px-4 py-3">
-              <h3 className="text-sm font-semibold text-slate-950">Delete run?</h3>
+              <h3 className="text-sm font-semibold text-slate-950">{pendingDeleteRun.controlled_experiment ? "Override controlled run?" : "Delete run?"}</h3>
               <p className="mt-1 text-xs text-slate-600">
-                This removes the selected run from the pipeline and deletes its run folder.
+                {pendingDeleteRun.controlled_experiment
+                  ? "This deletes the selected result and its run folder. Resume the pipeline to repeat this control."
+                  : "This removes the selected run from the pipeline and deletes its run folder."}
               </p>
             </div>
             <div className="space-y-2 px-4 py-3 text-xs text-slate-700">
@@ -424,7 +427,7 @@ export default function PipelineProjectsRunsPanel({ pipeline, onRunDeleted }: Pi
                 disabled={Boolean(deletingRunId)}
                 className="rounded bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:cursor-wait disabled:bg-red-300"
               >
-                {deletingRunId ? "Deleting..." : "Delete run"}
+                {deletingRunId ? "Deleting..." : pendingDeleteRun.controlled_experiment ? "Override run" : "Delete run"}
               </button>
             </div>
           </div>

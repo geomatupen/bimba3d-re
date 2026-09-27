@@ -7,6 +7,7 @@ interface TrainingDataRowsTableRow {
  project_name: string;
  run_id: string;
  run_name?: string | null;
+ controlled_experiment?: string | null;
  is_baseline_row?: boolean;
  selected_preset?: string | null;
  learned_input_params?: Record<string, unknown> | null;
@@ -120,10 +121,12 @@ export default function TrainingDataRowsTable({
  pipelineId,
  selectedModelId,
  showFinalMetricDeltas = false,
+ excludeControlledExperiments = false,
 }: {
  pipelineId: string;
  selectedModelId?: string | null;
  showFinalMetricDeltas?: boolean;
+ excludeControlledExperiments?: boolean;
 }) {
  const [rows, setRows] = useState<TrainingDataRowsTableRow[]>([]);
  const [loading, setLoading] = useState(false);
@@ -161,12 +164,13 @@ export default function TrainingDataRowsTable({
  const rowModelKey = (row: TrainingDataRowsTableRow) =>
  String((row as any).model_id || (row as any).test_model_id || (row as any).source_workflow_model_id || (row as any).source_model_id || "");
 
+ const eligibleRows = excludeControlledExperiments ? rows.filter((row) => !row.controlled_experiment) : rows;
  const displayRows = selectedModelId
- ? rows.filter((row) => {
+ ? eligibleRows.filter((row) => {
  if (row.is_baseline_row) return true; // always show baseline rows for context
  return rowModelKey(row) === selectedModelId;
  })
- : rows;
+ : eligibleRows;
  const visibleModelIds = Array.from(
  new Set(displayRows.map(rowModelKey).filter((modelId) => modelId.trim().length > 0)),
  );
@@ -280,7 +284,7 @@ export default function TrainingDataRowsTable({
  >
  <td className="px-1.5 py-1 align-top font-medium text-slate-800">{row.project_name}</td>
  <td className="px-1.5 py-1 align-top text-slate-800">
- <div className="font-semibold">{row.run_name || row.run_id}</div>
+ <div className="font-semibold">{row.controlled_experiment ? row.controlled_experiment.replaceAll("_", " ") : row.run_name || row.run_id}</div>
  <div className="text-[10px] text-slate-500">{row.run_id}</div>
  </td>
  <td className="max-w-[260px] px-1.5 py-1 align-top text-slate-700">

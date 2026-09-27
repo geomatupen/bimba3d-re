@@ -690,6 +690,9 @@ def run_training(
             "early_stop": tuning_state.get("early_stop") if isinstance(tuning_state.get("early_stop"), dict) else None,
             "live_metrics": {
                 "run_id": run_id_value,
+                "elapsed_seconds": total_time_seconds,
+                "training_loop_elapsed_seconds": tuning_state.get("training_loop_elapsed_seconds"),
+                "num_gaussians": tuning_state.get("last_gaussians"),
                 "latest_loss": latest_loss,
                 "latest_loss_step": latest_step,
                 "best_loss": (
@@ -1429,11 +1432,19 @@ def run_training(
             if mode == "modified" and not tuning_state.get("phase_complete_logged") and step == tune_end_for_phase + 1:
                 tuning_state["phase_complete_logged"] = True
         apply_modified_rules(step, loss)
+        runner_obj = runner_ref.get("runner")
+        if runner_obj is not None:
+            means = getattr(runner_obj, "splats", {}).get("means")
+            if means is not None and hasattr(means, "shape"):
+                tuning_state["last_gaussians"] = int(means.shape[0])
         progress_fraction = 0.0 if max_steps_local <= 0 else float(step) / float(max_steps_local)
         progress_fraction = max(0.0, min(1.0, progress_fraction))
 
         now = time.time()
         elapsed = now - gsplat_start
+        loop_start = getattr(cfg, "training_loop_start_unix", None)
+        if isinstance(loop_start, (int, float)):
+            tuning_state["training_loop_elapsed_seconds"] = max(0.0, now - loop_start)
 
         elapsed_by_step = tuning_state.get("elapsed_by_step") if isinstance(tuning_state.get("elapsed_by_step"), dict) else {}
         loss_by_step = tuning_state.get("loss_by_step") if isinstance(tuning_state.get("loss_by_step"), dict) else {}
@@ -1504,6 +1515,7 @@ def run_training(
                         tuning_state["gaussian_cap_count"] = int(gaussians)
                         if freeze_densification_at_gaussian_cap:
                             tuning_state["gaussian_cap_freeze_applied"] = True
+                            cfg.gaussian_cap_freeze_step = int(step)
                             # progress_callback receives one-based steps while DefaultStrategy uses zero-based steps.
                             freeze_stop_iter = max(0, int(step) - 1)
                             strategy.refine_stop_iter = min(int(getattr(strategy, "refine_stop_iter", freeze_stop_iter)), freeze_stop_iter)
@@ -1548,7 +1560,7 @@ def run_training(
             cap_step = tuning_state.get("gaussian_cap_step")
             message = (
                 f" Gaussian hard cap reached ({cap_count}/{int(gaussian_hard_cap)}) at step {cap_step}. "
-                f"Densification is frozen; training continues to step {max_steps_local}."
+                f"Densification is frozen; training continues for 1,000 more steps after the cap."
             )
         elif gaussian_cap_reached:
             cap_count = tuning_state.get("gaussian_cap_count")
@@ -1562,6 +1574,11 @@ def run_training(
                 if requested_stop
                 else f" Training step {step}/{max_steps_local} (loss: {loss:.6f})"
             )
+        control_kind = p.get("controlled_experiment")
+        if control_kind == "time_constrained_test":
+            message = f" Time control (baseline settings, target {float(training_time_limit):.0f}s)." + message
+        elif control_kind == "gaussian_constrained_test":
+            message = f" Gaussian control (baseline settings, target {int(gaussian_hard_cap):,} Gaussians)." + message
 
         update_status(
             project_dir,
@@ -1713,6 +1730,15 @@ def run_training(
         strategy=strategy,
         tb_every=0,
     )
+    training_time_limit = p.get("training_time_limit_seconds")
+    if isinstance(training_time_limit, (int, float)) and training_time_limit > 0:
+        cfg.training_time_limit_seconds = float(training_time_limit)
+    schedule_steps = p.get("learning_rate_schedule_steps")
+    if isinstance(schedule_steps, (int, float)) and schedule_steps > 0:
+        cfg.learning_rate_schedule_steps = int(schedule_steps)
+    post_cap_steps = p.get("gaussian_post_cap_steps")
+    if isinstance(post_cap_steps, (int, float)) and post_cap_steps > 0:
+        cfg.gaussian_post_cap_steps = int(post_cap_steps)
 
     # Capture actual applied parameters for learning table (from Config - these are the ACTUAL values used in training)
     captured_applied_params = {
@@ -1997,6 +2023,7 @@ def run_training(
     runner_ref["runner"] = runner
     stop_reason = runner.train()
     gsplat_end = time.time()
+    time_limit_reached_step = getattr(cfg, "training_time_limit_reached_step", None)
     early_stop_state = tuning_state.get("early_stop") if isinstance(tuning_state.get("early_stop"), dict) else {}
     early_stop_triggered = bool(isinstance(early_stop_state, dict) and early_stop_state.get("triggered"))
     stop_flag_reason = None
@@ -2479,6 +2506,8 @@ def run_training(
         metadata["best_splat"] = tuning_state.get("best_splat")
         metadata["early_stop"] = tuning_state.get("early_stop")
         metadata["stop_reason"] = stop_flag_reason or (f"runner_stop_step={stop_reason}" if isinstance(stop_reason, int) else None)
+        metadata["training_time_limit_seconds"] = training_time_limit
+        metadata["training_time_limit_reached_step"] = time_limit_reached_step
         if input_mode_learning_payload is not None:
             metadata["input_mode_learning"] = input_mode_learning_payload
         write_json_atomic(metadata_path, metadata)

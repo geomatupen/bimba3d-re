@@ -8,6 +8,49 @@ from bimba3d_backend.app.services.training_pipeline_orchestrator import Pipeline
 
 
 class TrainingPipelineOrchestratorTests(unittest.TestCase):
+    def test_controls_follow_normal_test_runs_once_per_project(self):
+        state = {
+            "id": "pipeline_test",
+            "status": "running",
+            "runs": [],
+            "total_runs": 4,
+            "completed_runs": 0,
+            "failed_runs": 0,
+            "config": {
+                "pipeline_type": "test",
+                "source_model_ids": ["ridge"],
+                "source_model_id": "ridge",
+                "projects": [{"name": "project", "baseline_run_id": "baseline"}],
+                "phases": [
+                    {"phase_number": 1, "name": "Baseline", "exploration_runs_per_project": 1},
+                    {"phase_number": 2, "name": "Model Test", "exploration_runs_per_project": 1},
+                ],
+                "additional_experiments": {
+                    "time_constrained_test": {"enabled": True, "model_id": "ridge"},
+                    "gaussian_constrained_test": {"enabled": True, "model_id": "ridge"},
+                },
+                "thermal_management": {"enabled": False},
+                "shared_config": {},
+            },
+        }
+
+        def update(_pipeline_id, changes):
+            state.update(changes)
+            return dict(state)
+
+        orchestrator = PipelineOrchestrator("pipeline_test")
+        with (
+            patch("bimba3d_backend.app.services.training_pipeline_storage.get_pipeline", side_effect=lambda _id: dict(state)),
+            patch("bimba3d_backend.app.services.training_pipeline_storage.update_pipeline", side_effect=update),
+            patch.object(orchestrator, "_execute_run", return_value="completed") as execute,
+            patch.object(orchestrator, "_ensure_baseline_before_test_run", return_value=True),
+            patch.object(orchestrator, "_get_or_create_project_dir", return_value=Path(".")),
+            patch.object(orchestrator, "_is_successful_run_dir", return_value=True),
+        ):
+            orchestrator._run()
+
+        self.assertEqual([call.args[2]["phase_number"] for call in execute.call_args_list], [1, 2, 90, 91])
+
     def test_runs_per_project_executes_all_run_slots(self):
         pipeline_id = "pipeline_test"
         pipeline_state = {
@@ -94,7 +137,7 @@ class TrainingPipelineOrchestratorTests(unittest.TestCase):
                     return_value={"status": "completed"},
                 ),
             ):
-                success, score = orchestrator._execute_training_run(
+                success, score, status = orchestrator._execute_training_run(
                     run_config={"phase_number": 1, "max_steps": 7000},
                     project_dir=project_dir,
                     run_id="phase1_pass1_run1_20260424_000000",
@@ -102,6 +145,7 @@ class TrainingPipelineOrchestratorTests(unittest.TestCase):
 
         self.assertTrue(success)
         self.assertIsNone(score)
+        self.assertEqual(status, "success")
         self.assertEqual(run_full_pipeline_mock.call_args.args[1]["max_steps"], 7000)
 
 

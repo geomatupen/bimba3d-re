@@ -728,19 +728,20 @@ class Runner:
                 yaml.dump(vars(cfg), f)
 
         max_steps = cfg.max_steps
+        schedule_steps = max(1, int(getattr(cfg, "learning_rate_schedule_steps", max_steps)))
         init_step = 0
 
         schedulers = [
             # means has a learning rate schedule, that end at 0.01 of the initial value
             torch.optim.lr_scheduler.ExponentialLR(
-                self.optimizers["means"], gamma=0.01 ** (1.0 / max_steps)
+                self.optimizers["means"], gamma=0.01 ** (1.0 / schedule_steps)
             ),
         ]
         if cfg.pose_opt:
             # pose optimization has a learning rate schedule
             schedulers.append(
                 torch.optim.lr_scheduler.ExponentialLR(
-                    self.pose_optimizers[0], gamma=0.01 ** (1.0 / max_steps)
+                    self.pose_optimizers[0], gamma=0.01 ** (1.0 / schedule_steps)
                 )
             )
         # Post-processing module has a learning rate schedule
@@ -756,7 +757,7 @@ class Runner:
                         ),
                         torch.optim.lr_scheduler.ExponentialLR(
                             self.post_processing_optimizers[0],
-                            gamma=0.01 ** (1.0 / max_steps),
+                            gamma=0.01 ** (1.0 / schedule_steps),
                         ),
                     ]
                 )
@@ -764,7 +765,7 @@ class Runner:
         elif cfg.post_processing == "ppisp":
             ppisp_schedulers = self.post_processing_module.create_schedulers(
                 self.post_processing_optimizers,
-                max_optimization_iters=max_steps,
+                max_optimization_iters=schedule_steps,
             )
             schedulers.extend(ppisp_schedulers)
 
@@ -784,6 +785,7 @@ class Runner:
 
         # Training loop.
         global_tic = time.time()
+        cfg.training_loop_start_unix = global_tic
         disable_tqdm = bool(getattr(cfg, "disable_tqdm", False))
         pbar = tqdm.tqdm(range(init_step, max_steps), disable=disable_tqdm)
         stopped_step = None
@@ -957,6 +959,11 @@ class Runner:
 
             progress_every = max(1, int(getattr(cfg, "progress_every", 100)))
             current_step = int(step + 1)
+            time_limit = getattr(cfg, "training_time_limit_seconds", None)
+            time_limit_hit = isinstance(time_limit, (int, float)) and time_limit > 0 and time.time() - global_tic >= time_limit
+            cap_step = getattr(cfg, "gaussian_cap_freeze_step", None)
+            post_cap_steps = getattr(cfg, "gaussian_post_cap_steps", None)
+            post_cap_done = isinstance(cap_step, int) and isinstance(post_cap_steps, int) and current_step >= cap_step + post_cap_steps
             if callable(progress_callback) and world_rank == 0 and (
                 current_step == 1
                 or current_step == max_steps
@@ -981,7 +988,7 @@ class Runner:
                     print(f"Progress callback failed at step {step}: {exc}")
 
             # save checkpoint before updating the model
-            if step in [i - 1 for i in cfg.save_steps] or step == max_steps - 1:
+            if step in [i - 1 for i in cfg.save_steps] or step == max_steps - 1 or time_limit_hit or post_cap_done:
                 mem = torch.cuda.max_memory_allocated() / 1024**3
                 stats = {
                     "mem": mem,
@@ -1120,7 +1127,7 @@ class Runner:
                 assert_never(self.cfg.strategy)
 
             # eval the full set
-            if step in [i - 1 for i in cfg.eval_steps]:
+            if step in [i - 1 for i in cfg.eval_steps] or time_limit_hit or post_cap_done:
                 self.eval(step)
                 if callable(eval_callback) and world_rank == 0:
                     try:
@@ -1130,7 +1137,7 @@ class Runner:
                 self.render_traj(step)
 
             # run compression
-            if cfg.compression is not None and step in [i - 1 for i in cfg.eval_steps]:
+            if cfg.compression is not None and (step in [i - 1 for i in cfg.eval_steps] or time_limit_hit or post_cap_done):
                 self.run_compression(step=step)
 
             if not cfg.disable_viewer:
@@ -1145,6 +1152,11 @@ class Runner:
                 )
                 # Update the scene.
                 self.viewer.update(step, num_train_rays_per_step)
+
+            if time_limit_hit:
+                cfg.training_time_limit_reached_step = current_step
+            if time_limit_hit or post_cap_done:
+                break
 
         return stopped_step
 
