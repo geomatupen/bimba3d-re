@@ -31,6 +31,13 @@ interface ProjectRunInfo {
   is_base?: boolean;
 }
 
+interface PipelineRunMetadata {
+  controlled_experiment?: string | null;
+  phase?: number | null;
+  run_id: string;
+  test_model_id?: string | null;
+}
+
 interface SummaryPayload {
   project_id: string;
   run_id?: string | null;
@@ -360,6 +367,7 @@ function nearestPointValue(points: GraphPoint[], step: number): number | null {
 export default function ComparisonTab({ currentProjectId = "" }: ComparisonTabProps) {
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [selectedPipelineId, setSelectedPipelineId] = useState<string>("");
+  const [pipelineRunsById, setPipelineRunsById] = useState<Map<string, PipelineRunMetadata>>(new Map());
   const [leftId, setLeftId] = useState<string>(currentProjectId);
   const [rightId, setRightId] = useState<string>("");
   const [leftRuns, setLeftRuns] = useState<ProjectRunInfo[]>([]);
@@ -450,6 +458,34 @@ export default function ComparisonTab({ currentProjectId = "" }: ComparisonTabPr
 
   useEffect(() => {
     let mounted = true;
+    if (!selectedPipelineId) {
+      setPipelineRunsById(new Map());
+      return () => {
+        mounted = false;
+      };
+    }
+    setPipelineRunsById(new Map());
+    api.get(`/api/workflow/pipelines/${selectedPipelineId}`)
+      .then((res) => {
+        if (!mounted) return;
+        const metadata = new Map<string, PipelineRunMetadata>();
+        const runs = Array.isArray(res.data?.runs) ? res.data.runs : [];
+        runs.forEach((run: any) => {
+          const runId = String(run?.run_id || "").trim();
+          if (runId) metadata.set(runId, run as PipelineRunMetadata);
+        });
+        setPipelineRunsById(metadata);
+      })
+      .catch(() => {
+        if (mounted) setPipelineRunsById(new Map());
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [selectedPipelineId]);
+
+  useEffect(() => {
+    let mounted = true;
     const loadLeftRuns = async () => {
       if (!leftId) {
         setLeftRuns([]);
@@ -460,7 +496,9 @@ export default function ComparisonTab({ currentProjectId = "" }: ComparisonTabPr
         const res = await api.get(`/projects/${leftId}/runs`);
         if (!mounted) return;
         const runsRaw = Array.isArray(res.data?.runs) ? (res.data.runs as ProjectRunInfo[]) : [];
-        const runs = runsRaw.filter((run) => run.session_status === "completed");
+        const runs = runsRaw.filter((run) =>
+          run.session_status === "completed" && (!selectedPipelineId || pipelineRunsById.has(run.run_id)),
+        );
         setLeftRuns(runs);
         if (!leftRunId || !runs.some((r) => r.run_id === leftRunId)) {
           setLeftRunId(runs[0]?.run_id || "");
@@ -475,7 +513,7 @@ export default function ComparisonTab({ currentProjectId = "" }: ComparisonTabPr
     return () => {
       mounted = false;
     };
-  }, [leftId, leftRunId]);
+  }, [leftId, leftRunId, pipelineRunsById, selectedPipelineId]);
 
   useEffect(() => {
     let mounted = true;
@@ -489,7 +527,9 @@ export default function ComparisonTab({ currentProjectId = "" }: ComparisonTabPr
         const res = await api.get(`/projects/${rightId}/runs`);
         if (!mounted) return;
         const runsRaw = Array.isArray(res.data?.runs) ? (res.data.runs as ProjectRunInfo[]) : [];
-        const runs = runsRaw.filter((run) => run.session_status === "completed");
+        const runs = runsRaw.filter((run) =>
+          run.session_status === "completed" && (!selectedPipelineId || pipelineRunsById.has(run.run_id)),
+        );
         setRightRuns(runs);
         if (!rightRunId || !runs.some((r) => r.run_id === rightRunId)) {
           setRightRunId(runs[0]?.run_id || "");
@@ -504,7 +544,7 @@ export default function ComparisonTab({ currentProjectId = "" }: ComparisonTabPr
     return () => {
       mounted = false;
     };
-  }, [rightId, rightRunId]);
+  }, [rightId, rightRunId, pipelineRunsById, selectedPipelineId]);
 
   useEffect(() => {
     if (!leftId || !rightId) return;
@@ -671,6 +711,19 @@ export default function ComparisonTab({ currentProjectId = "" }: ComparisonTabPr
     setRightId(nextRightId);
     setLeftRunId("");
     setRightRunId("");
+  };
+
+  const runOptionLabel = (run: ProjectRunInfo): string => {
+    const metadata = pipelineRunsById.get(run.run_id);
+    if (!metadata) return (run.run_name || run.run_id) + (run.is_base ? " [BASE]" : "");
+    if (run.is_base || Number(metadata.phase) === 1) return `${run.run_id} [BASE]`;
+    const modelId = String(metadata.test_model_id || "").trim();
+    const experiment = metadata.controlled_experiment === "time_constrained_test"
+      ? "Time constrained"
+      : metadata.controlled_experiment === "gaussian_constrained_test"
+        ? "Gaussian constrained"
+        : "";
+    return [experiment, modelId].filter(Boolean).join(" - ") || run.run_name || run.run_id;
   };
 
   const milestoneKeys = useMemo(() => {
@@ -1335,7 +1388,7 @@ export default function ComparisonTab({ currentProjectId = "" }: ComparisonTabPr
               ) : (
                 leftRuns.map((run) => (
                   <option key={`left-run-${run.run_id}`} value={run.run_id}>
-                    {(run.run_name || run.run_id) + (run.is_base ? " [BASE]" : "")}
+                    {runOptionLabel(run)}
                   </option>
                 ))
               )}
@@ -1370,7 +1423,7 @@ export default function ComparisonTab({ currentProjectId = "" }: ComparisonTabPr
               ) : (
                 rightRuns.map((run) => (
                   <option key={`right-run-${run.run_id}`} value={run.run_id}>
-                    {(run.run_name || run.run_id) + (run.is_base ? " [BASE]" : "")}
+                    {runOptionLabel(run)}
                   </option>
                 ))
               )}
